@@ -109,7 +109,7 @@ watcher
         }
     });
 
-export const imageFlow = addKeyword<Provider, Database>("imagenes")
+export const imageFlow = addKeyword<Provider, Database>("imagenes", {sensitive: false})
     .addAction(async (ctx, { provider: _provider }) => {
         if (isProcessing) {
             console.log(`Attempt to execute while already processing. Ignoring.`);

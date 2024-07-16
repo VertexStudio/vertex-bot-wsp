@@ -9,10 +9,11 @@ import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
 
 const PORT = process.env?.PORT ?? 3008;
+
 let contacts = {};
 
 const main = async () => {
-	const adapterProvider = createProvider(Provider);
+	const adapterProvider = createProvider(Provider, { writeMyself: 'both' });
 	const adapterDB = new Database();
 
 	const { httpServer, handleCtx } = await createBot({
