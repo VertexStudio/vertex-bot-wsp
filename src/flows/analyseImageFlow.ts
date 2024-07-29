@@ -7,6 +7,7 @@ import axios from "axios";
 import fs from "fs";
 import OpenAI from "openai";
 import { typing } from "../utils/presence";
+import sharp from "sharp";
 
 const openai = new OpenAI();
 const imgurClientId = process.env?.IMGUR_CLIENT_ID;
@@ -36,9 +37,55 @@ async function deleteLocalFile(localPath: string): Promise<void> {
   });
 }
 
+function readFileAsync(filePath: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    fs.readFile(filePath, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
+
+async function processAndUploadImage(localPath: string) {
+  try {
+    // Read the file
+    const imageBuffer = await readFileAsync(localPath);
+
+    // Convert to JPEG if it's not already
+    const jpegBuffer = await sharp(imageBuffer)
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    const query = `
+        BEGIN TRANSACTION;
+        
+        LET $new_snap = CREATE snap SET 
+            data = $data, 
+            format = $format, 
+            queued_timestamp = time::now();
+  
+        RELATE $camera->camera_snaps->$new_snap;
+        
+        RETURN $new_snap;
+        
+        COMMIT TRANSACTION;
+      `;
+
+    const transaction_result = await db.query(query, {
+      data: jpegBuffer,
+      format: "jpeg",
+      camera: ["camera", "camera_whatsapp_xyz"],
+    });
+
+    console.log("Transaction result:", transaction_result);
+  } catch (error) {
+    console.error("Error processing and uploading image:", error);
+  }
+}
+
 async function handleMedia(ctx, provider) {
-  // surrealdb
   db = new Surreal();
+
   try {
     await db.connect("http://127.0.0.1:8000/rpc");
     await db.use({ namespace: "test", database: "test" });
@@ -56,6 +103,8 @@ async function handleMedia(ctx, provider) {
 
   const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
   console.log(localPath);
+
+  await processAndUploadImage(localPath);
 
   const imageUrl = await uploadToImgur(localPath);
   console.log("Image uploaded to Imgur:", imageUrl);
