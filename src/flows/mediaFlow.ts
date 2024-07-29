@@ -4,7 +4,6 @@ import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import axios from "axios";
 import fs from "fs";
-import { connectToDatabase } from "../database/database";
 import OpenAI from "openai";
 import { typing } from "../utils/presence";
 
@@ -36,7 +35,6 @@ async function deleteLocalFile(localPath: string): Promise<void> {
 }
 
 async function handleMedia(ctx, provider) {
-	const client = await connectToDatabase();
 	const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
 	console.log(localPath);
 
@@ -45,11 +43,7 @@ async function handleMedia(ctx, provider) {
 
 	await deleteLocalFile(localPath);
 
-	const database = client.db("builderbot");
-	const collection = database.collection("media");
-	await collection.insertOne({ url: imageUrl });
-
-	const userMessage = ctx.message.imageMessage.caption || "What's in this image?";
+	const userMessage = ctx.message.imageMessage.caption || "What's in this image?";3
 
     console.log(userMessage)
 

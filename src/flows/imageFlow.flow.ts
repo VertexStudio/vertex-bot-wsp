@@ -9,6 +9,8 @@ import sharp from "sharp";
 
 const IMAGE_DIRECTORY = "./assets/images";
 const RESIZED_DIRECTORY = "./assets/resized";
+const CORRECT_DIRECTORY = "./assets/corrects";
+const INCORRECT_DIRECTORY = "./assets/incorrects";
 const MESSAGE_GAP_SECONDS = 6000;
 
 interface ImageMessage {
@@ -173,5 +175,61 @@ export const resizeFlow = addKeyword<Provider, Database>("resize")
             }
         } else {
             await _provider.sendText(ctx.key.remoteJid, "Invalid command format. Use 'resize X' where X is the image number.");
+        }
+    });
+
+async function moveImage(imagePath: string, destinationDir: string): Promise<string> {
+    console.log(`[${processId}] Moving image: ${imagePath} to ${destinationDir}`);
+    const destinationPath = path.join(destinationDir, path.basename(imagePath));
+
+    await fs.promises.rename(imagePath, destinationPath);
+    return destinationPath;
+}
+
+export const correctFlow = addKeyword<Provider, Database>("✅", {sensitive: false})
+    .addAction(async (ctx, { provider: _provider }) => {
+        const text = ctx.body.toLowerCase();
+        const match = text.match(/✅ (\d+)/);
+        if (match) {
+            const index = parseInt(match[1], 10) - 1;
+            if (index >= 0 && index < sentImages.length) {
+                const imagePath = sentImages[index];
+                try {
+                    const newImagePath = await moveImage(imagePath, CORRECT_DIRECTORY);
+                    await _provider.sendText(ctx.key.remoteJid, `Imagen ${index + 1} marcada como correcta.`);
+                    sentImages.splice(index, 1);
+                } catch (error) {
+                    console.error(`[${processId}] Error moving image:`, error);
+                    await _provider.sendText(ctx.key.remoteJid, "Hubo un error al mover la imagen.");
+                }
+            } else {
+                await _provider.sendText(ctx.key.remoteJid, "Número de imagen inválido.");
+            }
+        } else {
+            await _provider.sendText(ctx.key.remoteJid, "Formato de comando inválido. Usa 'Correcta X' donde X es el número de la imagen.");
+        }
+    });
+
+export const incorrectFlow = addKeyword<Provider, Database>("❌", {sensitive: false})
+    .addAction(async (ctx, { provider: _provider }) => {
+        const text = ctx.body.toLowerCase();
+        const match = text.match(/❌ (\d+)/);
+        if (match) {
+            const index = parseInt(match[1], 10) - 1;
+            if (index >= 0 && index < sentImages.length) {
+                const imagePath = sentImages[index];
+                try {
+                    const newImagePath = await moveImage(imagePath, INCORRECT_DIRECTORY);
+                    await _provider.sendText(ctx.key.remoteJid, `Imagen ${index + 1} marcada como incorrecta.`);
+                    sentImages.splice(index, 1);
+                } catch (error) {
+                    console.error(`[${processId}] Error moving image:`, error);
+                    await _provider.sendText(ctx.key.remoteJid, "Hubo un error al mover la imagen.");
+                }
+            } else {
+                await _provider.sendText(ctx.key.remoteJid, "Número de imagen inválido.");
+            }
+        } else {
+            await _provider.sendText(ctx.key.remoteJid, "Formato de comando inválido. Usa 'Incorrecta X' donde X es el número de la imagen.");
         }
     });

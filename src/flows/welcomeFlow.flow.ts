@@ -1,15 +1,29 @@
 import "dotenv/config";
-const ASSISTANT_ID = process.env?.ASSISTANT_ID ?? "";
-import {
-    addKeyword,
-    EVENTS,
-} from "@builderbot/bot";
-import { toAsk } from "@builderbot-plugins/openai-assistants";
+import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
-import { enqueueMessage } from '../utils/fast-entires'
+import axios from "axios";
 
-function processResponse(response, flowDynamic) {
-    const chunks = response.split(/\n\n+/);
+const OLLAMA_API_URL = "http://localhost:11434/api/generate";
+const MODEL = "llama3";
+
+async function callOllamaAPI(prompt: string): Promise<string> {
+    try {
+        const response = await axios.post(OLLAMA_API_URL, {
+            model: MODEL,
+            prompt,
+            stream: false
+        });
+        return response.data.response;
+    } catch (error) {
+        console.error("Error calling Ollama API:", error);
+        throw error;
+    }
+}
+
+function processResponse(response: string, flowDynamic: Function) {
+    const cleanedResponse = response.trim();
+    const chunks = cleanedResponse.split(/\n\n+/);
+
     chunks.forEach(async chunk => {
         const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
         await flowDynamic([{ body: cleanedChunk }]);
@@ -19,11 +33,10 @@ function processResponse(response, flowDynamic) {
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(async (ctx, { flowDynamic, state, provider }) => {
     try {
         await typing(ctx, provider);
-        const body = await enqueueMessage(ctx.body)
-        console.log(body)
-        const response = await toAsk(ASSISTANT_ID, body, state);
+        const response = await callOllamaAPI(ctx.body);
         processResponse(response, flowDynamic);
     } catch (error) {
         console.error("Error in welcomeFlow:", error);
+        processResponse("Error in welcomeFlow: " + error.message, flowDynamic);
     }
 });

@@ -7,6 +7,7 @@ import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
+import { initDb, getDb } from "./database/surreal";
 
 const PORT = process.env?.PORT ?? 3008;
 
@@ -15,6 +16,8 @@ let contacts = {};
 const main = async () => {
 	const adapterProvider = createProvider(Provider, { writeMyself: 'both' });
 	const adapterDB = new Database();
+
+	initDb()
 
 	const { httpServer, handleCtx } = await createBot({
 		flow: flow,
