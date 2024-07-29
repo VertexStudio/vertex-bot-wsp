@@ -3,39 +3,18 @@ import { Surreal } from "surrealdb.js";
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import axios from "axios";
 import fs from "fs";
-import OpenAI from "openai";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
 
-const openai = new OpenAI();
-const imgurClientId = process.env?.IMGUR_CLIENT_ID;
 let db: Surreal | undefined;
 
-async function uploadToImgur(localPath: string): Promise<string> {
-  const imageData = fs.readFileSync(localPath, { encoding: "base64" });
-  const imgurUploadResponse = await axios.post(
-    "https://api.imgur.com/3/upload",
-    { image: imageData, type: "base64" },
-    { headers: { Authorization: `Client-ID ${imgurClientId}` } }
-  );
-  return imgurUploadResponse.data.data.link;
+interface SnapResult {
+  id: string;
+  [key: string]: unknown;
 }
 
-async function deleteLocalFile(localPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    fs.unlink(localPath, (err) => {
-      if (err) {
-        console.error("Error deleting local file:", err);
-        reject(err);
-      } else {
-        console.log("Local file successfully deleted.");
-        resolve();
-      }
-    });
-  });
-}
+type QueryResult = [{ result: SnapResult[] }];
 
 function readFileAsync(filePath: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -46,18 +25,18 @@ function readFileAsync(filePath: string): Promise<Buffer> {
   });
 }
 
-async function processAndUploadImage(localPath: string) {
+async function processUploadAndQuery(localPath: string) {
   try {
-    // Read the file
-    const imageBuffer = await readFileAsync(localPath);
-
-    // Convert to JPEG if it's not already
-    const jpegBuffer = await sharp(imageBuffer)
+    const imageBuffer: Buffer = await readFileAsync(localPath);
+    const jpegBuffer: Buffer = await sharp(imageBuffer)
       .jpeg({ quality: 85 })
       .toBuffer();
+    const jpegBytes = new Uint8Array(jpegBuffer);
 
-    const query = `
+    const insertQuery = `
         BEGIN TRANSACTION;
+
+        LET $camera = type::thing("camera", $camera);
         
         LET $new_snap = CREATE snap SET 
             data = $data, 
@@ -71,15 +50,39 @@ async function processAndUploadImage(localPath: string) {
         COMMIT TRANSACTION;
       `;
 
-    const transaction_result = await db.query(query, {
-      data: jpegBuffer,
+    const insertResult = await db.query<QueryResult>(insertQuery, {
+      data: jpegBytes,
       format: "jpeg",
-      camera: ["camera", "camera_whatsapp_xyz"],
+      camera: ["camera", "CAM001"],
     });
 
-    console.log("Transaction result:", transaction_result);
+    console.log("Insert result:", insertResult);
+
+    // Extract the ID of the newly created snap
+    const newSnapId = insertResult[0].result[0].id;
+
+    // Set up the live query for related analyses
+    const liveQuery = `
+        LIVE SELECT analysis.* FROM snap_analysis
+        RELATE ${newSnapId}->snap_analysis->analysis
+        FETCH analysis.*;
+      `;
+
+    // Start the live query
+    const unsubscribe = await db.live<Record<string, unknown>>(
+      liveQuery,
+      (action, result) => {
+        console.log("Live query update:", action, result);
+        // Handle the live query data here
+      }
+    );
+
+    console.log("Live query started for snap:", newSnapId);
+
+    // You might want to store the unsubscribe function to stop the live query later
+    return unsubscribe;
   } catch (error) {
-    console.error("Error processing and uploading image:", error);
+    console.error("Error in process, upload, and query:", error);
   }
 }
 
@@ -87,63 +90,40 @@ async function handleMedia(ctx, provider) {
   db = new Surreal();
 
   try {
-    await db.connect("http://127.0.0.1:8000/rpc");
-    await db.use({ namespace: "test", database: "test" });
+    // await db.signin({ user: "root", pass: "root" });
+    // await db.use({ namespace: "vertex", database: "veoveo" });
+    await db.connect("http://127.0.0.1:8000/rpc", {
+      namespace: "vertex",
+      database: "veoveo",
+      auth: {
+        username: "root",
+        password: "root",
+      },
+    });
   } catch (err) {
     console.error("Failed to connect to SurrealDB:", err);
     throw err;
   }
 
-  await db.signin({
-    user: "root",
-    pass: "root",
-  });
-
-  await db.use({ namespace: "vertex", database: "veoveo" });
-
   const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
   console.log(localPath);
 
-  await processAndUploadImage(localPath);
-
-  const imageUrl = await uploadToImgur(localPath);
-  console.log("Image uploaded to Imgur:", imageUrl);
-
-  await deleteLocalFile(localPath);
-
-  const userMessage =
-    ctx.message.imageMessage.caption || "What's in this image?";
-  3;
-
-  console.log(userMessage);
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: userMessage },
-          { type: "image_url", image_url: { url: imageUrl } },
-        ],
-      },
-    ],
-  });
-  console.log(response.choices[0].message.content);
+  await processUploadAndQuery(localPath);
 
   typing(ctx, provider);
 
   const number = ctx.key.remoteJid;
   await provider.vendor.sendMessage(number, {
-    text: response.choices[0].message.content,
+    text: "Live query response",
   });
 
   console.log("URL of the image stored in the MongoDB database");
 }
 
-export const mediaFlow = addKeyword<Provider, Database>(EVENTS.MEDIA).addAction(
-  (ctx, { provider }) =>
-    handleMedia(ctx, provider).catch((error) => {
-      console.error("Error handling media:", error);
-    })
+export const analyseImageFlow = addKeyword<Provider, Database>(
+  EVENTS.MEDIA
+).addAction((ctx, { provider }) =>
+  handleMedia(ctx, provider).catch((error) => {
+    console.error("Error handling media:", error);
+  })
 );
