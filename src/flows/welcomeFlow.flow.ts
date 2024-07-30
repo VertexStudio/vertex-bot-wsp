@@ -3,17 +3,22 @@ import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import axios from "axios";
 
-const OLLAMA_API_URL = "http://localhost:11434/api/generate";
+const OLLAMA_API_URL = "http://localhost:11434/api/chat";
 const MODEL = "llama3";
 
 async function callOllamaAPI(prompt: string): Promise<string> {
     try {
         const response = await axios.post(OLLAMA_API_URL, {
             model: MODEL,
-            prompt,
+            messages: [{ role: "user", content: prompt }],
+            history: [
+                { role: "system", content: prompt },
+            ],
             stream: false
         });
-        return response.data.response;
+        console.log(response)
+
+        return response.data.message.content;
     } catch (error) {
         console.error("Error calling Ollama API:", error);
         throw error;
