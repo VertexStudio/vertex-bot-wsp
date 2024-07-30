@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Surreal } from "surrealdb.js";
+import { PreparedQuery, Surreal, RecordId } from "surrealdb.js";
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
@@ -31,56 +31,56 @@ async function processUploadAndQuery(localPath: string) {
     const jpegBuffer: Buffer = await sharp(imageBuffer)
       .jpeg({ quality: 85 })
       .toBuffer();
-    const jpegBytes = new Uint8Array(jpegBuffer);
 
     const insertQuery = `
         BEGIN TRANSACTION;
 
-        LET $camera = type::thing("camera", $camera);
-        
-        LET $new_snap = CREATE snap SET 
-            data = $data, 
-            format = $format, 
+        LET $new_snap = CREATE snap SET
+            data = encoding::base64::decode($data),
+            format = $format,
             queued_timestamp = time::now();
-  
+
         RELATE $camera->camera_snaps->$new_snap;
-        
+
         RETURN $new_snap;
-        
+
         COMMIT TRANSACTION;
       `;
 
-    const insertResult = await db.query<QueryResult>(insertQuery, {
-      data: jpegBytes,
+    const base64Data = jpegBuffer.toString("base64");
+
+    const insertResult = await db.query(insertQuery, {
+      data: base64Data,
       format: "jpeg",
-      camera: ["camera", "CAM001"],
+      camera: new RecordId("camera", "CAM090"),
     });
 
     console.log("Insert result:", insertResult);
 
     // Extract the ID of the newly created snap
-    const newSnapId = insertResult[0].result[0].id;
+    const newSnapId = insertResult[0][0].id;
+
+    console.log("New snap ID:", newSnapId);
 
     // Set up the live query for related analyses
-    const liveQuery = `
-        LIVE SELECT analysis.* FROM snap_analysis
-        RELATE ${newSnapId}->snap_analysis->analysis
-        FETCH analysis.*;
+    const analysisQuery = `
+        LIVE SELECT 
+          ->analysis.caption AS caption
+        FROM snap_analysis
+        WHERE in = $snapId;
       `;
 
+    console.log("Analysis query:", analysisQuery);
+
     // Start the live query
-    const unsubscribe = await db.live<Record<string, unknown>>(
-      liveQuery,
-      (action, result) => {
-        console.log("Live query update:", action, result);
-        // Handle the live query data here
-      }
+    const [analysisResult] = await db.query<[string]>(
+      `LIVE SELECT ->analysis.caption AS caption FROM snap_analysis WHERE snap:1;`
     );
 
-    console.log("Live query started for snap:", newSnapId);
+    console.log("Analysis result:", analysisResult);
 
     // You might want to store the unsubscribe function to stop the live query later
-    return unsubscribe;
+    return analysisResult;
   } catch (error) {
     console.error("Error in process, upload, and query:", error);
   }
