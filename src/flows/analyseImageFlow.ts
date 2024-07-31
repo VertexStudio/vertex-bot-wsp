@@ -94,6 +94,11 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
   try {
     await connectToDatabase();
 
+    const number = ctx.key.remoteJid;
+    await provider.vendor.sendMessage(number, {
+      text: "We're analyzing your image. Please wait...",
+    });
+
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
 
@@ -109,10 +114,11 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     const initialData = await waitForFirstResult(analysisResult);
     console.log("Initial analysis data:", initialData);
 
-    const number = ctx.key.remoteJid;
     await sendAnalysisResult(provider, number, initialData.caption as string);
 
     console.log("Image processed and stored in the database");
+
+    await fs.unlink(localPath);
   } catch (error) {
     console.error("Error handling media:", error);
     const number = ctx.key.remoteJid;
