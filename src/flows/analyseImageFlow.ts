@@ -6,6 +6,7 @@ import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
+import { callOllamaAPI } from "./welcomeFlow.flow";
 
 let db: Surreal | undefined;
 
@@ -98,6 +99,72 @@ async function sendAnalysisResult(
 
 async function handleMedia(ctx, provider: Provider): Promise<void> {
   try {
+    const caption = ctx.message.imageMessage.caption;
+    const image_analysis_types = [
+      "more detailed caption",
+      "object detection",
+      "dense region caption",
+      "region proposal",
+      "caption to phrase grounding",
+      "referring expression segmentation",
+      "region to segmentation",
+      "open vocabulary detection",
+      "region to category",
+      "region to description",
+      "OCR",
+      "OCR with region",
+    ];
+    console.log("Received caption:", caption);
+
+    const prompt = `You are an AI assistant helping with image-related requests. An image was sent, but you can't see it. You'll receive the user's caption or request related to the image.
+    
+    First, determine if the text request matches one of these image analysis types:
+    
+    1. more detailed caption: Creating a more comprehensive textual description of the entire image.
+    2. object detection: Identifying and locating multiple objects within the image.
+    3. dense region caption: Generating detailed captions for multiple specific regions in the image.
+    4. region proposal: Suggesting areas of interest within the image for further analysis.
+    5. caption to phrase grounding: Linking phrases from a caption to specific regions in the image.
+    6. referring expression segmentation: Segmenting specific objects in the image based on textual descriptions.
+    7. region to segmentation: Converting identified regions into precise segmentation masks.
+    8. open vocabulary detection: Detecting a wide range of objects without predefined categories.
+    9. region to category: Classifying specific regions of the image into categories.
+    10. region to description: Generating textual descriptions for specific regions of the image.
+    11. OCR: Recognizing and extracting text from the image.
+    12. OCR with region: Recognizing text and providing its location within the image.
+    
+    If the request matches one of these types, respond ONLY with the type in lowercase, using underscores for spaces.
+    
+    If the request doesn't clearly match any of these types or you do not have any user's text request, provide a natural, helpful response to the user. And never say you can't see the image. In this case, your response should:
+    1. Acknowledge their request
+    2. Explain that you can't see the image
+    3. Offer assistance based on the information provided
+    4. Ask for clarification if needed
+    
+    User's text request: "${caption}"`;
+
+    const response = await callOllamaAPI(prompt);
+
+    console.log("Ollama API response:", response);
+
+    if (!image_analysis_types.includes(response)) {
+      await provider.vendor.sendMessage(ctx.key.remoteJid, {
+        text: response,
+      });
+      return;
+    }
+
+    const updateQuery = `
+        LET $linkedTask = (SELECT (->camera_tasks.out)[0] as task FROM camera:CAM001)[0].task;
+
+        UPDATE $linkedTask 
+        SET detection = $detection;
+    `;
+
+    await db.query(updateQuery, {
+      detection: response,
+    });
+
     await connectToDatabase();
 
     const number = ctx.key.remoteJid;
