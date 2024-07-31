@@ -40,8 +40,12 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
     COMMIT TRANSACTION;
   `;
 
+  let base64String = jpegBuffer.toString("base64");
+
+  base64String = base64String.replace(/=+$/, "");
+
   const insertResult = await db.query(insertQuery, {
-    data: jpegBuffer.toString("base64"),
+    data: base64String,
     format: "jpeg",
     camera: new RecordId("camera", "CAM001"),
   });
