@@ -133,7 +133,7 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     11. OCR: Recognizing and extracting text from the image.
     12. OCR with region: Recognizing text and providing its location within the image.
     
-    If the request matches one of these types, respond ONLY with the type in lowercase, using underscores for spaces.
+    If the request matches one of these types, respond ONLY with the type in lowercase.
     
     If the request doesn't clearly match any of these types or you do not have any user's text request, provide a natural, helpful response to the user. And never say you can't see the image. In this case, your response should:
     1. Acknowledge their request
@@ -154,6 +154,8 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
       return;
     }
 
+    await connectToDatabase();
+
     const updateQuery = `
         LET $linkedTask = (SELECT (->camera_tasks.out)[0] as task FROM camera:CAM001)[0].task;
 
@@ -164,8 +166,6 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     await db.query(updateQuery, {
       detection: response,
     });
-
-    await connectToDatabase();
 
     const number = ctx.key.remoteJid;
     await provider.vendor.sendMessage(number, {
@@ -187,7 +187,28 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     const initialData = await waitForFirstResult(analysisResult);
     console.log("Initial analysis data:", initialData);
 
-    await sendAnalysisResult(provider, number, initialData.caption as string);
+    // Process the initialData to ensure it's human-readable and relevant
+    const humanReadablePrompt = `
+        You are an AI assistant providing image analysis results. The user's initial request was: "${caption}"
+        
+        The image analysis system provided the following result:
+        ${initialData}
+        
+        Please provide a response that:
+        1. Is easily understandable by a human
+        2. Directly addresses the user's initial request ("${caption}")
+        3. Summarizes the key findings from the image analysis
+        4. Uses natural language and avoids technical jargon unless necessary
+        5. Offers to provide more details if the user needs them
+        
+        Your response should be concise but informative, and should not exceed 3-4 sentences.
+        `;
+
+    const humanReadableResponse = await callOllamaAPI(humanReadablePrompt);
+
+    console.log("Human-readable response:", humanReadableResponse);
+
+    await sendAnalysisResult(provider, number, humanReadableResponse);
 
     console.log("Image processed and stored in the database");
 
