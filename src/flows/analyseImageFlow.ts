@@ -9,13 +9,19 @@ import sharp from "sharp";
 
 let db: Surreal | undefined;
 
+const VV_DB_ENDPOINT = process.env.VV_DB_ENDPOINT;
+const VV_DB_NAMESPACE = process.env.VV_DB_NAMESPACE;
+const VV_DB_DATABASE = process.env.VV_DB_DATABASE;
+const VV_DB_USERNAME = process.env.VV_DB_USERNAME;
+const VV_DB_PASSWORD = process.env.VV_DB_PASSWORD;
+
 async function connectToDatabase(): Promise<void> {
   db = new Surreal();
   try {
-    await db.connect("ws://127.0.0.1:8000/rpc", {
-      namespace: "vertex",
-      database: "veoveo",
-      auth: { username: "root", password: "root" },
+    await db.connect(VV_DB_ENDPOINT, {
+      namespace: VV_DB_NAMESPACE,
+      database: VV_DB_DATABASE,
+      auth: { username: VV_DB_USERNAME, password: VV_DB_PASSWORD },
     });
   } catch (err) {
     console.error("Failed to connect to SurrealDB:", err);
