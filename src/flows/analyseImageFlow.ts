@@ -184,7 +184,7 @@ async function updateDatabaseWithModelTask(
 
 // Prompt generation functions
 function generateImageAnalysisPrompt(caption: string): string {
-  return `You are an AI assistant for image analysis tasks. Although you can't see the image, you will receive user requests related to it. Your task is to determine the most appropriate type of image analysis or computer vision task based on the user's request.
+  const prompt = `You are an AI assistant for image analysis tasks. Although you can't see the image, you will receive user requests related to it. Your task is to determine the most appropriate type of image analysis or computer vision task based on the user's request.
 
   Instructions:
   - Choose the most appropriate image analysis type from the following list matching their exact case: ${IMAGE_ANALYSIS_TYPES.join(
@@ -193,17 +193,13 @@ function generateImageAnalysisPrompt(caption: string): string {
   - If the request clearly matches a type, respond ONLY with the exact text label as it appears in the list above, including matching the case exactly. Do not add any additional text or explanation.
   - Consider variations and abbreviations of key terms in the user's request.
   - Always assume the user's text request is about the image, even if it doesn't make sense to you.
-  - If the request is unclear or doesn't match any type, provide a brief, helpful response asking to send the image again with a more specific request.
   - Never mention that you can't see the image.
 
-  Examples:
-  For "What objects are in this image?", respond with: object detection
-  For "Segment objects in the image", respond with: region to segmentation
-  For "Read the text", respond with: OCR
-  For "Describe this area in detail", respond with: region to description
-  For "Identify objects without a list", respond with: open vocabulary detection
-
   User's text request: "${caption}"`;
+
+  console.debug("Generated prompt:", prompt);
+
+  return prompt;
 }
 
 function generateHumanReadablePrompt(
@@ -223,6 +219,8 @@ function generateHumanReadablePrompt(
   4. Uses natural language and avoids technical jargon unless absolutely necessary.
   5. Is concise but informative, ensuring the user receives the essential information they need.
   6. Directly answer the user's text request without additional information or comments.
+  7. Do not ever deny the user's request or suggest that you can't help.
+  8. Be concise and to the point, focusing on the key information the user needs.
 
   Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional comments.
   `;
