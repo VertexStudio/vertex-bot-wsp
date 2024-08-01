@@ -170,7 +170,7 @@ async function updateDatabaseWithModelTask(
   model_task: ImageAnalysisType
 ): Promise<void> {
   const updateQuery = `
-    LET $linkedModelTask = (SELECT (->camera_tasks->task->task_model_tasks.out)[0] as task FROM $camera)[0].task;
+    LET $linkedModelTask = (SELECT (->camera_tasks->task->task_model_tasks.out)[0] AS model_task FROM $camera)[0].model_task;
     UPDATE $linkedModelTask SET task = $model_task;
   `;
 
