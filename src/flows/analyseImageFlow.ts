@@ -48,31 +48,31 @@ const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "OCR with region",
 ];
 
-const IMAGE_ANALYSIS_DESCRIPTIONS = `
-more detailed caption: Creating comprehensive and detailed textual descriptions of the entire image. This involves identifying all significant elements within the image, describing their appearances, relationships, actions, interactions, and the overall context. For example, providing a narrative that includes objects, scenery, people, and their activities.
+// const IMAGE_ANALYSIS_DESCRIPTIONS = `
+// more detailed caption: Creating comprehensive and detailed textual descriptions of the entire image. This involves identifying all significant elements within the image, describing their appearances, relationships, actions, interactions, and the overall context. For example, providing a narrative that includes objects, scenery, people, and their activities.
 
-object detection: Locating and identifying specific objects within an image. This includes providing bounding boxes and labels for each detected object. For example, identifying a cat, a car, and a tree within the image, along with their respective positions.
+// object detection: Locating and identifying specific objects within an image. This includes providing bounding boxes and labels for each detected object. For example, identifying a cat, a car, and a tree within the image, along with their respective positions.
 
-dense region caption: Generating detailed textual descriptions for multiple specific regions within an image, especially in densely populated scenes. Each caption should describe what is present in the corresponding region, including objects and their actions. For example, describing different areas in a crowded market scene.
+// dense region caption: Generating detailed textual descriptions for multiple specific regions within an image, especially in densely populated scenes. Each caption should describe what is present in the corresponding region, including objects and their actions. For example, describing different areas in a crowded market scene.
 
-region proposal: Identifying and suggesting regions of interest within an image that might contain important objects or details. This involves pinpointing areas that warrant further analysis or attention, such as highlighting potential areas where objects or activities are concentrated.
+// region proposal: Identifying and suggesting regions of interest within an image that might contain important objects or details. This involves pinpointing areas that warrant further analysis or attention, such as highlighting potential areas where objects or activities are concentrated.
 
-caption to phrase grounding: Associating specific phrases from a provided caption to particular regions in an image. This involves linking parts of the text description with corresponding visual regions. For example, linking the phrase "a man riding a bicycle" to the region in the image that contains the man and the bicycle.
+// caption to phrase grounding: Associating specific phrases from a provided caption to particular regions in an image. This involves linking parts of the text description with corresponding visual regions. For example, linking the phrase "a man riding a bicycle" to the region in the image that contains the man and the bicycle.
 
-referring expression segmentation: Segmenting and identifying specific objects in the image based on descriptive phrases provided by the user. This involves using the user's description to find and isolate the specified object within the image. For instance, segmenting the object described as "the red car on the left" based on that description.
+// referring expression segmentation: Segmenting and identifying specific objects in the image based on descriptive phrases provided by the user. This involves using the user's description to find and isolate the specified object within the image. For instance, segmenting the object described as "the red car on the left" based on that description.
 
-region to segmentation: Converting selected regions into segmentation masks, which involves creating precise outlines or masks for the identified regions. This can be used for further image analysis tasks, such as isolating objects or areas for detailed study.
+// region to segmentation: Converting selected regions into segmentation masks, which involves creating precise outlines or masks for the identified regions. This can be used for further image analysis tasks, such as isolating objects or areas for detailed study.
 
-open vocabulary detection: Detecting and identifying objects within an image using a flexible and extensive vocabulary, not limited to predefined categories. This involves recognizing and naming objects that may not be part of a standard object detection dataset, allowing for a more flexible approach.
+// open vocabulary detection: Detecting and identifying objects within an image using a flexible and extensive vocabulary, not limited to predefined categories. This involves recognizing and naming objects that may not be part of a standard object detection dataset, allowing for a more flexible approach.
 
-region to category: Classifying specific regions into predefined categories or types based on their content. This involves analyzing the selected region and assigning it to a known category, such as "animal", "vehicle", or "building". For example, categorizing different sections of a park scene into playground, bench area, and walking path.
+// region to category: Classifying specific regions into predefined categories or types based on their content. This involves analyzing the selected region and assigning it to a known category, such as "animal", "vehicle", or "building". For example, categorizing different sections of a park scene into playground, bench area, and walking path.
 
-region to description: Generating detailed descriptions for specific regions within the image, explaining what each part contains. This involves providing a narrative or explanation for what is seen in the region, including objects, activities, and context. For example, describing the activities happening in a section of a beach scene.
+// region to description: Generating detailed descriptions for specific regions within the image, explaining what each part contains. This involves providing a narrative or explanation for what is seen in the region, including objects, activities, and context. For example, describing the activities happening in a section of a beach scene.
 
-OCR: Detecting and recognizing all text present within the image. This involves identifying areas containing text, extracting the text, and converting it into a digital format that can be read and processed. For example, recognizing and transcribing a signboard in the image.
+// OCR: Detecting and recognizing all text present within the image. This involves identifying areas containing text, extracting the text, and converting it into a digital format that can be read and processed. For example, recognizing and transcribing a signboard in the image.
 
-OCR with region: Detecting and recognizing text within an image and providing information about its location. This involves not only extracting the text but also specifying where each piece of text is located within the image. For example, identifying and locating text on multiple signs within a street view image.
-`;
+// OCR with region: Detecting and recognizing text within an image and providing information about its location. This involves not only extracting the text but also specifying where each piece of text is located within the image. For example, identifying and locating text on multiple signs within a street view image.
+// `;
 
 // Database connection
 let db: Surreal | undefined;
@@ -184,16 +184,16 @@ async function updateDatabaseWithModelTask(
 
 // Prompt generation functions
 function generateImageAnalysisPrompt(caption: string): string {
-  return `You are an AI assistant for image analysis tasks. Although you can't see the image, you will receive user requests related to it. Your task is to determine if the user's request matches one of the specified image analysis types.
-
-  Image Analysis Types:
-  ${IMAGE_ANALYSIS_DESCRIPTIONS}
+  return `You are an AI assistant for image analysis tasks. Although you can't see the image, you will receive user requests related to it. Your task is to determine the most appropriate type of image analysis or computer vision task based on the user's request.
 
   Instructions:
-  - If the request clearly matches a type, respond ONLY with the exact text label without the brackets. Do not use numbers or any other text.
-  - Consider variations and abbreviations of key terms (e.g., "segment", "detect", "objs").
-  - Always assume the user's text request is about the image. It might not make sense to you but to the user it does make sense since its related to the image sent.
-  - If the request is unclear or doesn't match any type, provide a brief, helpful response asking to send the image again with the text request with more clarification.
+  - Choose the most appropriate image analysis type from the following list matching their exact case: ${IMAGE_ANALYSIS_TYPES.join(
+    ", "
+  )}
+  - If the request clearly matches a type, respond ONLY with the exact text label as it appears in the list above, including matching the case exactly. Do not add any additional text or explanation.
+  - Consider variations and abbreviations of key terms in the user's request.
+  - Always assume the user's text request is about the image, even if it doesn't make sense to you.
+  - If the request is unclear or doesn't match any type, provide a brief, helpful response asking to send the image again with a more specific request.
   - Never mention that you can't see the image.
 
   Examples:
@@ -222,6 +222,7 @@ function generateHumanReadablePrompt(
   3. Summarizes the key findings from the image analysis.
   4. Uses natural language and avoids technical jargon unless absolutely necessary.
   5. Is concise but informative, ensuring the user receives the essential information they need.
+  6. Directly answer the user's text request without additional information or comments.
 
   Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional comments.
   `;
