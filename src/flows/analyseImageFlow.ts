@@ -109,7 +109,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
     COMMIT TRANSACTION;
   `;
 
-  let base64String = jpegBuffer.toString("base64").replace(/=+$/, "");
+  const base64String = jpegBuffer.toString("base64").replace(/=+$/, "");
 
   const insertResult = await db.query(insertQuery, {
     data: base64String,
