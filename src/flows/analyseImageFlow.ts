@@ -184,21 +184,27 @@ async function updateDatabaseWithModelTask(
 
 // Prompt generation functions
 function generateImageAnalysisPrompt(caption: string): string {
-  const prompt = `You are an AI assistant for image analysis tasks. Although you can't see the image, you will receive user requests related to it. Your task is to determine the most appropriate type of image analysis or computer vision task based on the user's request.
+  const prompt = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
 
   Instructions:
-  - Choose the most appropriate image analysis type from the following list matching their exact case: ${IMAGE_ANALYSIS_TYPES.join(
-    ", "
-  )}
-  - If the request clearly matches a type, respond ONLY with the exact text label as it appears in the list above, including matching the case exactly. Do not add any additional text or explanation.
-  - Consider variations and abbreviations of key terms in the user's request.
-  - Always assume the user's text request is about the image, even if it doesn't make sense to you.
-  - Never mention that you can't see the image.
+  1. Respond ONLY with the exact text label from the list below, matching the case precisely. Do not add any additional text or explanation.
+  2. Choose the most appropriate image analysis type from this list:
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}
+  3. Follow these guidelines for common query types:
+    - For general "What's in..." or "What do you see..." questions, use "object detection".
+    - For counting or quantifying objects, use "object detection".
+    - For requests about specific areas or regions, use "dense region caption".
+    - For questions about text in the image, use "OCR" or "OCR with region".
+    - For very specific or detailed requests, use "more detailed caption".
+  4. Always interpret the user's request as being about the image content.
+  5. If the request is ambiguous or doesn't clearly match any specific type, default to "object detection".
+  6. Do not provide any explanation or mention inability to see the image.
+
+  Remember: Your response must be EXACTLY one of the labels from the list, with no additional text.
 
   User's text request: "${caption}"`;
 
   console.debug("Generated prompt:", prompt);
-
   return prompt;
 }
 
