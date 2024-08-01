@@ -187,24 +187,38 @@ function generateImageAnalysisPrompt(caption: string): string {
   const prompt = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
 
   Instructions:
-  1. Respond ONLY with the exact text label from the list below, matching the case precisely. Do not add any additional text or explanation.
-  2. Choose the most appropriate image analysis type from this list:
+  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
     ${IMAGE_ANALYSIS_TYPES.join(", ")}
-  3. Follow these guidelines for common query types:
-    - For general "What's in..." or "What do you see..." questions, use "object detection".
-    - For counting or quantifying objects, use "object detection".
-    - For requests about specific areas or regions, use "dense region caption".
-    - For questions about text in the image, use "OCR" or "OCR with region".
-    - For very specific or detailed requests, use "more detailed caption".
-  4. Always interpret the user's request as being about the image content.
-  5. If the request is ambiguous or doesn't clearly match any specific type, default to "object detection".
-  6. Do not provide any explanation or mention inability to see the image.
 
-  Remember: Your response must be EXACTLY one of the labels from the list, with no additional text.
+  2. Guidelines for query interpretation:
+    - Text-related queries (Priority):
+      • Requests about reading, understanding, or analyzing any text, numbers, or data
+      • Queries about documents, reports, labels, signs, or any written information
+      • Questions about specific information typically presented in text (e.g., stock prices, scores, dates)
+    → Use "OCR" or "OCR with region" (if a specific area is mentioned)
+
+    - General scene queries:
+      • Informal or colloquial requests about the overall image content
+      • Questions about what's happening or the general context of the scene
+    → Use "more detailed caption"
+
+    - Specific object queries:
+      • Questions about identifying, counting, or locating specific objects
+    → Use "object detection"
+
+    - Area-specific queries (non-text):
+      • Questions about particular regions or areas in the image, not related to text
+    → Use "dense region caption"
+
+  3. For ambiguous queries, prefer "more detailed caption".
+  4. Always interpret the request as being about the image content.
+  5. Do not explain your choice or mention inability to see the image.
+
+  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.
 
   User's text request: "${caption}"`;
 
-  console.debug("Generated prompt:", prompt);
+  console.log("Generated prompt:", prompt);
   return prompt;
 }
 
