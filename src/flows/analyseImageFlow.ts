@@ -15,6 +15,7 @@ const VV_DB_NAMESPACE = process.env.VV_DB_NAMESPACE;
 const VV_DB_DATABASE = process.env.VV_DB_DATABASE;
 const VV_DB_USERNAME = process.env.VV_DB_USERNAME;
 const VV_DB_PASSWORD = process.env.VV_DB_PASSWORD;
+const CAMERA_ID = process.env.CAMERA_ID;
 
 async function connectToDatabase(): Promise<void> {
   db = new Surreal();
@@ -54,7 +55,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
   const insertResult = await db.query(insertQuery, {
     data: base64String,
     format: "jpeg",
-    camera: new RecordId("camera", "CAM001"),
+    camera: new RecordId("camera", CAMERA_ID),
   });
 
   return insertResult[0][0].id.id;
@@ -155,7 +156,7 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     For "Read the text", respond with: OCR
     For "Describe this area in detail", respond with: region to description
     For "Identify objects without a list", respond with: open vocabulary detection
-    
+
     User's text request: "${caption}"`;
 
     const response = await callOllamaAPI(prompt);
@@ -172,7 +173,7 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     await connectToDatabase();
 
     const updateQuery = `
-        LET $linkedTask = (SELECT (->camera_tasks.out)[0] as task FROM camera:CAM001)[0].task;
+        LET $linkedTask = (SELECT (->camera_tasks.out)[0] as task FROM $camera)[0].task;
 
         UPDATE $linkedTask 
         SET detection = $detection;
@@ -180,6 +181,7 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
 
     await db.query(updateQuery, {
       detection: response,
+      camera: new RecordId("camera", CAMERA_ID),
     });
 
     const number = ctx.key.remoteJid;
@@ -205,22 +207,20 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
 
     // Process the initialData to ensure it's human-readable and relevant
     const humanReadablePrompt = `
-        You are an AI assistant providing image analysis results. The user's initial request was: "${caption}"
-        
-        The image analysis system provided the following result:
-        ${results}
-        
-        Please provide a response that:
-        1. Is easily understandable by a human
-        2. Directly addresses the user's initial request ("${results}")
-        3. Summarizes the key findings from the image analysis
-        4. Uses natural language and avoids technical jargon unless necessary
-        5. Offers to provide more details if the user needs them
-        
-        Your response should be concise but informative, and should not exceed 3-4 sentences.
-        `;
+    You are an AI assistant providing image analysis results. You're talking directly to the end user. The user's initial request was: "${caption}"
 
-    console.log("Human-readable prompt:", humanReadablePrompt);
+    The image analysis system provided the following result:
+    ${results}
+
+    Please provide a response that:
+    1. Is easily understandable by a human.
+    2. Directly addresses the user's initial request: "${caption}".
+    3. Summarizes the key findings from the image analysis.
+    4. Uses natural language and avoids technical jargon unless absolutely necessary.
+    5. Is concise but informative, ensuring the user receives the essential information they need.
+
+    Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request.
+    `;
 
     const humanReadableResponse = await callOllamaAPI(humanReadablePrompt);
 
