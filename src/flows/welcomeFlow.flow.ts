@@ -4,7 +4,7 @@ import { typing } from "../utils/presence";
 import axios from "axios";
 
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
-const MODEL = "llama3";
+const MODEL = "llama3.1";
 
 export async function callOllamaAPI(prompt: string): Promise<string> {
   try {

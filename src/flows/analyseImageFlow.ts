@@ -63,7 +63,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
 async function setUpLiveQuery(snapId: string): Promise<UUID> {
   const analysisQuery = `
     LIVE SELECT 
-      ->analysis.caption AS caption
+      ->analysis.results AS results
     FROM snap_analysis
     WHERE in = snap:${snapId}
   `;
@@ -90,10 +90,10 @@ function waitForFirstResult(
 async function sendAnalysisResult(
   provider: Provider,
   number: string,
-  caption: string
+  results: string
 ): Promise<void> {
   await provider.vendor.sendMessage(number, {
-    text: `Description: ${caption || "No caption available"}`,
+    text: `${results || "No results available"}`,
   });
 }
 
@@ -120,20 +120,20 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     
     First, determine if the text request matches one of these image analysis types:
     
-    1. more detailed caption: Creating a more comprehensive textual description of the entire image.
-    2. object detection: Identifying and locating multiple objects within the image.
-    3. dense region caption: Generating detailed captions for multiple specific regions in the image.
-    4. region proposal: Suggesting areas of interest within the image for further analysis.
-    5. caption to phrase grounding: Linking phrases from a caption to specific regions in the image.
-    6. referring expression segmentation: Segmenting specific objects in the image based on textual descriptions.
-    7. region to segmentation: Converting identified regions into precise segmentation masks.
-    8. open vocabulary detection: Detecting a wide range of objects without predefined categories.
-    9. region to category: Classifying specific regions of the image into categories.
-    10. region to description: Generating textual descriptions for specific regions of the image.
-    11. OCR: Recognizing and extracting text from the image.
-    12. OCR with region: Recognizing text and providing its location within the image.
+    1. [more detailed caption]: Creating a more comprehensive textual description of the entire image.
+    2. [object detection]: Identifying and locating multiple objects within the image.
+    3. [dense region caption]: Generating detailed captions for multiple specific regions in the image.
+    4. [region proposal]: Suggesting areas of interest within the image for further analysis.
+    5. [caption to phrase grounding]: Linking phrases from a caption to specific regions in the image.
+    6. [referring expression segmentation]: Segmenting specific objects in the image based on textual descriptions.
+    7. [region to segmentation]: Converting identified regions into precise segmentation masks.
+    8. [open vocabulary detection]: Detecting a wide range of objects without predefined categories.
+    9. [region to category]: Classifying specific regions of the image into categories.
+    10. [region to description]: Generating textual descriptions for specific regions of the image.
+    11. [OCR]: Recognizing and extracting text from the image.
+    12. [OCR with region]: Recognizing text and providing its location within the image.
     
-    If the request matches one of these types, respond ONLY with the type in lowercase.
+    If the request matches one of these types, respond ONLY with the EXACT type label mentioned above which is inside brackets you MUST NOT include the brackets in the response (including case and DO NOT include brackets in the repsonse), NOTHING else.
     
     If the request doesn't clearly match any of these types or you do not have any user's text request, provide a natural, helpful response to the user. And never say you can't see the image. In this case, your response should:
     1. Acknowledge their request
@@ -185,24 +185,27 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     typing(ctx, provider);
 
     const initialData = await waitForFirstResult(analysisResult);
-    console.log("Initial analysis data:", initialData);
+    const results = initialData.results[0];
+    console.log("Initial analysis data:", results);
 
     // Process the initialData to ensure it's human-readable and relevant
     const humanReadablePrompt = `
         You are an AI assistant providing image analysis results. The user's initial request was: "${caption}"
         
         The image analysis system provided the following result:
-        ${initialData}
+        ${results}
         
         Please provide a response that:
         1. Is easily understandable by a human
-        2. Directly addresses the user's initial request ("${caption}")
+        2. Directly addresses the user's initial request ("${results}")
         3. Summarizes the key findings from the image analysis
         4. Uses natural language and avoids technical jargon unless necessary
         5. Offers to provide more details if the user needs them
         
         Your response should be concise but informative, and should not exceed 3-4 sentences.
         `;
+
+    console.log("Human-readable prompt:", humanReadablePrompt);
 
     const humanReadableResponse = await callOllamaAPI(humanReadablePrompt);
 
