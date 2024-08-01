@@ -116,35 +116,47 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     ];
     console.log("Received caption:", caption);
 
-    const prompt = `You are an AI assistant for image analysis tasks. An image was sent, but you can't see it. You'll receive the user's request related to the image.
+    const prompt = `You are an AI assistant for image analysis tasks. Although you can't see the image, you will receive user requests related to it. Your task is to determine if the user's request matches one of the specified image analysis types.
 
-Determine if the text request matches one of these image analysis types:
+    Image Analysis Types:
+    more detailed caption: Crafting a comprehensive and detailed description of the entire image. This involves identifying all significant elements, their relationships, and the overall context. For example, describing not just objects but their actions, interactions, and settings.
 
-1. [more detailed caption]: Creating a comprehensive description of the entire image.
-2. [object detection]: Identifying and locating objects within the image.
-3. [dense region caption]: Generating detailed captions for multiple specific regions.
-4. [region proposal]: Suggesting areas of interest within the image.
-5. [caption to phrase grounding]: Linking caption phrases to specific image regions.
-6. [referring expression segmentation]: Segmenting specific objects based on descriptions.
-7. [region to segmentation]: Converting regions into segmentation masks or general segmentation requests.
-8. [open vocabulary detection]: Detecting objects without predefined categories.
-9. [region to category]: Classifying specific regions into categories.
-10. [region to description]: Generating descriptions for specific image regions.
-11. [OCR]: Recognizing and extracting text from the image.
-12. [OCR with region]: Recognizing text and providing its location.
+    object detection: Identifying and locating specific objects within the image. This includes naming each object and possibly providing coordinates or bounding boxes for their locations. For instance, recognizing a cat, a car, and a tree within the image.
 
-Instructions:
-- If the request clearly matches a type, respond ONLY with the exact text label inside the square brackets, without the brackets. Do not use numbers or any other text.
-- Consider variations and abbreviations of key terms (e.g., "segment", "detect", "objs").
-- If the request is unclear or doesn't match any type, provide a brief, helpful response asking for clarification.
-- Never mention that you can't see the image.
+    dense region caption: Generating detailed captions for multiple specific regions within the image. Each caption should describe what is present in the corresponding region in a detailed manner. For example, providing separate captions for different areas of a busy street scene.
 
-Examples:
-- For "What objects are in this image?", respond with: object detection
-- For "Segment objects in the image", respond with: region to segmentation
-- For "Read the text", respond with: OCR
+    region proposal: Suggesting areas of interest within the image that might contain important objects or details. This involves identifying regions that warrant further analysis or attention, such as highlighting potential areas where objects or activities are concentrated.
 
-User's text request: "${caption}"`;
+    caption to phrase grounding: Linking specific phrases from a provided caption to particular regions in the image. This involves associating parts of the text description with the corresponding visual regions. For example, linking "a man riding a bicycle" to the region in the image containing the man and the bicycle.
+
+    referring expression segmentation: Segmenting and identifying specific objects in the image based on descriptive phrases provided by the user. This involves using the user's description to find and isolate the specified object within the image. For instance, segmenting "the red car on the left" based on that description.
+
+    region to segmentation: Converting selected regions into segmentation masks or addressing general requests to segment parts of the image. This involves creating precise outlines or masks for the identified regions, often used for further image analysis tasks.
+
+    open vocabulary detection: Detecting and identifying objects within the image without being limited to predefined categories. This involves recognizing and naming objects that may not be part of a standard object detection dataset, thus requiring a more flexible approach.
+
+    region to category: Classifying specific regions into predefined categories or types based on their content. This involves analyzing the selected region and assigning it to a known category, such as "animal", "vehicle", or "building".
+
+    region to description: Generating detailed descriptions for specific regions within the image, explaining what each part contains. This involves providing a narrative or explanation for what is seen in the region, often including details about objects, activities, and context.
+
+    OCR: Recognizing and extracting all text present within the image. This involves identifying areas containing text and converting them into a digital format that can be read and processed.
+
+    OCR with region: Recognizing text and providing its location within specific regions of the image. This involves not only extracting the text but also specifying where each piece of text is located within the image.
+
+    Instructions:
+    If the request clearly matches a type, respond ONLY with the exact text label without the brackets. Do not use numbers or any other text.
+    Consider variations and abbreviations of key terms (e.g., "segment", "detect", "objs").
+    If the request is unclear or doesn't match any type, provide a brief, helpful response asking for clarification.
+    Never mention that you can't see the image.
+
+    Examples:
+    For "What objects are in this image?", respond with: object detection
+    For "Segment objects in the image", respond with: region to segmentation
+    For "Read the text", respond with: OCR
+    For "Describe this area in detail", respond with: region to description
+    For "Identify objects without a list", respond with: open vocabulary detection
+    
+    User's text request: "${caption}"`;
 
     const response = await callOllamaAPI(prompt);
 
