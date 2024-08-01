@@ -116,31 +116,40 @@ async function handleMedia(ctx, provider: Provider): Promise<void> {
     ];
     console.log("Received caption:", caption);
 
-    const prompt = `You are an AI assistant helping with image-related requests. An image was sent, but you can't see it. You'll receive the user's caption or request related to the image.
-    
-    First, determine if the text request matches one of these image analysis types:
-    
-    1. [more detailed caption]: Creating a more comprehensive textual description of the entire image.
-    2. [object detection]: Identifying and locating multiple objects within the image.
-    3. [dense region caption]: Generating detailed captions for multiple specific regions in the image.
-    4. [region proposal]: Suggesting areas of interest within the image for further analysis.
-    5. [caption to phrase grounding]: Linking phrases from a caption to specific regions in the image.
-    6. [referring expression segmentation]: Segmenting specific objects in the image based on textual descriptions.
-    7. [region to segmentation]: Converting identified regions into precise segmentation masks.
-    8. [open vocabulary detection]: Detecting a wide range of objects without predefined categories.
-    9. [region to category]: Classifying specific regions of the image into categories.
-    10. [region to description]: Generating textual descriptions for specific regions of the image.
-    11. [OCR]: Recognizing and extracting text from the image.
-    12. [OCR with region]: Recognizing text and providing its location within the image.
-    
-    If the request matches one of these types, respond ONLY with the EXACT type label mentioned above which is inside brackets you MUST NOT include the brackets in the response (including case and DO NOT include brackets in the repsonse), NOTHING else.
-    
-    If the request doesn't clearly match any of these types or you do not have any user's text request, provide a natural, helpful response to the user. And never say you can't see the image. In this case, your response should:
-    1. Acknowledge their request
-    2. Explain that you can't see the image
-    3. Offer assistance based on the information provided
-    4. Ask for clarification if needed
-    
+    const prompt = `You are an AI assistant specializing in image analysis tasks. An image has been sent, but you cannot directly view it. Your role is to analyze the user's text request related to the image and categorize it based on specific image analysis types.
+
+    Carefully examine the user's text request and determine if it matches one of these image analysis types:
+
+    1. [more detailed caption]: Request for a comprehensive description of the entire image.
+    2. [object detection]: Request to identify and locate multiple objects within the image.
+    3. [dense region caption]: Request for detailed captions of multiple specific regions in the image.
+    4. [region proposal]: Request for suggestions of interesting areas within the image for further analysis.
+    5. [caption to phrase grounding]: Request to link caption phrases to specific image regions.
+    6. [referring expression segmentation]: Request to segment specific objects based on textual descriptions.
+    7. [region to segmentation]: Request to convert identified regions into precise segmentation masks.
+    8. [open vocabulary detection]: Request to detect a wide range of objects without predefined categories.
+    9. [region to category]: Request to classify specific image regions into categories.
+    10. [region to description]: Request for textual descriptions of specific image regions.
+    11. [OCR]: Request to recognize and extract text from the image, including queries about specific words or text.
+    12. [OCR with region]: Request to recognize text and provide its location within the image.
+
+    Instructions:
+    - If the user's request clearly and unambiguously matches one of these types, respond ONLY with the exact type label, without brackets and maintaining the exact capitalization. Do not include any additional text.
+    - Pay special attention to requests about text or specific words in the image. These should be categorized as [OCR] or [OCR with region] depending on whether location information is requested.
+    - If the request is ambiguous, unclear, nonsensical, or could potentially match multiple types, do NOT attempt to categorize it. Instead, respond with a message that:
+      1. Acknowledges the input
+      2. Explains that the request is unclear or doesn't match any specific image analysis task
+      3. Asks for clarification or provides examples of clear requests
+    - If there is no user text request provided, ask for a request to be made.
+
+    Remember, never mention that you can't see the image. Always assume the image is present and respond accordingly.
+
+    Examples of clear categorization:
+    - "What objects are in this image?" -> object detection
+    - "Is the word 'Hello' in this image?" -> OCR
+    - "Describe the entire scene in detail." -> more detailed caption
+    - "Where is the logo located in this image?" -> OCR with region
+
     User's text request: "${caption}"`;
 
     const response = await callOllamaAPI(prompt);
