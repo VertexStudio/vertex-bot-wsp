@@ -38,6 +38,10 @@ const main = async () => {
 	adapterProvider.on("reaction", async (ctx) => {
 		console.log(ctx)
 	});
+
+	adapterProvider.on("group-participants.update", async (ctx) => {
+		console.log(ctx)
+	});
 	
 	adapterProvider.on("message", async (ctx) => {
 		adapterProvider.vendor.readMessages([ctx.key]);

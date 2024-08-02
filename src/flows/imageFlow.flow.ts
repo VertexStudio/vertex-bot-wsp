@@ -16,6 +16,7 @@ const MESSAGE_GAP_SECONDS = 6000;
 interface ImageMessage {
     imagePath: string;
     timestamp: number;
+    id?: string; 
 }
 
 const imageQueue: ImageMessage[] = [];
@@ -24,7 +25,7 @@ let isProcessing = false;
 let processId = 0;
 let provider: Provider;
 let currentCtx: any;
-const sentImages: string[] = [];
+const sentImages: Map<string, { path: string, id: string }> = new Map();
 const resizedImages: Set<string> = new Set();
 
 function getImagesOrderedByDate(directory: string): string[] {
@@ -45,11 +46,20 @@ function getImagesOrderedByDate(directory: string): string[] {
 async function sendImage(ctx: any, provider: Provider, imagePath: string) {
     console.log(`[${processId}] Sending image: ${imagePath}`);
     const number = ctx.key.remoteJid;
-    await provider.vendor.sendMessage(number, {
+    const sentMessage = await provider.vendor.sendMessage(number, {
         image: { url: imagePath },
         caption: path.basename(imagePath)
     });
-    sentImages.push(imagePath);
+
+    console.log(sentMessage)
+
+    if (sentMessage && sentMessage.key && sentMessage.key.id) {
+        const messageId = sentMessage.key.id;
+        sentImages.set(messageId, { path: imagePath, id: messageId });
+        console.log(`[${processId}] Image sent with ID: ${messageId}`);
+    } else {
+        console.log(`[${processId}] Error: No ID found for sent message.`);
+    }
 }
 
 async function enqueueImage(ctx: any, provider: Provider, imagePath: string): Promise<void> {
@@ -111,7 +121,49 @@ watcher
         }
     });
 
-export const imageFlow = addKeyword<Provider, Database>("imagenes", {sensitive: false})
+async function handleReaction(reactions: any[]) {
+    if (reactions.length === 0) {
+        console.log(`No reactions received.`);
+        return;
+    }
+
+    const reaction = reactions[0];
+    const { key: reactionKey, text: emoji } = reaction.reaction || {};
+
+    if (!reactionKey || !emoji) {
+        console.log(`Invalid reaction format`);
+        return;
+    }
+
+    console.log(`Reaction details:`, reaction);
+    console.log(`Sent Images:`, Array.from(sentImages.entries()));
+
+    const reactionId = reaction.key;
+    console.log("ReactionID: ", reactionId.id)
+    const imageMessage = Array.from(sentImages.values()).find(img => img.id === reactionId.id);
+    if (!imageMessage) {
+        console.log(`No matching image found for reaction. Reaction ID: ${reactionId.id}`);
+        console.log(`Sent Images IDs:`, Array.from(sentImages.keys()));
+        return;
+    }
+
+    const { path: imagePath } = imageMessage;
+    try {
+        if (emoji === "✅") {
+            await moveImage(imagePath, CORRECT_DIRECTORY);
+            await provider.sendText(reactionKey.remoteJid, `Imagen marcada como correcta.`);
+        } else if (emoji === "❌") {
+            await moveImage(imagePath, INCORRECT_DIRECTORY);
+            await provider.sendText(reactionKey.remoteJid, `Imagen marcada como incorrecta.`);
+        }
+        sentImages.delete(reactionId);
+    } catch (error) {
+        console.error(`[${processId}] Error moving image:`, error);
+        await provider.sendText(reactionKey.remoteJid, "Hubo un error al mover la imagen.");
+    }
+}
+
+export const imageFlow = addKeyword<Provider, Database>("imagenes", { sensitive: false })
     .addAction(async (ctx, { provider: _provider }) => {
         if (isProcessing) {
             console.log(`Attempt to execute while already processing. Ignoring.`);
@@ -149,6 +201,9 @@ export const imageFlow = addKeyword<Provider, Database>("imagenes", {sensitive: 
             if (!imageTimer) {
                 processImageQueue(ctx, provider);
             }
+
+            provider.on("reaction", handleReaction);
+
         } catch (error) {
             console.error(`[${processId}] Error processing images:`, error);
             await provider.sendText(ctx.key.remoteJid, "There was an error processing the images.");
@@ -163,8 +218,8 @@ export const resizeFlow = addKeyword<Provider, Database>("resize")
         const match = text.match(/resize (\d+)/);
         if (match) {
             const index = parseInt(match[1], 10) - 1;
-            if (index >= 0 && index < sentImages.length) {
-                const imagePath = sentImages[index];
+            if (index >= 0 && index < sentImages.size) {
+                const imagePath = Array.from(sentImages.values())[index].path;
                 const resizedPath = path.join(RESIZED_DIRECTORY, path.basename(imagePath));
                 if (!resizedImages.has(resizedPath)) {
                     await resizeImage(imagePath, 1920, 1080);
@@ -185,51 +240,3 @@ async function moveImage(imagePath: string, destinationDir: string): Promise<str
     await fs.promises.rename(imagePath, destinationPath);
     return destinationPath;
 }
-
-export const correctFlow = addKeyword<Provider, Database>("✅", {sensitive: false})
-    .addAction(async (ctx, { provider: _provider }) => {
-        const text = ctx.body.toLowerCase();
-        const match = text.match(/✅ (\d+)/);
-        if (match) {
-            const index = parseInt(match[1], 10) - 1;
-            if (index >= 0 && index < sentImages.length) {
-                const imagePath = sentImages[index];
-                try {
-                    const newImagePath = await moveImage(imagePath, CORRECT_DIRECTORY);
-                    await _provider.sendText(ctx.key.remoteJid, `Imagen ${index + 1} marcada como correcta.`);
-                    sentImages.splice(index, 1);
-                } catch (error) {
-                    console.error(`[${processId}] Error moving image:`, error);
-                    await _provider.sendText(ctx.key.remoteJid, "Hubo un error al mover la imagen.");
-                }
-            } else {
-                await _provider.sendText(ctx.key.remoteJid, "Número de imagen inválido.");
-            }
-        } else {
-            await _provider.sendText(ctx.key.remoteJid, "Formato de comando inválido. Usa 'Correcta X' donde X es el número de la imagen.");
-        }
-    });
-
-export const incorrectFlow = addKeyword<Provider, Database>("❌", {sensitive: false})
-    .addAction(async (ctx, { provider: _provider }) => {
-        const text = ctx.body.toLowerCase();
-        const match = text.match(/❌ (\d+)/);
-        if (match) {
-            const index = parseInt(match[1], 10) - 1;
-            if (index >= 0 && index < sentImages.length) {
-                const imagePath = sentImages[index];
-                try {
-                    const newImagePath = await moveImage(imagePath, INCORRECT_DIRECTORY);
-                    await _provider.sendText(ctx.key.remoteJid, `Imagen ${index + 1} marcada como incorrecta.`);
-                    sentImages.splice(index, 1);
-                } catch (error) {
-                    console.error(`[${processId}] Error moving image:`, error);
-                    await _provider.sendText(ctx.key.remoteJid, "Hubo un error al mover la imagen.");
-                }
-            } else {
-                await _provider.sendText(ctx.key.remoteJid, "Número de imagen inválido.");
-            }
-        } else {
-            await _provider.sendText(ctx.key.remoteJid, "Formato de comando inválido. Usa 'Incorrecta X' donde X es el número de la imagen.");
-        }
-    });

@@ -30139,6 +30139,10 @@ class BaileysProvider extends bot.ProviderClass {
                         ]);
                     }
                 }
+				sock.ev.on('messages.reaction', async (reaction) => {
+					console.log('got reactions', reaction)
+					this.emit('reaction', reaction)
+				})
                 sock.ev.on('connection.update', async (update) => {
                     const { connection, lastDisconnect, qr } = update;
                     const statusCode = lastDisconnect?.error?.output?.statusCode;

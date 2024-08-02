@@ -43,7 +43,7 @@ async function handleMedia(ctx, provider) {
 
 	await deleteLocalFile(localPath);
 
-	const userMessage = ctx.message.imageMessage.caption || "What's in this image?";3
+	const userMessage = ctx.message.imageMessage.caption || "What's in this image?";
 
     console.log(userMessage)
 
