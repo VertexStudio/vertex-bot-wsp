@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { Surreal, RecordId, UUID } from "surrealdb.js";
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
@@ -6,7 +5,17 @@ import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
-import { callOllamaAPI } from "./welcomeFlow.flow";
+import { callOllamaChatAPI, Message } from "~/utils/ollama-api";
+
+// Constants and Environment Variables
+const {
+  VV_DB_ENDPOINT,
+  VV_DB_NAMESPACE,
+  VV_DB_DATABASE,
+  VV_DB_USERNAME,
+  VV_DB_PASSWORD,
+  CAMERA_ID,
+} = process.env;
 
 // Type definitions
 type ImageAnalysisType =
@@ -23,16 +32,6 @@ type ImageAnalysisType =
   | "OCR"
   | "OCR with region";
 
-// Constants
-const {
-  VV_DB_ENDPOINT,
-  VV_DB_NAMESPACE,
-  VV_DB_DATABASE,
-  VV_DB_USERNAME,
-  VV_DB_PASSWORD,
-  CAMERA_ID,
-} = process.env;
-
 const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
   "object detection",
@@ -47,32 +46,6 @@ const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "OCR",
   "OCR with region",
 ];
-
-// const IMAGE_ANALYSIS_DESCRIPTIONS = `
-// more detailed caption: Creating comprehensive and detailed textual descriptions of the entire image. This involves identifying all significant elements within the image, describing their appearances, relationships, actions, interactions, and the overall context. For example, providing a narrative that includes objects, scenery, people, and their activities.
-
-// object detection: Locating and identifying specific objects within an image. This includes providing bounding boxes and labels for each detected object. For example, identifying a cat, a car, and a tree within the image, along with their respective positions.
-
-// dense region caption: Generating detailed textual descriptions for multiple specific regions within an image, especially in densely populated scenes. Each caption should describe what is present in the corresponding region, including objects and their actions. For example, describing different areas in a crowded market scene.
-
-// region proposal: Identifying and suggesting regions of interest within an image that might contain important objects or details. This involves pinpointing areas that warrant further analysis or attention, such as highlighting potential areas where objects or activities are concentrated.
-
-// caption to phrase grounding: Associating specific phrases from a provided caption to particular regions in an image. This involves linking parts of the text description with corresponding visual regions. For example, linking the phrase "a man riding a bicycle" to the region in the image that contains the man and the bicycle.
-
-// referring expression segmentation: Segmenting and identifying specific objects in the image based on descriptive phrases provided by the user. This involves using the user's description to find and isolate the specified object within the image. For instance, segmenting the object described as "the red car on the left" based on that description.
-
-// region to segmentation: Converting selected regions into segmentation masks, which involves creating precise outlines or masks for the identified regions. This can be used for further image analysis tasks, such as isolating objects or areas for detailed study.
-
-// open vocabulary detection: Detecting and identifying objects within an image using a flexible and extensive vocabulary, not limited to predefined categories. This involves recognizing and naming objects that may not be part of a standard object detection dataset, allowing for a more flexible approach.
-
-// region to category: Classifying specific regions into predefined categories or types based on their content. This involves analyzing the selected region and assigning it to a known category, such as "animal", "vehicle", or "building". For example, categorizing different sections of a park scene into playground, bench area, and walking path.
-
-// region to description: Generating detailed descriptions for specific regions within the image, explaining what each part contains. This involves providing a narrative or explanation for what is seen in the region, including objects, activities, and context. For example, describing the activities happening in a section of a beach scene.
-
-// OCR: Detecting and recognizing all text present within the image. This involves identifying areas containing text, extracting the text, and converting it into a digital format that can be read and processed. For example, recognizing and transcribing a signboard in the image.
-
-// OCR with region: Detecting and recognizing text within an image and providing information about its location. This involves not only extracting the text but also specifying where each piece of text is located within the image. For example, identifying and locating text on multiple signs within a street view image.
-// `;
 
 // Database connection
 let db: Surreal | undefined;
@@ -89,6 +62,59 @@ async function connectToDatabase(): Promise<void> {
     console.error("Failed to connect to SurrealDB:", err);
     throw err;
   }
+}
+
+// Prompt generation functions
+function generateImageAnalysisPrompt(): string {
+  return `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
+
+  Instructions:
+  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}
+
+  2. Guidelines for query interpretation:
+    - Text-related queries (Priority):
+      • Requests about reading, understanding, or analyzing any text, numbers, or data
+      • Queries about documents, reports, labels, signs, or any written information
+      • Questions about specific information typically presented in text (e.g., stock prices, scores, dates)
+    → Use "OCR" or "OCR with region" (if a specific area is mentioned)
+
+    - General scene queries:
+      • Informal or colloquial requests about the overall image content
+      • Questions about what's happening or the general context of the scene
+    → Use "more detailed caption"
+
+    - Specific object queries:
+      • Questions about identifying, counting, or locating specific objects
+    → Use "object detection"
+
+    - Area-specific queries (non-text):
+      • Questions about particular regions or areas in the image, not related to text
+    → Use "dense region caption"
+
+  3. For ambiguous queries, prefer "more detailed caption".
+  4. Always interpret the request as being about the image content.
+  5. Do not explain your choice or mention inability to see the image.
+
+  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
+}
+
+function generateHumanReadablePrompt(): string {
+  return `
+  You are an AI assistant providing image analysis results. You're talking directly to the end user. 
+
+  Please provide a response that:
+  1. Is easily understandable by a human.
+  2. Directly addresses the user's initial request.
+  3. Summarizes the key findings from the image analysis.
+  4. Uses natural language and avoids technical jargon unless absolutely necessary.
+  5. Is concise but informative.
+  6. Directly answer the user's text request without additional information or comments.
+  7. Be concise and to the point, focusing on the key information the user needs.
+  8. If the answer can't be determined, provide a clear and polite response.
+
+  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional comments.
+  `;
 }
 
 // Image processing functions
@@ -182,70 +208,6 @@ async function updateDatabaseWithModelTask(
   console.log("Query result:", query);
 }
 
-// Prompt generation functions
-function generateImageAnalysisPrompt(caption: string): string {
-  const prompt = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
-
-  Instructions:
-  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}
-
-  2. Guidelines for query interpretation:
-    - Text-related queries (Priority):
-      • Requests about reading, understanding, or analyzing any text, numbers, or data
-      • Queries about documents, reports, labels, signs, or any written information
-      • Questions about specific information typically presented in text (e.g., stock prices, scores, dates)
-    → Use "OCR" or "OCR with region" (if a specific area is mentioned)
-
-    - General scene queries:
-      • Informal or colloquial requests about the overall image content
-      • Questions about what's happening or the general context of the scene
-    → Use "more detailed caption"
-
-    - Specific object queries:
-      • Questions about identifying, counting, or locating specific objects
-    → Use "object detection"
-
-    - Area-specific queries (non-text):
-      • Questions about particular regions or areas in the image, not related to text
-    → Use "dense region caption"
-
-  3. For ambiguous queries, prefer "more detailed caption".
-  4. Always interpret the request as being about the image content.
-  5. Do not explain your choice or mention inability to see the image.
-
-  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.
-
-  User's text request: "${caption}"`;
-
-  console.log("Generated prompt:", prompt);
-  return prompt;
-}
-
-function generateHumanReadablePrompt(
-  caption: string,
-  results: unknown
-): string {
-  return `
-  You are an AI assistant providing image analysis results. You're talking directly to the end user. The user's initial request was: "${caption}"
-
-  The image analysis system provided the following result:
-  ${results}
-
-  Please provide a response that:
-  1. Is easily understandable by a human.
-  2. Directly addresses the user's initial request: "${caption}".
-  3. Summarizes the key findings from the image analysis.
-  4. Uses natural language and avoids technical jargon unless absolutely necessary.
-  5. Is concise but informative, ensuring the user receives the essential information they need.
-  6. Directly answer the user's text request without additional information or comments.
-  7. Do not ever deny the user's request or suggest that you can't help.
-  8. Be concise and to the point, focusing on the key information the user needs.
-
-  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional comments.
-  `;
-}
-
 // Main handler function
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   try {
@@ -259,7 +221,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    const response = await callOllamaAPI(generateImageAnalysisPrompt(caption));
+    const systemPrompt = generateImageAnalysisPrompt();
+    const response = await callOllamaChatAPI([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: caption },
+    ]);
     console.log("Ollama API response:", response);
 
     if (!IMAGE_ANALYSIS_TYPES.includes(response as ImageAnalysisType)) {
@@ -286,9 +252,17 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    const humanReadableResponse = await callOllamaAPI(
-      generateHumanReadablePrompt(caption, results)
-    );
+    const humanReadablePrompt = generateHumanReadablePrompt();
+
+    const params: Message[] = [
+      { role: "system", content: humanReadablePrompt },
+      { role: "user", content: caption },
+      { role: "tool", content: JSON.stringify(results) },
+    ];
+
+    // console.log("Params for callOllamaChatAPI:", params);
+
+    const humanReadableResponse = await callOllamaChatAPI(params);
     console.log("Human-readable response:", humanReadableResponse);
 
     await sendMessage(provider, number, humanReadableResponse);
