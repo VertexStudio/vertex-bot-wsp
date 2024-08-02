@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { callOllamaChatAPI, Message } from "~/utils/ollama-api";
+import { callOllamaAPI } from "./welcomeFlow.flow";
 
 // Constants and Environment Variables
 const {
@@ -100,30 +101,27 @@ function generateImageAnalysisPrompt(): string {
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 }
 
-function generateHumanReadablePrompt(): string {
+function generateHumanReadablePrompt(
+  caption: string,
+  results: unknown
+): string {
   return `
-  You are an AI assistant interpreting image analysis results. Your ONLY task is to answer the user's question about the image based on the provided analysis.
+  You are an AI assistant providing image analysis results. You're talking directly to the end user. The user's initial request was: "${caption}"
 
-  CRITICAL INSTRUCTIONS:
-  1. ONLY use the information in the 'tool' content, which contains image analysis results.
-  2. ONLY address the user's specific question about the image.
-  3. DO NOT generate any content unrelated to the image analysis or the user's question.
-  4. DO NOT mention or explain any code, scripts, or programming concepts.
-  5. If the analysis doesn't provide enough information to answer the user's question, state this clearly and concisely.
-  6. ALWAYS assume the user is asking about the image content.
+  The image analysis system provided the following result:
+  ${results}
 
-  Interpretation guide:
-  - 'polygons': Shapes or areas detected in the image. Each polygon is a list of [x, y] coordinates.
-  - 'labels': Classifications or descriptions of detected objects/areas. Empty labels mean no specific object was identified.
-  - 'width' and 'height': Dimensions of the analyzed image.
+  Please provide a response that:
+  1. Is easily understandable by a human.
+  2. Directly addresses the user's initial request: "${caption}".
+  3. Summarizes the key findings from the image analysis.
+  4. Uses natural language and avoids technical jargon unless absolutely necessary.
+  5. Is concise but informative, ensuring the user receives the essential information they need.
+  6. Directly answer the user's text request without additional information or comments.
+  7. Do not ever deny the user's request or suggest that you can't help.
+  8. Be concise and to the point, focusing on the key information the user needs.
 
-  Response structure:
-  1. Directly address to the user's request based on the analysis.
-  2. Acknowledgment of any limitations in answering the question based on available data.
-
-  IMPORTANT: Before submitting your response, validate that it ONLY contains information derived from the image analysis results and directly answers the user's question. If your response includes any irrelevant information.
-
-  Remember, you are interpreting image analysis results.
+  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional initial/final comments.
   `;
 }
 
@@ -266,17 +264,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       JSON.stringify(initialData);
     console.log("Initial analysis data:", results);
 
-    const humanReadablePrompt = generateHumanReadablePrompt();
+    const humanReadablePrompt = generateHumanReadablePrompt(caption, results);
 
-    const params: Message[] = [
-      { role: "system", content: humanReadablePrompt },
-      { role: "user", content: caption },
-      { role: "tool", content: JSON.stringify(results) },
-    ];
-
-    // console.log("Params for callOllamaChatAPI:", params);
-
-    const humanReadableResponse = await callOllamaChatAPI(params);
+    const humanReadableResponse = await callOllamaAPI(humanReadablePrompt);
     console.log("Human-readable response:", humanReadableResponse);
 
     await sendMessage(provider, number, humanReadableResponse);
