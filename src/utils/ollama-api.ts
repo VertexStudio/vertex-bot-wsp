@@ -2,7 +2,7 @@ import axios from "axios";
 
 const OLLAMA_API_URL =
   process.env.OLLAMA_API_URL || "http://localhost:11434/api/chat";
-const MODEL = "llama3.1";
+const MODEL = "llama3.1:70b";
 
 export interface Message {
   role: "system" | "user" | "assistant" | "tool";
@@ -22,6 +22,12 @@ export async function callOllamaChatAPI(messages: Message[]): Promise<string> {
       model: MODEL,
       messages: messages,
       stream: false,
+      options: {
+        temperature: 0.4,
+        seed: 42,
+        top_k: 20,
+        top_p: 0.5,
+      },
     });
 
     return response.data.message.content.trim();

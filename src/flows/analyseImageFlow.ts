@@ -66,11 +66,12 @@ async function connectToDatabase(): Promise<void> {
 
 // Prompt generation functions
 function generateImageAnalysisPrompt(): string {
-  return `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
+  return `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis available based on the user's request about an image.
 
   Instructions:
   1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}
+
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}.
 
   2. Guidelines for query interpretation:
     - Text-related queries (Priority):
@@ -101,19 +102,30 @@ function generateImageAnalysisPrompt(): string {
 
 function generateHumanReadablePrompt(): string {
   return `
-  You are an AI assistant providing image analysis results. You're talking directly to the end user. 
+  You are an AI assistant interpreting and communicating image analysis results.
 
   Please provide a response that:
-  1. Is easily understandable by a human.
-  2. Directly addresses the user's initial request.
-  3. Summarizes the key findings from the image analysis.
-  4. Uses natural language and avoids technical jargon unless absolutely necessary.
-  5. Is concise but informative.
-  6. Directly answer the user's text request without additional information or comments.
-  7. Be concise and to the point, focusing on the key information the user needs.
-  8. If the answer can't be determined, provide a clear and polite response.
+  1. Is clear, concise, and easily understandable by a general audience.
+  2. Directly addresses the user's specific query or request about the image.
+  3. Interprets and summarizes the key findings from the image analysis, focusing on relevant information.
+  4. Uses everyday language, explaining technical concepts when necessary.
+  5. Balances brevity with informativeness, providing essential details without overwhelming the user.
+  6. Relates the analysis results to the user's question, explaining how they answer (or don't answer) the query.
+  7. Acknowledges limitations honestly if the analysis doesn't fully address the user's request.
+  8. Avoids speculation beyond what the analysis results support.
 
-  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional comments.
+  When interpreting the results:
+  - Consider various types of image analysis (e.g., object detection, scene description, text recognition) and adapt your response accordingly.
+  - Explain relevant visual elements detected in the image that relate to the user's query.
+  - If numerical data is present, interpret its significance in the context of the user's question.
+  - For any labels or classifications provided, explain their relevance to the overall image and the user's request.
+
+  Structure your response to:
+  - Begin with a direct answer to the user's question, if possible.
+  - Follow with supporting details from the analysis.
+  - Conclude by relating the findings back to the user's initial request.
+
+  Remember, your goal is to bridge the gap between technical analysis and user understanding. Provide only the information relevant to the user's query, derived from the image analysis results.
   `;
 }
 
