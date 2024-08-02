@@ -22,11 +22,11 @@ export async function callOllamaChatAPI(messages: Message[]): Promise<string> {
       model: MODEL,
       messages: messages,
       stream: false,
-      options: {
-        temperature: 0,
-        top_k: 10,
-        top_p: 0.25,
-      },
+      //   options: {
+      //     temperature: 0,
+      //     top_k: 10,
+      //     top_p: 0.25,
+      //   },
     });
 
     return response.data.message.content.trim();

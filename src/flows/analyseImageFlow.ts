@@ -259,7 +259,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     typing(ctx, provider);
 
     const initialData = await waitForFirstResult(analysisResult);
-    const results = initialData.results;
+    const results =
+      "The selected image analysis type is: '" +
+      response +
+      "' and the system results are: " +
+      JSON.stringify(initialData);
     console.log("Initial analysis data:", results);
 
     const humanReadablePrompt = generateHumanReadablePrompt();
