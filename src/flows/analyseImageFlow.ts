@@ -205,6 +205,7 @@ function generateImageAnalysisPrompt(caption: string): string {
 
     - Specific object queries:
       • Questions about identifying, counting, or locating specific objects
+      • Questions about whether a certain object is present in the image
     → Use "object detection"
 
     - Area-specific queries (non-text):
@@ -242,8 +243,10 @@ function generateHumanReadablePrompt(
   6. Directly answer the user's text request without additional information or comments.
   7. Do not ever deny the user's request or suggest that you can't help.
   8. Be concise and to the point, focusing on the key information the user needs.
+  9. If the answer to the user's request can't be determined base on the image analysis, provide a clear and concise response that indicates this limitation.
+  10. Do not mention the image analysis process because the user does not care and does not need to know how the analysis was done.
 
-  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional comments.
+  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional initial/final comments.
   `;
 }
 
