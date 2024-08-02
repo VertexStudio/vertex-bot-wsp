@@ -193,6 +193,7 @@ function generateImageAnalysisPrompt(caption: string): string {
   2. Guidelines for query interpretation:
     - Text-related queries (Priority):
       • Requests about reading, understanding, or analyzing any text, numbers, or data
+      • Unknown words, phrases, or symbols that need interpretation
       • Queries about documents, reports, labels, signs, or any written information
       • Questions about specific information typically presented in text (e.g., stock prices, scores, dates)
     → Use "OCR" or "OCR with region" (if a specific area is mentioned)
@@ -212,7 +213,7 @@ function generateImageAnalysisPrompt(caption: string): string {
       • Questions about particular regions or areas in the image, not related to text
     → Use "dense region caption"
 
-  3. For ambiguous queries or questions about identifying individuals, prefer "more detailed caption".
+  3. For ambiguous or meaningless queries, or questions about identifying individuals, prefer "more detailed caption".
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
 
