@@ -213,7 +213,7 @@ function generateImageAnalysisPrompt(caption: string): string {
       • Questions about particular regions or areas in the image, not related to text
     → Use "dense region caption"
 
-  3. For ambiguous or meaningless queries, or questions about identifying individuals, prefer "more detailed caption".
+  3. For ambiguous, meaningless or empty queries, or questions about identifying individuals, prefer "more detailed caption".
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
 
@@ -235,19 +235,19 @@ function generateHumanReadablePrompt(
   The image analysis system provided the following result:
   ${results}
 
-  Please provide a response that:
-  1. Is easily understandable by a human.
-  2. Directly addresses the user's initial request: "${caption}".
-  3. Summarizes the key findings from the image analysis.
-  4. Uses natural language and avoids technical jargon unless absolutely necessary.
-  5. Is concise but informative, ensuring the user receives the essential information they need.
-  6. Directly answer the user's text request without additional information or comments.
-  7. Do not ever deny the user's request or suggest that you can't help.
-  8. Be concise and to the point, focusing on the key information the user needs.
-  9. If the answer to the user's request can't be determined base on the image analysis, provide a clear and concise response that indicates this limitation.
-  10. Do not mention the image analysis process because the user does not care and does not need to know how the analysis was done.
+  CRITICAL INSTRUCTIONS:
 
-  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional initial/final comments.
+  1. Respond ONLY with the direct answer to the user's request. Do not include any introductory or concluding remarks.
+  2. If the user's initial request is empty, provide a concise description of the key elements in the image based on the analysis results.
+  3. Use natural language and avoid technical jargon unless absolutely necessary.
+  4. Be concise and to the point, focusing only on the information directly relevant to the user's request or the main elements of the image.
+  5. If the answer to the user's request can't be determined based on the image analysis, simply state that the requested information couldn't be found in the image.
+  6. Do not mention the image analysis process or that an analysis was performed.
+  7. Do not offer further assistance or ask if the user needs more information.
+  8. If the analysis results contain text from the image (OCR), use this information to answer text-related queries accurately.
+  9. Format the response in a clear and easy-to-understand manner.
+
+  CRITICAL: Your entire response should be an answer to the user's request. Do not include any additional comments or explanations about the process.
   `;
 }
 
@@ -292,7 +292,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     console.log("Initial analysis data:", results);
 
     const humanReadableResponse = await callOllamaAPI(
-      generateHumanReadablePrompt(caption, results)
+      generateHumanReadablePrompt(caption, JSON.stringify(results, null, 2))
     );
     console.log("Human-readable response:", humanReadableResponse);
 
