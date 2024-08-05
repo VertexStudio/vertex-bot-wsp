@@ -36,14 +36,14 @@ const {
 const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
   "object detection",
-  "dense region caption",
-  "region proposal",
-  "caption to phrase grounding",
-  "referring expression segmentation",
-  "region to segmentation",
+  // "dense region caption",
+  // "region proposal",
+  // "caption to phrase grounding",
+  // "referring expression segmentation",
+  // "region to segmentation",
   // "open vocabulary detection",
-  "region to category",
-  "region to description",
+  // "region to category",
+  // "region to description",
   "OCR",
   "OCR with region",
 ];
@@ -172,7 +172,7 @@ function generateImageAnalysisPrompt(caption: string): string {
       • Questions about specific textual information present in the image (e.g., visible stock prices, scores, dates)
     → Use "OCR" or "OCR with region" (if a specific area is mentioned)
 
-    - General scene queries and detailed descriptions:
+    - General queries and detailed descriptions:
       • Informal or colloquial requests about the overall image content
       • Questions about what's happening or the general context of the scene
       • Queries about identifying individuals, objects, or asking "who/what" questions
@@ -209,8 +209,8 @@ function generateHumanReadablePrompt(
   caption: string,
   results: unknown
 ): string {
-  return `
-  You are an AI assistant providing image analysis results. You're talking directly to the end user. The user's initial request was: "${caption}"
+  const prompt = `
+  You are an AI assistant providing image analysis results. You are talking directly to the end user. The user's initial request was: "${caption}"
 
   The image analysis system provided the following result:
   ${results}
@@ -221,7 +221,7 @@ function generateHumanReadablePrompt(
   2. If the user's initial request is empty, provide a concise description of the key elements in the image based on the analysis results.
   3. Use natural language and avoid technical jargon unless absolutely necessary.
   4. Be concise and to the point, focusing only on the information directly relevant to the user's request or the main elements of the image.
-  5. If the answer to the user's request can't be determined based on the image analysis, simply state that the requested information couldn't be found in the image politely.
+  5. If the answer to the user's request can't be determined based on the image analysis, politely state that the requested information couldn't be found in the image.
   6. Do not mention the image analysis process or that an analysis was performed.
   7. Do not offer further assistance or ask if the user needs more information.
   8. If the analysis results contain text from the image (OCR), use this information to answer text-related queries accurately.
@@ -229,12 +229,16 @@ function generateHumanReadablePrompt(
      - Use bullet points for lists
      - Use emojis sparingly to enhance readability
      - Use bold for important information (e.g., *important text*).
-  10. IF required by the user, provide step-by-step instructions or detailed explanations, formatted for easy reading in a chat.
+  10. If the user requests it, provide step-by-step instructions or detailed explanations, formatted for easy reading in a chat.
+  11. Use all available information from the analysis results to answer the user's request.
 
   CRITICAL: Your entire response should be an answer to the user's initial request ("${caption}"), formatted for WhatsApp chat. Do not include any additional comments or explanations about the process.
 
-  WARN: If you see 'bboxes' in the response, those are bounding boxes of detected 'labels' in the image. After these 'bboxes' you'll see the 'labels' that were detected, which are the detected objects in the image.
+  WARNING: If you see 'bboxes' in the response, those are bounding boxes of detected 'labels' in the image. After these 'bboxes', you'll see the 'labels' that were detected.
   `;
+
+  console.log("Generated prompt:", prompt);
+  return prompt;
 }
 
 // Main handler function
