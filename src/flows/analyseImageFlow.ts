@@ -166,28 +166,34 @@ function generateImageAnalysisPrompt(caption: string): string {
 
   2. Guidelines for query interpretation:
     - Text-related queries (Priority):
-      • Requests about reading, understanding, or analyzing any text, numbers, or data
-      • Unknown words, phrases, or symbols that need interpretation
-      • Queries about documents, reports, labels, signs, or any written information
-      • Questions about specific information typically presented in text (e.g., stock prices, scores, dates)
+      • Requests about reading, understanding, or analyzing any text, numbers, or data visible in the image
+      • Unknown words, phrases, or symbols that need to be read from the image
+      • Queries about documents, reports, labels, signs, or any written information directly visible
+      • Questions about specific textual information present in the image (e.g., visible stock prices, scores, dates)
     → Use "OCR" or "OCR with region" (if a specific area is mentioned)
 
-    - General scene queries:
+    - General scene queries and detailed descriptions:
       • Informal or colloquial requests about the overall image content
       • Questions about what's happening or the general context of the scene
-      • Queries about identifying individuals or asking "who" questions
+      • Queries about identifying individuals, objects, or asking "who/what" questions
+      • Requests for detailed information about specific elements in the image (e.g., breed of animal, type of object, characteristics of people or things)
+      • Questions about recognizing or recalling familiar elements (e.g., logos, brands, famous people)
+      • Requests to identify or recall information based on visual cues (e.g., company names from logos, brand recognition)
+      • Any query involving memory, recognition, or recall of information from the image
+      • Queries containing phrases like "I can't recall", "I don't remember", "What is this", "Identify this"
     → Use "more detailed caption"
 
-    - Specific object queries:
-      • Questions about identifying, counting, or locating specific objects
-      • Questions about whether a certain object is present in the image
+    - Specific object location or counting:
+      • Questions specifically about locating objects within the image
+      • Queries about counting the number of specific objects
+      • Requests to confirm if a particular object is present or absent
     → Use "object detection"
 
     - Area-specific queries (non-text):
       • Questions about particular regions or areas in the image, not related to text
     → Use "dense region caption"
 
-  3. For ambiguous, meaningless, empty queries, or questions about identifying individuals, prefer "more detailed caption".
+  3. For ambiguous queries or those not clearly fitting into other categories, prefer "more detailed caption".
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
 
