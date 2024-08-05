@@ -226,6 +226,7 @@ function generateHumanReadablePrompt(
   7. Do not offer further assistance or ask if the user needs more information.
   8. If the analysis results contain text from the image (OCR), use this information to answer text-related queries accurately.
   9. Format the response in a clear and easy-to-understand manner.
+  10. IF required by the user, provide step-by-step instructions or detailed explanations.
 
   CRITICAL: Your entire response should be an answer to the user's request. Do not include any additional comments or explanations about the process.
   `;
