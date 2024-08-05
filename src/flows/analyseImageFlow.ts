@@ -48,32 +48,6 @@ const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "OCR with region",
 ];
 
-// const IMAGE_ANALYSIS_DESCRIPTIONS = `
-// more detailed caption: Creating comprehensive and detailed textual descriptions of the entire image. This involves identifying all significant elements within the image, describing their appearances, relationships, actions, interactions, and the overall context. For example, providing a narrative that includes objects, scenery, people, and their activities.
-
-// object detection: Locating and identifying specific objects within an image. This includes providing bounding boxes and labels for each detected object. For example, identifying a cat, a car, and a tree within the image, along with their respective positions.
-
-// dense region caption: Generating detailed textual descriptions for multiple specific regions within an image, especially in densely populated scenes. Each caption should describe what is present in the corresponding region, including objects and their actions. For example, describing different areas in a crowded market scene.
-
-// region proposal: Identifying and suggesting regions of interest within an image that might contain important objects or details. This involves pinpointing areas that warrant further analysis or attention, such as highlighting potential areas where objects or activities are concentrated.
-
-// caption to phrase grounding: Associating specific phrases from a provided caption to particular regions in an image. This involves linking parts of the text description with corresponding visual regions. For example, linking the phrase "a man riding a bicycle" to the region in the image that contains the man and the bicycle.
-
-// referring expression segmentation: Segmenting and identifying specific objects in the image based on descriptive phrases provided by the user. This involves using the user's description to find and isolate the specified object within the image. For instance, segmenting the object described as "the red car on the left" based on that description.
-
-// region to segmentation: Converting selected regions into segmentation masks, which involves creating precise outlines or masks for the identified regions. This can be used for further image analysis tasks, such as isolating objects or areas for detailed study.
-
-// open vocabulary detection: Detecting and identifying objects within an image using a flexible and extensive vocabulary, not limited to predefined categories. This involves recognizing and naming objects that may not be part of a standard object detection dataset, allowing for a more flexible approach.
-
-// region to category: Classifying specific regions into predefined categories or types based on their content. This involves analyzing the selected region and assigning it to a known category, such as "animal", "vehicle", or "building". For example, categorizing different sections of a park scene into playground, bench area, and walking path.
-
-// region to description: Generating detailed descriptions for specific regions within the image, explaining what each part contains. This involves providing a narrative or explanation for what is seen in the region, including objects, activities, and context. For example, describing the activities happening in a section of a beach scene.
-
-// OCR: Detecting and recognizing all text present within the image. This involves identifying areas containing text, extracting the text, and converting it into a digital format that can be read and processed. For example, recognizing and transcribing a signboard in the image.
-
-// OCR with region: Detecting and recognizing text within an image and providing information about its location. This involves not only extracting the text but also specifying where each piece of text is located within the image. For example, identifying and locating text on multiple signs within a street view image.
-// `;
-
 // Database connection
 let db: Surreal | undefined;
 
@@ -213,7 +187,7 @@ function generateImageAnalysisPrompt(caption: string): string {
       • Questions about particular regions or areas in the image, not related to text
     → Use "dense region caption"
 
-  3. For ambiguous, meaningless or empty queries, or questions about identifying individuals, prefer "more detailed caption".
+  3. For ambiguous, meaningless, empty queries, or questions about identifying individuals, prefer "more detailed caption".
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
 
@@ -241,7 +215,7 @@ function generateHumanReadablePrompt(
   2. If the user's initial request is empty, provide a concise description of the key elements in the image based on the analysis results.
   3. Use natural language and avoid technical jargon unless absolutely necessary.
   4. Be concise and to the point, focusing only on the information directly relevant to the user's request or the main elements of the image.
-  5. If the answer to the user's request can't be determined based on the image analysis, simply state that the requested information couldn't be found in the image.
+  5. If the answer to the user's request can't be determined based on the image analysis, simply state that the requested information couldn't be found in the image politely.
   6. Do not mention the image analysis process or that an analysis was performed.
   7. Do not offer further assistance or ask if the user needs more information.
   8. If the analysis results contain text from the image (OCR), use this information to answer text-related queries accurately.
