@@ -41,7 +41,7 @@ const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "caption to phrase grounding",
   "referring expression segmentation",
   "region to segmentation",
-  "open vocabulary detection",
+  // "open vocabulary detection",
   "region to category",
   "region to description",
   "OCR",
@@ -225,10 +225,15 @@ function generateHumanReadablePrompt(
   6. Do not mention the image analysis process or that an analysis was performed.
   7. Do not offer further assistance or ask if the user needs more information.
   8. If the analysis results contain text from the image (OCR), use this information to answer text-related queries accurately.
-  9. Format the response in a clear and easy-to-understand manner.
-  10. IF required by the user, provide step-by-step instructions or detailed explanations.
+  9. Format your response for WhatsApp chat:
+     - Use bullet points for lists
+     - Use emojis sparingly to enhance readability
+     - Use bold for important information (e.g., *important text*).
+  10. IF required by the user, provide step-by-step instructions or detailed explanations, formatted for easy reading in a chat.
 
-  CRITICAL: Your entire response should be an answer to the user's request. Do not include any additional comments or explanations about the process.
+  CRITICAL: Your entire response should be an answer to the user's initial request ("${caption}"), formatted for WhatsApp chat. Do not include any additional comments or explanations about the process.
+
+  WARN: If you see 'bboxes' in the response, those are bounding boxes of detected 'labels' in the image. After these 'bboxes' you'll see the 'labels' that were detected, which are the detected objects in the image.
   `;
 }
 
