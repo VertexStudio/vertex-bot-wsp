@@ -221,7 +221,7 @@ CRITICAL INSTRUCTIONS:
 5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
 6. Do not mention the image analysis process or that an analysis was performed.
 7. Use OCR results accurately for text-related queries.
-8. Format for WhatsApp chat when necessary:
+8. Format for WhatsApp chat ONLY when necessary for complex responses:
    - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
    - Use emojis sparingly
    - Use line breaks (\\n) for spacing
@@ -233,7 +233,7 @@ CRITICAL INSTRUCTIONS:
 10. Use all available information from the analysis results to answer the user's request accurately.
 11. For complex topics, break down the information into digestible parts.
 
-CRITICAL: Your response should directly answer the user's request ("${caption}"), with appropriate detail and formatting. Do not add unnecessary information or explanations unless the query demands it.
+CRITICAL: Your response should directly answer the user's request ("${caption}"), with appropriate detail and formatting. Use complex formatting only when the query demands it. For simple queries, provide straightforward answers without unnecessary formatting or explanations.
 `;
 
   console.log("Generated prompt:", prompt);
