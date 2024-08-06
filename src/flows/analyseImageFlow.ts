@@ -168,7 +168,7 @@ function generateImageAnalysisPrompt(caption: string): string {
     - Text-related queries:
       • Requests about reading, understanding, or analyzing any text, numbers, or data visible in the image
       • Unknown words, phrases, or symbols that need to be read from the image
-      • Queries about documents, reports, labels, signs, or any written information directly visible
+      • Queries about documents, reports, labels, instructions, signs, or any written information directly visible
       • Questions about specific textual information present in the image (e.g., visible stock prices, scores, dates)
     → Use "OCR"
 
@@ -225,8 +225,10 @@ CRITICAL INSTRUCTIONS:
    - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
    - Use emojis sparingly
    - Use line breaks (\\n) for spacing
-   - Use single asterisks for bold (e.g., *important text*)
-   - For nested lists, use dashes (-) and indent (e.g., * Main item\\n  - Sub-item 1\\n  - Sub-item 2)
+   - Use single asterisks for bold (e.g., *important text*). AVOID double asterisks.
+   - For nested lists, use dashes (-) and indent.
+   - For subitems, first add indentation relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
+   - Use double line breaks for separating sections.
 9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
 10. Use all available information from the analysis results to answer the user's request accurately.
 11. For complex topics, break down the information into digestible parts.
