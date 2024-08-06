@@ -157,14 +157,13 @@ async function updateDatabaseWithModelTask(
 }
 
 // Prompt generation functions
-function generateImageAnalysisPrompt(caption: string): string {
-  const prompt = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
+function generateImageAnalysisPrompt(caption: string): {
+  system: string;
+  prompt: string;
+} {
+  const system = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image. Respond ONLY with the EXACT text label from the provided list, matching the case PRECISELY. Your entire response should be a single label.
 
-  Instructions:
-  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}
-
-  2. Guidelines for query interpretation:
+  Guidelines for query interpretation:
     - Text-related queries (Use "OCR"):
       • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
       • Queries about documents, reports, labels, instructions, signs, or any written information
@@ -186,55 +185,55 @@ function generateImageAnalysisPrompt(caption: string): string {
       • Requests to count the number of particular items
       • Queries about the presence or absence of certain objects
 
-  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
-  4. Always interpret the request as being about the image content.
-  5. Do not explain your choice or mention inability to see the image.
-  6. If the query mentions both text and general image content, prioritize "OCR".
+  For ambiguous queries, prefer "OCR" if there's any possibility of text being involved. Always interpret the request as being about the image content. Do not explain your choice or mention inability to see the image. If the query mentions both text and general image content, prioritize "OCR".`;
 
-  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.
+  const prompt = `Choose the most appropriate image analysis type from this list:
+${IMAGE_ANALYSIS_TYPES.join(", ")}
 
-  User's text request: "${caption}"`;
+User's text request: "${caption}"
 
-  console.log("Generated prompt:", prompt);
-  return prompt;
+Respond with only the chosen analysis type label.`;
+
+  return { system, prompt };
 }
 
 function generateHumanReadablePrompt(
   caption: string,
   results: unknown
-): string {
-  const prompt = `
-You are an AI assistant providing image analysis results. You are talking directly to the end user. The user's initial request was: "${caption}"
+): {
+  system: string;
+  prompt: string;
+} {
+  const system = `You are an AI assistant providing image analysis results directly to the end user. Provide responses that directly answer the user's request, with appropriate detail and formatting. Use complex formatting only when the query demands it. For simple queries, provide straightforward answers without unnecessary formatting or explanations.
+
+  CRITICAL INSTRUCTIONS:
+  1. The level of detail should match the complexity of the query. Do not include any introductory or concluding remarks.
+  2. For simple questions, give brief, concise answers without unnecessary elaboration.
+  3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
+  4. Use natural language and explain any technical terms if they must be used.
+  5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
+  6. Do not mention the image analysis process or that an analysis was performed.
+  7. Use OCR results accurately for text-related queries.
+  8. Format for WhatsApp chat ONLY when necessary for complex responses:
+     - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
+     - Use emojis sparingly
+     - Use line breaks (\\n) for spacing
+     - Use single asterisks for bold (e.g., *important text*). AVOID double asterisks.
+     - For nested lists, use dashes (-) and indent.
+     - For subitems, first add indentation relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
+     - Use double line breaks for separating sections and where needed.
+  9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
+  10. Use all available information from the analysis results to answer the user's request accurately.
+  11. For complex topics, break down the information into digestible parts.`;
+
+  const prompt = `The user's initial request about an image was: "${caption}"
 
 The image analysis system provided the following result:
-${results}
+${JSON.stringify(results, null, 2)}
 
-CRITICAL INSTRUCTIONS:
+Based on the analysis results, provide a direct answer to the user's request with appropriate detail and formatting.`;
 
-1. Provide a response that directly answers the user's request. The level of detail should match the complexity of the query. Do not include any introductory or concluding remarks.
-2. For simple questions, give brief, concise answers without unnecessary elaboration.
-3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
-4. Use natural language and explain any technical terms if they must be used.
-5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
-6. Do not mention the image analysis process or that an analysis was performed.
-7. Use OCR results accurately for text-related queries.
-8. Format for WhatsApp chat ONLY when necessary for complex responses:
-   - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
-   - Use emojis sparingly
-   - Use line breaks (\\n) for spacing
-   - Use single asterisks for bold (e.g., *important text*). AVOID double asterisks.
-   - For nested lists, use dashes (-) and indent.
-   - For subitems, first add indentation relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
-   - Use double line breaks for separating sections.
-9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
-10. Use all available information from the analysis results to answer the user's request accurately.
-11. For complex topics, break down the information into digestible parts.
-
-CRITICAL: Your response should directly answer the user's request ("${caption}"), with appropriate detail and formatting. Use complex formatting only when the query demands it. For simple queries, provide straightforward answers without unnecessary formatting or explanations.
-`;
-
-  console.log("Generated prompt:", prompt);
-  return prompt;
+  return { system, prompt };
 }
 
 // Main handler function
@@ -250,16 +249,27 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    const response = await callOllamaAPI(generateImageAnalysisPrompt(caption));
-    console.log("Ollama API response:", response);
+    const { system: analysisSystem, prompt: analysisPrompt } =
+      generateImageAnalysisPrompt(caption);
+    const analysisType = await callOllamaAPI(analysisPrompt, {
+      system: analysisSystem,
+      temperature: 0,
+      top_k: 20,
+      top_p: 0.45,
+    });
+    console.log("Ollama API response (analysis type):", analysisType);
 
-    if (!IMAGE_ANALYSIS_TYPES.includes(response as ImageAnalysisType)) {
-      await sendMessage(provider, ctx.key.remoteJid, response);
+    if (!IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)) {
+      await sendMessage(
+        provider,
+        ctx.key.remoteJid,
+        "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request."
+      );
       return;
     }
 
     await connectToDatabase();
-    await updateDatabaseWithModelTask(response as ImageAnalysisType);
+    await updateDatabaseWithModelTask(analysisType as ImageAnalysisType);
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -277,9 +287,14 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    const humanReadableResponse = await callOllamaAPI(
-      generateHumanReadablePrompt(caption, JSON.stringify(results, null, 2))
-    );
+    const { system: responseSystem, prompt: responsePrompt } =
+      generateHumanReadablePrompt(caption, results);
+    const humanReadableResponse = await callOllamaAPI(responsePrompt, {
+      system: responseSystem,
+      temperature: 0,
+      top_k: 20,
+      top_p: 0.45,
+    });
     console.log("Human-readable response:", humanReadableResponse);
 
     await sendMessage(provider, number, humanReadableResponse);
@@ -297,7 +312,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
   }
 }
-
 // Export the flow
 export const analyseImageFlow = addKeyword<Provider, Database>(
   EVENTS.MEDIA
