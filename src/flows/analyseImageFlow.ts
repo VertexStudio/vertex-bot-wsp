@@ -36,43 +36,17 @@ const {
 const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
   "object detection",
-  "dense region caption",
-  "region proposal",
-  "caption to phrase grounding",
-  "referring expression segmentation",
-  "region to segmentation",
-  "open vocabulary detection",
-  "region to category",
-  "region to description",
+  // "dense region caption",
+  // "region proposal",
+  // "caption to phrase grounding",
+  // "referring expression segmentation",
+  // "region to segmentation",
+  // "open vocabulary detection",
+  // "region to category",
+  // "region to description",
   "OCR",
-  "OCR with region",
+  // "OCR with region",
 ];
-
-// const IMAGE_ANALYSIS_DESCRIPTIONS = `
-// more detailed caption: Creating comprehensive and detailed textual descriptions of the entire image. This involves identifying all significant elements within the image, describing their appearances, relationships, actions, interactions, and the overall context. For example, providing a narrative that includes objects, scenery, people, and their activities.
-
-// object detection: Locating and identifying specific objects within an image. This includes providing bounding boxes and labels for each detected object. For example, identifying a cat, a car, and a tree within the image, along with their respective positions.
-
-// dense region caption: Generating detailed textual descriptions for multiple specific regions within an image, especially in densely populated scenes. Each caption should describe what is present in the corresponding region, including objects and their actions. For example, describing different areas in a crowded market scene.
-
-// region proposal: Identifying and suggesting regions of interest within an image that might contain important objects or details. This involves pinpointing areas that warrant further analysis or attention, such as highlighting potential areas where objects or activities are concentrated.
-
-// caption to phrase grounding: Associating specific phrases from a provided caption to particular regions in an image. This involves linking parts of the text description with corresponding visual regions. For example, linking the phrase "a man riding a bicycle" to the region in the image that contains the man and the bicycle.
-
-// referring expression segmentation: Segmenting and identifying specific objects in the image based on descriptive phrases provided by the user. This involves using the user's description to find and isolate the specified object within the image. For instance, segmenting the object described as "the red car on the left" based on that description.
-
-// region to segmentation: Converting selected regions into segmentation masks, which involves creating precise outlines or masks for the identified regions. This can be used for further image analysis tasks, such as isolating objects or areas for detailed study.
-
-// open vocabulary detection: Detecting and identifying objects within an image using a flexible and extensive vocabulary, not limited to predefined categories. This involves recognizing and naming objects that may not be part of a standard object detection dataset, allowing for a more flexible approach.
-
-// region to category: Classifying specific regions into predefined categories or types based on their content. This involves analyzing the selected region and assigning it to a known category, such as "animal", "vehicle", or "building". For example, categorizing different sections of a park scene into playground, bench area, and walking path.
-
-// region to description: Generating detailed descriptions for specific regions within the image, explaining what each part contains. This involves providing a narrative or explanation for what is seen in the region, including objects, activities, and context. For example, describing the activities happening in a section of a beach scene.
-
-// OCR: Detecting and recognizing all text present within the image. This involves identifying areas containing text, extracting the text, and converting it into a digital format that can be read and processed. For example, recognizing and transcribing a signboard in the image.
-
-// OCR with region: Detecting and recognizing text within an image and providing information about its location. This involves not only extracting the text but also specifying where each piece of text is located within the image. For example, identifying and locating text on multiple signs within a street view image.
-// `;
 
 // Database connection
 let db: Surreal | undefined;
@@ -191,30 +165,34 @@ function generateImageAnalysisPrompt(caption: string): string {
     ${IMAGE_ANALYSIS_TYPES.join(", ")}
 
   2. Guidelines for query interpretation:
-    - Text-related queries (Priority):
-      • Requests about reading, understanding, or analyzing any text, numbers, or data
-      • Queries about documents, reports, labels, signs, or any written information
-      • Questions about specific information typically presented in text (e.g., stock prices, scores, dates)
-    → Use "OCR" or "OCR with region" (if a specific area is mentioned)
+    - Text-related queries:
+      • Requests about reading, understanding, or analyzing any text, numbers, or data visible in the image
+      • Unknown words, phrases, or symbols that need to be read from the image
+      • Queries about documents, reports, labels, signs, or any written information directly visible
+      • Questions about specific textual information present in the image (e.g., visible stock prices, scores, dates)
+    → Use "OCR"
 
-    - General scene queries:
+    - General queries and detailed descriptions:
       • Informal or colloquial requests about the overall image content
       • Questions about what's happening or the general context of the scene
-      • Queries about identifying individuals or asking "who" questions
+      • Queries about identifying individuals, objects, or asking "who/what" questions
+      • Requests for detailed information about specific elements in the image (e.g., breed of animal, type of object, characteristics of people or things)
+      • Questions about recognizing or recalling familiar elements (e.g., logos, brands, famous people, signs, symbols)
+      • Requests to identify or recall information based on visual cues (e.g., company names from logos, brand recognition)
+      • Any query involving memory, recognition, or recall of information from the image
+      • Queries containing phrases like "I can't recall", "I don't remember", "What is this", "Identify this"
     → Use "more detailed caption"
 
-    - Specific object queries:
-      • Questions about identifying, counting, or locating specific objects
-      • Questions about whether a certain object is present in the image
+    - Specific object location or counting:
+      • Questions specifically about locating objects within the image
+      • Queries about counting the number of specific objects
+      • Requests to confirm if a particular object is present or absent
     → Use "object detection"
 
-    - Area-specific queries (non-text):
-      • Questions about particular regions or areas in the image, not related to text
-    → Use "dense region caption"
-
-  3. For ambiguous queries or questions about identifying individuals, prefer "more detailed caption".
+  3. For ambiguous queries or those not clearly fitting into other categories, prefer "more detailed caption".
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
+  6. For queries about identifying companies, brands, or organizations, use "more detailed caption" unless the query specifically asks to read text.
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.
 
@@ -228,26 +206,36 @@ function generateHumanReadablePrompt(
   caption: string,
   results: unknown
 ): string {
-  return `
-  You are an AI assistant providing image analysis results. You're talking directly to the end user. The user's initial request was: "${caption}"
+  const prompt = `
+You are an AI assistant providing image analysis results. You are talking directly to the end user. The user's initial request was: "${caption}"
 
-  The image analysis system provided the following result:
-  ${results}
+The image analysis system provided the following result:
+${results}
 
-  Please provide a response that:
-  1. Is easily understandable by a human.
-  2. Directly addresses the user's initial request: "${caption}".
-  3. Summarizes the key findings from the image analysis.
-  4. Uses natural language and avoids technical jargon unless absolutely necessary.
-  5. Is concise but informative, ensuring the user receives the essential information they need.
-  6. Directly answer the user's text request without additional information or comments.
-  7. Do not ever deny the user's request or suggest that you can't help.
-  8. Be concise and to the point, focusing on the key information the user needs.
-  9. If the answer to the user's request can't be determined base on the image analysis, provide a clear and concise response that indicates this limitation.
-  10. Do not mention the image analysis process because the user does not care and does not need to know how the analysis was done.
+CRITICAL INSTRUCTIONS:
 
-  Structure your response to clearly convey the image analysis results in a helpful and straightforward way, directly relating to the user's initial request. Do not offer further assistance or additional initial/final comments.
-  `;
+1. Provide a response that directly answers the user's request. The level of detail should match the complexity of the query. Do not include any introductory or concluding remarks.
+2. For simple questions, give brief, concise answers without unnecessary elaboration.
+3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
+4. Use natural language and explain any technical terms if they must be used.
+5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
+6. Do not mention the image analysis process or that an analysis was performed.
+7. Use OCR results accurately for text-related queries.
+8. Format for WhatsApp chat when necessary:
+   - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
+   - Use emojis sparingly
+   - Use line breaks (\\n) for spacing
+   - Use single asterisks for bold (e.g., *important text*)
+   - For nested lists, use dashes (-) and indent (e.g., * Main item\\n  - Sub-item 1\\n  - Sub-item 2)
+9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
+10. Use all available information from the analysis results to answer the user's request accurately.
+11. For complex topics, break down the information into digestible parts.
+
+CRITICAL: Your response should directly answer the user's request ("${caption}"), with appropriate detail and formatting. Do not add unnecessary information or explanations unless the query demands it.
+`;
+
+  console.log("Generated prompt:", prompt);
+  return prompt;
 }
 
 // Main handler function
@@ -291,7 +279,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     console.log("Initial analysis data:", results);
 
     const humanReadableResponse = await callOllamaAPI(
-      generateHumanReadablePrompt(caption, results)
+      generateHumanReadablePrompt(caption, JSON.stringify(results, null, 2))
     );
     console.log("Human-readable response:", humanReadableResponse);
 

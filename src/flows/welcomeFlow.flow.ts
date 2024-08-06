@@ -12,6 +12,9 @@ export async function callOllamaAPI(prompt: string): Promise<string> {
       model: MODEL,
       prompt,
       stream: false,
+      // options: {
+      //   temperature: 0,
+      // },
     });
     return response.data.response;
   } catch (error) {
