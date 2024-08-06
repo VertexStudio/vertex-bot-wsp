@@ -165,15 +165,15 @@ function generateImageAnalysisPrompt(caption: string): string {
     ${IMAGE_ANALYSIS_TYPES.join(", ")}
 
   2. Use these simple guidelines:
-    - "OCR": For ANY query related to text.
-    - "object detection": ONLY for queries about specific entities within the image, counting, locate, check presence, etc.
+    - "OCR": For ANY query related to text. 
+      - It has to include the keyword "read" or "text".
+    - "object detection": ONLY for queries about counting, locating, or checking the presence of specific objects or entities in the image.
     - "more detailed caption": For ALL OTHER queries.
 
   3. Your entire response must be a single label from the list above.
   4. Do not explain your choice or mention inability to see the image.
-  5. ALWAYS interpret the request as being about the image and its contents. EVERYTHING is about the image and what is IN the image.
+  5. ALWAYS interpret the request as being about the image and its contents.
   6. Pay attention to the overall intent of the user's request with respect to the image.
-  7. If the user tells you about entities, subjects, objects etc, is talking about things in the image.
 
   User's text request: "${caption}"`;
 
@@ -198,7 +198,7 @@ CRITICAL INSTRUCTIONS:
 3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
 4. Use natural language and explain any technical terms if they must be used.
 5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
-6. Do not mention the image analysis process or that an analysis was performed.
+6. Do not mention the image analysis process, raw image analysis results, or that an analysis was performed at all.
 7. Use OCR results accurately for text-related queries.
 8. Format for WhatsApp chat ONLY when necessary for complex responses:
    - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
