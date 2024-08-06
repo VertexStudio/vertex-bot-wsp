@@ -165,34 +165,31 @@ function generateImageAnalysisPrompt(caption: string): string {
     ${IMAGE_ANALYSIS_TYPES.join(", ")}
 
   2. Guidelines for query interpretation:
-    - Text-related queries:
-      • Requests about reading, understanding, or analyzing any text, numbers, or data visible in the image
-      • Unknown words, phrases, or symbols that need to be read from the image
-      • Queries about documents, reports, labels, instructions, signs, or any written information directly visible
-      • Questions about specific textual information present in the image (e.g., visible stock prices, scores, dates)
-    → Use "OCR"
+    - Text-related queries (Use "OCR"):
+      • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
+      • Queries about documents, reports, labels, instructions, signs, or any written information
+      • Requests to explain, clarify, or provide more information about visible text
+      • Questions about specific textual content (e.g., prices, scores, dates, names)
+      • Requests to translate or interpret text in the image
+      • ANY query using words like "explain", "clarify", "elaborate", "describe", or "interpret" when referring to content that could be text
 
-    - General queries and detailed descriptions:
-      • Informal or colloquial requests about the overall image content
-      • Questions about what's happening or the general context of the scene
-      • Queries about identifying individuals, objects, or asking "who/what" questions
-      • Requests for detailed information about specific elements in the image (e.g., breed of animal, type of object, characteristics of people or things)
-      • Questions about recognizing or recalling familiar elements (e.g., logos, brands, famous people, signs, symbols)
-      • Requests to identify or recall information based on visual cues (e.g., company names from logos, brand recognition)
-      • Any query involving memory, recognition, or recall of information from the image
-      • Queries containing phrases like "I can't recall", "I don't remember", "What is this", "Identify this"
-    → Use "more detailed caption"
+    - General queries and detailed descriptions (Use "more detailed caption"):
+      • Requests about the overall image content, context, or scene description
+      • Identifying or describing objects, people, animals, or environments
+      • Questions about actions, events, or situations depicted in the image
+      • Requests for detailed information about visual elements (e.g., colors, styles, arrangements)
+      • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
+      • Any question involving visual recognition or recall without explicitly mentioning text
 
-    - Specific object location or counting:
-      • Questions specifically about locating objects within the image
-      • Queries about counting the number of specific objects
-      • Requests to confirm if a particular object is present or absent
-    → Use "object detection"
+    - Specific object location or counting (Use "object detection"):
+      • Questions about locating specific objects within the image
+      • Requests to count the number of particular items
+      • Queries about the presence or absence of certain objects
 
-  3. For ambiguous queries or those not clearly fitting into other categories, prefer "more detailed caption".
+  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
-  6. For queries about identifying companies, brands, or organizations, use "more detailed caption" unless the query specifically asks to read text.
+  6. If the query mentions both text and general image content, prioritize "OCR".
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.
 
