@@ -158,40 +158,22 @@ async function updateDatabaseWithModelTask(
 
 // Prompt generation functions
 function generateImageAnalysisPrompt(caption: string): string {
-  const prompt = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
+  const prompt = `You are an AI assistant for image analysis tasks. Determine the most appropriate type of image analysis based on the user's request about an image.
 
   Instructions:
-  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
+  1. Respond ONLY with the EXACT text label from this list, matching the case PRECISELY:
     ${IMAGE_ANALYSIS_TYPES.join(", ")}
 
-  2. Guidelines for query interpretation:
-    - Text-related queries (Use "OCR"):
-      • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
-      • Queries about documents, reports, labels, instructions, signs, or any written information
-      • Requests to explain, clarify, or provide more information about visible text
-      • Questions about specific textual content (e.g., prices, scores, dates, names)
-      • Requests to translate or interpret text in the image
-      • ANY query using words like "explain", "clarify", "elaborate", "describe", or "interpret" when referring to content that could be text
+  2. Use these simple guidelines:
+    - "OCR": For ANY query related to text.
+    - "object detection": ONLY for queries about specific entities within the image, counting, locate, check presence, etc.
+    - "more detailed caption": For ALL OTHER queries.
 
-    - General queries and detailed descriptions (Use "more detailed caption"):
-      • Requests about the overall image content, context, or scene description
-      • Identifying or describing objects, people, animals, or environments
-      • Questions about actions, events, or situations depicted in the image
-      • Requests for detailed information about visual elements (e.g., colors, styles, arrangements)
-      • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
-      • Any question involving visual recognition or recall without explicitly mentioning text
-
-    - Specific object location or counting (Use "object detection"):
-      • Questions about locating specific objects within the image
-      • Requests to count the number of particular items
-      • Queries about the presence or absence of certain objects
-
-  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
-  4. Always interpret the request as being about the image content.
-  5. Do not explain your choice or mention inability to see the image.
-  6. If the query mentions both text and general image content, prioritize "OCR".
-
-  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.
+  3. Your entire response must be a single label from the list above.
+  4. Do not explain your choice or mention inability to see the image.
+  5. ALWAYS interpret the request as being about the image and its contents. EVERYTHING is about the image and what is IN the image.
+  6. Pay attention to the overall intent of the user's request with respect to the image.
+  7. If the user tells you about entities, subjects, objects etc, is talking about things in the image.
 
   User's text request: "${caption}"`;
 
