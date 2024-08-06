@@ -45,7 +45,7 @@ const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   // "region to category",
   // "region to description",
   "OCR",
-  "OCR with region",
+  // "OCR with region",
 ];
 
 // Database connection
@@ -165,19 +165,19 @@ function generateImageAnalysisPrompt(caption: string): string {
     ${IMAGE_ANALYSIS_TYPES.join(", ")}
 
   2. Guidelines for query interpretation:
-    - Text-related queries (Priority):
+    - Text-related queries:
       • Requests about reading, understanding, or analyzing any text, numbers, or data visible in the image
       • Unknown words, phrases, or symbols that need to be read from the image
       • Queries about documents, reports, labels, signs, or any written information directly visible
       • Questions about specific textual information present in the image (e.g., visible stock prices, scores, dates)
-    → Use "OCR" or "OCR with region" (if a specific area is mentioned)
+    → Use "OCR"
 
     - General queries and detailed descriptions:
       • Informal or colloquial requests about the overall image content
       • Questions about what's happening or the general context of the scene
       • Queries about identifying individuals, objects, or asking "who/what" questions
       • Requests for detailed information about specific elements in the image (e.g., breed of animal, type of object, characteristics of people or things)
-      • Questions about recognizing or recalling familiar elements (e.g., logos, brands, famous people)
+      • Questions about recognizing or recalling familiar elements (e.g., logos, brands, famous people, signs, symbols)
       • Requests to identify or recall information based on visual cues (e.g., company names from logos, brand recognition)
       • Any query involving memory, recognition, or recall of information from the image
       • Queries containing phrases like "I can't recall", "I don't remember", "What is this", "Identify this"
@@ -189,13 +189,10 @@ function generateImageAnalysisPrompt(caption: string): string {
       • Requests to confirm if a particular object is present or absent
     → Use "object detection"
 
-    - Area-specific queries (non-text):
-      • Questions about particular regions or areas in the image, not related to text
-    → Use "dense region caption"
-
   3. For ambiguous queries or those not clearly fitting into other categories, prefer "more detailed caption".
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
+  6. For queries about identifying companies, brands, or organizations, use "more detailed caption" unless the query specifically asks to read text.
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.
 
@@ -210,32 +207,32 @@ function generateHumanReadablePrompt(
   results: unknown
 ): string {
   const prompt = `
-  You are an AI assistant providing image analysis results. You are talking directly to the end user. The user's initial request was: "${caption}"
+You are an AI assistant providing image analysis results. You are talking directly to the end user. The user's initial request was: "${caption}"
 
-  The image analysis system provided the following result:
-  ${results}
+The image analysis system provided the following result:
+${results}
 
-  CRITICAL INSTRUCTIONS:
+CRITICAL INSTRUCTIONS:
 
-  1. Respond ONLY with the direct answer to the user's request. Do not include any introductory or concluding remarks.
-  2. If the user's initial request is empty, provide a concise description of the key elements in the image based on the analysis results.
-  3. Use natural language and avoid technical jargon unless absolutely necessary.
-  4. Be concise and to the point, focusing only on the information directly relevant to the user's request or the main elements of the image.
-  5. If the answer to the user's request can't be determined based on the image analysis, politely state that the requested information couldn't be found in the image.
-  6. Do not mention the image analysis process or that an analysis was performed.
-  7. Do not offer further assistance or ask if the user needs more information.
-  8. If the analysis results contain text from the image (OCR), use this information to answer text-related queries accurately.
-  9. Format your response for WhatsApp chat:
-     - Use bullet points for lists
-     - Use emojis sparingly to enhance readability
-     - Use bold for important information (e.g., *important text*).
-  10. If the user requests it, provide step-by-step instructions or detailed explanations, formatted for easy reading in a chat.
-  11. Use all available information from the analysis results to answer the user's request.
+1. Provide a response that directly answers the user's request. The level of detail should match the complexity of the query. Do not include any introductory or concluding remarks.
+2. For simple questions, give brief, concise answers without unnecessary elaboration.
+3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
+4. Use natural language and explain any technical terms if they must be used.
+5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
+6. Do not mention the image analysis process or that an analysis was performed.
+7. Use OCR results accurately for text-related queries.
+8. Format for WhatsApp chat when necessary:
+   - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
+   - Use emojis sparingly
+   - Use line breaks (\\n) for spacing
+   - Use single asterisks for bold (e.g., *important text*)
+   - For nested lists, use dashes (-) and indent (e.g., * Main item\\n  - Sub-item 1\\n  - Sub-item 2)
+9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
+10. Use all available information from the analysis results to answer the user's request accurately.
+11. For complex topics, break down the information into digestible parts.
 
-  CRITICAL: Your entire response should be an answer to the user's initial request ("${caption}"), formatted for WhatsApp chat. Do not include any additional comments or explanations about the process.
-
-  WARNING: If you see 'bboxes' in the response, those are bounding boxes of detected 'labels' in the image. After these 'bboxes', you'll see the 'labels' that were detected.
-  `;
+CRITICAL: Your response should directly answer the user's request ("${caption}"), with appropriate detail and formatting. Do not add unnecessary information or explanations unless the query demands it.
+`;
 
   console.log("Generated prompt:", prompt);
   return prompt;
