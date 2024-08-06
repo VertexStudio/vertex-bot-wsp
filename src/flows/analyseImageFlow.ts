@@ -163,7 +163,7 @@ function generateImageAnalysisPrompt(caption: string): {
 } {
   const system = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image. Respond ONLY with the EXACT text label from the provided list, matching the case PRECISELY. Your entire response should be a single label.
 
-  Guidelines for query interpretation:
+  2. Guidelines for query interpretation:
     - Text-related queries (Use "OCR"):
       • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
       • Queries about documents, reports, labels, instructions, signs, or any written information
@@ -185,7 +185,12 @@ function generateImageAnalysisPrompt(caption: string): {
       • Requests to count the number of particular items
       • Queries about the presence or absence of certain objects
 
-  For ambiguous queries, prefer "OCR" if there's any possibility of text being involved. Always interpret the request as being about the image content. Do not explain your choice or mention inability to see the image. If the query mentions both text and general image content, prioritize "OCR".`;
+  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
+  4. Always interpret the request as being about the image content.
+  5. Do not explain your choice or mention inability to see the image.
+  6. If the query mentions both text and general image content, prioritize "OCR".
+
+  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
   const prompt = `Choose the most appropriate image analysis type from this list:
 ${IMAGE_ANALYSIS_TYPES.join(", ")}
