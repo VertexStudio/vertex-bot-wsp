@@ -6,15 +6,26 @@ import axios from "axios";
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
 const MODEL = "llama3.1";
 
-export async function callOllamaAPI(prompt: string): Promise<string> {
+export async function callOllamaAPI(
+  prompt: string,
+  options: {
+    system?: string;
+    temperature?: number;
+    top_k?: number;
+    top_p?: number;
+  } = {}
+): Promise<string> {
   try {
     const response = await axios.post(OLLAMA_API_URL, {
       model: MODEL,
       prompt,
+      system: options.system,
       stream: false,
-      // options: {
-      //   temperature: 0,
-      // },
+      options: {
+        temperature: options.temperature ?? 0.7,
+        top_k: options.top_k ?? 40,
+        top_p: options.top_p ?? 0.9,
+      },
     });
     return response.data.response;
   } catch (error) {
