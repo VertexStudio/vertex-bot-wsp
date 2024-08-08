@@ -30143,6 +30143,15 @@ class BaileysProvider extends bot.ProviderClass {
 					console.log('got reactions', reaction)
 					this.emit('reaction', reaction)
 				})
+				sock.ev.on('groups.upsert', async (upsert) => {
+					console.log('got upserts', upsert);
+					this.emit('groups.upsert', upsert)
+					for (const group of upsert) {
+						if (group.id) {
+							await sock.sendMessage(group.id, { text: '¡Hola! El bot ha entrado al grupo.' });
+						}
+					}
+				});
                 sock.ev.on('connection.update', async (update) => {
                     const { connection, lastDisconnect, qr } = update;
                     const statusCode = lastDisconnect?.error?.output?.statusCode;

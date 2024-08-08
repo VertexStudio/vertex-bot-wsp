@@ -6,21 +6,24 @@ import * as path from "path";
 import { typing } from "../utils/presence";
 import * as chokidar from "chokidar";
 import sharp from "sharp";
+import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
 
 const IMAGE_DIRECTORY = "./assets/images";
 const RESIZED_DIRECTORY = "./assets/resized";
 const CORRECT_DIRECTORY = "./assets/corrects";
 const INCORRECT_DIRECTORY = "./assets/incorrects";
-const MESSAGE_GAP_SECONDS = 6000;
+const MESSAGE_GAP_SECONDS = 3000;
+
+const queueConfig: QueueConfig = { gapSeconds: MESSAGE_GAP_SECONDS };
+const messageQueue = createMessageQueue(queueConfig);
 
 interface ImageMessage {
     imagePath: string;
     timestamp: number;
-    id?: string; 
+    id?: string;
 }
 
 const imageQueue: ImageMessage[] = [];
-let imageTimer: NodeJS.Timeout | null = null;
 let isProcessing = false;
 let processId = 0;
 let provider: Provider;
@@ -51,7 +54,7 @@ async function sendImage(ctx: any, provider: Provider, imagePath: string) {
         caption: path.basename(imagePath)
     });
 
-    console.log(sentMessage)
+    console.log(sentMessage);
 
     if (sentMessage && sentMessage.key && sentMessage.key.id) {
         const messageId = sentMessage.key.id;
@@ -65,24 +68,19 @@ async function sendImage(ctx: any, provider: Provider, imagePath: string) {
 async function enqueueImage(ctx: any, provider: Provider, imagePath: string): Promise<void> {
     console.log(`[${processId}] Enqueuing image: ${imagePath}`);
     imageQueue.push({ imagePath, timestamp: Date.now() });
-
-    if (!imageTimer) {
-        imageTimer = setTimeout(() => processImageQueue(ctx, provider), MESSAGE_GAP_SECONDS);
-    }
+    processImageQueue(ctx, provider);
 }
 
 async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
     if (imageQueue.length === 0) {
         console.log(`[${processId}] Image queue is empty`);
-        imageTimer = null;
-        isProcessing = false;
         return;
     }
 
     const { imagePath } = imageQueue.shift()!;
-    await sendImage(ctx, provider, imagePath);
-
-    imageTimer = setTimeout(() => processImageQueue(ctx, provider), MESSAGE_GAP_SECONDS);
+    messageQueue(imagePath, async (body) => {
+        await sendImage(ctx, provider, body);
+    });
 }
 
 function handleNewImage(imagePath: string) {
@@ -139,7 +137,7 @@ async function handleReaction(reactions: any[]) {
     console.log(`Sent Images:`, Array.from(sentImages.entries()));
 
     const reactionId = reaction.key;
-    console.log("ReactionID: ", reactionId.id)
+    console.log("ReactionID: ", reactionId.id);
     const imageMessage = Array.from(sentImages.values()).find(img => img.id === reactionId.id);
     if (!imageMessage) {
         console.log(`No matching image found for reaction. Reaction ID: ${reactionId.id}`);
@@ -156,7 +154,7 @@ async function handleReaction(reactions: any[]) {
             await moveImage(imagePath, INCORRECT_DIRECTORY);
             await provider.sendText(reactionKey.remoteJid, `Imagen marcada como incorrecta.`);
         }
-        sentImages.delete(reactionId);
+        sentImages.delete(reactionId.id);
     } catch (error) {
         console.error(`[${processId}] Error moving image:`, error);
         await provider.sendText(reactionKey.remoteJid, "Hubo un error al mover la imagen.");
@@ -198,7 +196,7 @@ export const imageFlow = addKeyword<Provider, Database>("imagenes", { sensitive:
 
             await provider.sendText(ctx.key.remoteJid, "All images have been enqueued and will be sent shortly. New images will be sent automatically.");
 
-            if (!imageTimer) {
+            if (!isProcessing) {
                 processImageQueue(ctx, provider);
             }
 
@@ -208,7 +206,6 @@ export const imageFlow = addKeyword<Provider, Database>("imagenes", { sensitive:
             console.error(`[${processId}] Error processing images:`, error);
             await provider.sendText(ctx.key.remoteJid, "There was an error processing the images.");
             isProcessing = false;
-            imageTimer = null;
         }
     });
 
