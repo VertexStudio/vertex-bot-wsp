@@ -11,15 +11,15 @@ import { callOllamaAPI } from "./welcomeFlow.flow";
 // Type definitions
 type ImageAnalysisType =
   | "more detailed caption"
-  | "object detection"
+  // | "object detection"
   | "dense region caption"
-  | "region proposal"
-  | "caption to phrase grounding"
-  | "referring expression segmentation"
-  | "region to segmentation"
-  | "open vocabulary detection"
-  | "region to category"
-  | "region to description"
+  // | "region proposal"
+  // | "caption to phrase grounding"
+  // | "referring expression segmentation"
+  // | "region to segmentation"
+  // | "open vocabulary detection"
+  // | "region to category"
+  // | "region to description"
   | "OCR"
   | "OCR with region";
 
@@ -35,15 +35,15 @@ const {
 
 const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
-  "object detection",
+  // "object detection",
   "dense region caption",
-  "region proposal",
-  "caption to phrase grounding",
-  "referring expression segmentation",
-  "region to segmentation",
-  "open vocabulary detection",
-  "region to category",
-  "region to description",
+  // "region proposal",
+  // "caption to phrase grounding",
+  // "referring expression segmentation",
+  // "region to segmentation",
+  // "open vocabulary detection",
+  // "region to category",
+  // "region to description",
   "OCR",
   "OCR with region",
 ];
