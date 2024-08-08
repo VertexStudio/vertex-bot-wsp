@@ -173,7 +173,7 @@ function generateImageAnalysisPrompt(caption: string): {
   Remember, your entire response must be a single label from the list, exactly as written, including correct capitalization.`;
 
   const prompt = `Choose the most appropriate image analysis type from this list:
-${IMAGE_ANALYSIS_TYPES.join(", ")}
+${IMAGE_ANALYSIS_TYPES.join(", ")}.
 
 User's text request: "${caption}"
 
