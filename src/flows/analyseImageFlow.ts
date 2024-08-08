@@ -35,8 +35,8 @@ const {
 
 const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
-  "object detection",
-  // "dense region caption",
+  // "object detection",
+  "dense region caption",
   // "region proposal",
   // "caption to phrase grounding",
   // "referring expression segmentation",
@@ -181,7 +181,7 @@ function generateImageAnalysisPrompt(caption: string): string {
       • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
       • Any question involving visual recognition or recall without explicitly mentioning text
 
-    - Specific object location or counting (Use "object detection"):
+    - Specific object location or counting (Use "dense region caption"):
       • Questions about locating specific objects within the image
       • Requests to count the number of particular items
       • Queries about the presence or absence of certain objects
