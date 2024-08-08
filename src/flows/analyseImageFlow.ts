@@ -161,23 +161,42 @@ function generateImageAnalysisPrompt(caption: string): {
   system: string;
   prompt: string;
 } {
-  const system = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image. You have a deep understanding of various computer vision tasks and their applications. Respond ONLY with the EXACT text label from the provided list, matching the case PRECISELY. Your entire response should be a single label.
+  const system = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
 
-  Key points:
-  1. Use your knowledge of computer vision tasks to select the most appropriate analysis type.
-  2. Consider the specific requirements and implications of each analysis type.
-  3. If the query is ambiguous or could apply to multiple analysis types, default to "more detailed caption".
+  Instructions:
+  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}
+
+  2. Guidelines for query interpretation:
+    - Text-related queries (Use "OCR"):
+      • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
+      • Queries about documents, reports, labels, instructions, signs, or any written information
+      • Requests to explain, clarify, or provide more information about visible text
+      • Questions about specific textual content (e.g., prices, scores, dates, names)
+      • Requests to translate or interpret text in the image
+      • ANY query using words like "explain", "clarify", "elaborate", "describe", or "interpret" when referring to content that could be text
+
+    - General queries and detailed descriptions (Use "more detailed caption"):
+      • Requests about the overall image content, context, or scene description
+      • Identifying or describing objects, people, animals, or environments
+      • Questions about actions, events, or situations depicted in the image
+      • Requests for detailed information about visual elements (e.g., colors, styles, arrangements)
+      • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
+      • Any question involving visual recognition or recall without explicitly mentioning text
+
+    - Specific object location or counting (Use "dense region caption"):
+      • Questions about locating specific objects within the image
+      • Requests to count the number of particular items
+      • Queries about the presence or absence of certain objects
+
+  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
   4. Always interpret the request as being about the image content.
   5. Do not explain your choice or mention inability to see the image.
+  6. If the query mentions both text and general image content, prioritize "OCR".
 
-  Remember, your entire response must be a single label from the list, exactly as written, including correct capitalization.`;
+  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
-  const prompt = `Choose the most appropriate image analysis type from this list:
-${IMAGE_ANALYSIS_TYPES.join(", ")}.
-
-User's text request: "${caption}"
-
-Respond with only the chosen analysis type label.`;
+  const prompt = `User's text request: "${caption}"`;
 
   return { system, prompt };
 }
@@ -189,9 +208,7 @@ function generateHumanReadablePrompt(
   system: string;
   prompt: string;
 } {
-  const system = `You are an AI assistant providing image analysis results directly to the end user. Provide responses that directly answer the user's request, with appropriate detail and formatting. Use complex formatting only when the query demands it. For simple queries, provide straightforward answers without unnecessary formatting or explanations.
-
-  CRITICAL INSTRUCTIONS:
+  const system = `You are an AI assistant providing image analysis results directly to the end user. Provide responses that directly answer the user's request, with appropriate detail and formatting. Use complex formatting only when the query demands it. For simple queries, provide straightforward answers without unnecessary elaboration.
   1. Provide a response that directly answers the user's request. The level of detail should match the complexity of the query. Do not include any introductory or concluding remarks.
   2. For simple questions, give brief, concise answers without unnecessary elaboration.
   3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
