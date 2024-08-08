@@ -45,7 +45,7 @@ const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   // "region to category",
   // "region to description",
   "OCR",
-  "OCR with region",
+  // "OCR with region",
 ];
 
 // Database connection
