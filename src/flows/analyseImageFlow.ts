@@ -146,6 +146,9 @@ async function updateDatabaseWithModelTask(
   const updateQuery = `
     LET $linkedModelTask = (SELECT (->camera_tasks->task->task_model_tasks.out)[0] AS model_task FROM $camera)[0].model_task;
     UPDATE $linkedModelTask SET task = $model_task;
+
+    LET $linkedTask = ((SELECT (->camera_tasks->task)[0] AS task FROM $camera)[0].task;
+    UPDATE $linkedTask SET detect_anomaly = false;
   `;
 
   const query = await db.query(updateQuery, {
