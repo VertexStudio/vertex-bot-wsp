@@ -223,7 +223,7 @@ function generateHumanReadablePrompt(
     - Use single asterisks for bold (e.g., *important text*). AVOID double asterisks.
     - For nested lists, use dashes (-) and indent.
     - For subitems, first add indentation relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
-    - Use double line breaks for separating sections.
+    - Use double line breaks.
   9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
   10. Use all available information from the analysis results to answer the user's request accurately.
   11. For complex topics, break down the information into digestible parts.`;
