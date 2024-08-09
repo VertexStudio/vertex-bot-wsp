@@ -165,7 +165,7 @@ function generateImageAnalysisPrompt(caption: string): {
 
   Instructions:
   1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}.
 
   2. Guidelines for query interpretation:
     - Text-related queries (Use "OCR"):
