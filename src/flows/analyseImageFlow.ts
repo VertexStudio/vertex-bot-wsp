@@ -190,9 +190,10 @@ function generateImageAnalysisPrompt(caption: string): {
       • Queries about the presence or absence of certain objects
 
   3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
-  4. Always interpret the request as being about the image content.
-  5. Do not explain your choice or mention inability to see the image.
-  6. If the query mentions both text and general image content, prioritize "OCR".
+  4. For ambiogous, meaningless, or unrelated queries, prefer "more detailed caption".
+  5. Always interpret the request as being about the image content.
+  6. Do not explain your choice or mention inability to see the image.
+  7. If the query mentions both text and general image content, prioritize "OCR".
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
@@ -214,16 +215,17 @@ function generateHumanReadablePrompt(
   3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
   4. Use natural language and explain any technical terms if they must be used.
   5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
-  6. Do not mention the image analysis process or that an analysis was performed.
+  6. Do not mention the image analysis process or that an analysis was performed at all.
   7. Use OCR results accurately for text-related queries.
   8. Format for WhatsApp chat ONLY when necessary for complex responses:
     - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
     - Use emojis sparingly
     - Use line breaks (\\n) for spacing
     - Use single asterisks for bold (e.g., *important text*). AVOID double asterisks.
-    - For nested lists, use dashes (-) and indent.
-    - For subitems, first add indentation relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
+    - For nested lists, use dashes (-) and spaces.
+    - For subitems, first add space relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
     - Use double line breaks.
+    - AVOID indentation, use spaces instead.
   9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
   10. Use all available information from the analysis results to answer the user's request accurately.
   11. For complex topics, break down the information into digestible parts.`;
