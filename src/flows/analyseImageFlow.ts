@@ -216,6 +216,7 @@ function generateHumanReadablePrompt(
   3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
   4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
   5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
+    - Use double line breaks.
   6. Provide step-by-step instructions or detailed explanations when necessary.
   7. If any URLs are found in the analysis results, state them as plain text.
   8. Keep in mind the overall intent of the user's request.
@@ -285,13 +286,31 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const { system: responseSystem, prompt: responsePrompt } =
       generateHumanReadablePrompt(caption, results);
-    const humanReadableResponse = await callOllamaAPI(responsePrompt, {
+    let humanReadableResponse = await callOllamaAPI(responsePrompt, {
       system: responseSystem,
       temperature: 0,
       top_k: 20,
       top_p: 0.45,
     });
-    console.log("Human-readable response:", humanReadableResponse);
+    console.debug("Human-readable response:", humanReadableResponse);
+
+    // Replace tabs with spaces, preserving existing indentation
+    humanReadableResponse = humanReadableResponse
+      .split("\n")
+      .map((line) => {
+        let currentColumn = 0;
+        return line.replace(/\t/g, () => {
+          const spaces = 8 - (currentColumn % 8);
+          currentColumn += spaces;
+          return " ".repeat(spaces);
+        });
+      })
+      .join("\n");
+
+    console.debug(
+      "Human-readable response after alignment:",
+      humanReadableResponse
+    );
 
     await sendMessage(provider, number, humanReadableResponse);
 
