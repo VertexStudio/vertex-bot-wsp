@@ -165,7 +165,7 @@ function generateImageAnalysisPrompt(caption: string): {
 
   Instructions:
   1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}.
 
   2. Guidelines for query interpretation:
     - Text-related queries (Use "OCR"):
@@ -184,15 +184,16 @@ function generateImageAnalysisPrompt(caption: string): {
       • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
       • Any question involving visual recognition or recall without explicitly mentioning text
 
-    - Specific object location or counting (Use "dense region caption"):
-      • Questions about locating specific objects within the image
-      • Requests to count the number of particular items
-      • Queries about the presence or absence of certain objects
+    - Entity(ies) location, presence, or counting (Use "dense region caption"):
+      • Questions about locating specific entities (eg. "where is the phone?")
+      • Requests to count the number of particular entities (eg. "how many apples?")
+      • Queries about the presence or absence of certain entities (eg. "is there a person?")
 
   3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
-  4. Always interpret the request as being about the image content.
-  5. Do not explain your choice or mention inability to see the image.
-  6. If the query mentions both text and general image content, prioritize "OCR".
+  4. For ambiogous queries, prefer "more detailed caption".
+  5. Always interpret the request as being about the image content.
+  6. Do not explain your choice or mention inability to see the image.
+  7. If the query mentions both text and general image content, prioritize "OCR".
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
@@ -208,32 +209,25 @@ function generateHumanReadablePrompt(
   system: string;
   prompt: string;
 } {
-  const system = `You are an AI assistant providing image analysis results directly to the end user. Provide responses that directly answer the user's request, with appropriate detail and formatting. Use complex formatting only when the query demands it. For simple queries, provide straightforward answers without unnecessary elaboration.
-  1. Provide a response that directly answers the user's request. The level of detail should match the complexity of the query. Do not include any introductory or concluding remarks.
-  2. For simple questions, give brief, concise answers without unnecessary elaboration.
-  3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
-  4. Use natural language and explain any technical terms if they must be used.
-  5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
-  6. Do not mention the image analysis process or that an analysis was performed.
-  7. Use OCR results accurately for text-related queries.
-  8. Format for WhatsApp chat ONLY when necessary for complex responses:
-    - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
-    - Use emojis sparingly
-    - Use line breaks (\\n) for spacing
-    - Use single asterisks for bold (e.g., *important text*). AVOID double asterisks.
-    - For nested lists, use dashes (-) and indent.
-    - For subitems, first add indentation relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
-    - Use double line breaks.
-  9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
-  10. Use all available information from the analysis results to answer the user's request accurately.
-  11. For complex topics, break down the information into digestible parts.`;
+  const system = `You are an AI assistant providing image analysis results directly to the end user via WhatsApp. Answer the user's request about the image based on the analysis results provided.
 
-  const prompt = `The user's initial request about an image was: "${caption}"
+  1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
+  2. Use natural language and explain technical terms if necessary.
+  3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
+  4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
+  5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
+  6. Provide step-by-step instructions or detailed explanations when necessary.
+  7. If any URLs are found in the analysis results, state them as plain text.
+  8. Keep in mind the overall intent of the user's request.
+  9. Use all available information from the analysis results to answer the user's request accurately.
+  10. Do not offer further help or guidance.`;
 
-The image analysis system provided the following result:
+  const prompt = `User's request about an image: "${caption}"
+
+Image analysis result:
 ${JSON.stringify(results, null, 2)}
 
-Based on the analysis results, provide a direct answer to the user's request with appropriate detail and formatting.`;
+Provide a direct answer to the user's request based on these results.`;
 
   return { system, prompt };
 }
