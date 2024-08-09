@@ -294,7 +294,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     });
     console.debug("Human-readable response:", humanReadableResponse);
 
-    // Replace tabs with spaces, preserving existing indentation
     humanReadableResponse = humanReadableResponse
       .split("\n")
       .map((line) => {
