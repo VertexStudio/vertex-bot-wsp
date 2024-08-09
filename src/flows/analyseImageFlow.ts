@@ -233,7 +233,6 @@ Provide a direct answer to the user's request based on these results.`;
   return { system, prompt };
 }
 
-// Refactored main handler function
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   try {
