@@ -187,7 +187,7 @@ function generateImageAnalysisPrompt(caption: string): {
     - Entity(ies) location, presence, or counting (Use "dense region caption"):
       • Questions about locating specific entities (eg. "where is the phone?")
       • Requests to count the number of particular entities (eg. "how many apples?")
-      • Queries about the presence or absence of certain entities (eg. "is there a person?")
+      • Queries about the presence or absence of certain entities (eg. "is there a person?", "what's she holding?")
 
   3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
   4. For ambiogous queries, prefer "more detailed caption".
