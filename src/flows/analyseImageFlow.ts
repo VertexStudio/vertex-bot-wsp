@@ -294,6 +294,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   }
 }
 
+// Export the flow
+export const analyseImageFlow = addKeyword<Provider, Database>(
+  EVENTS.MEDIA
+).addAction((ctx, { provider }) => handleMedia(ctx, provider));
+
 // Helper functions
 async function determineAnalysisType(
   caption: string
@@ -341,8 +346,3 @@ function alignResponse(response: string): string {
     })
     .join("\n");
 }
-
-// Export the flow
-export const analyseImageFlow = addKeyword<Provider, Database>(
-  EVENTS.MEDIA
-).addAction((ctx, { provider }) => handleMedia(ctx, provider));
