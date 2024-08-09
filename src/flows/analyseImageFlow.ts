@@ -233,10 +233,10 @@ Provide a direct answer to the user's request based on these results.`;
   return { system, prompt };
 }
 
-// Main handler function
+// Refactored main handler function
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
+  const number = ctx.key.remoteJid;
   try {
-    const number = ctx.key.remoteJid;
     await sendMessage(
       provider,
       number,
@@ -246,27 +246,18 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    const { system: analysisSystem, prompt: analysisPrompt } =
-      generateImageAnalysisPrompt(caption);
-    const analysisType = await callOllamaAPI(analysisPrompt, {
-      system: analysisSystem,
-      temperature: 0,
-      top_k: 20,
-      top_p: 0.45,
-    });
-    console.log("Ollama API response (analysis type):", analysisType);
-
-    if (!IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)) {
+    const analysisType = await determineAnalysisType(caption);
+    if (!analysisType) {
       await sendMessage(
         provider,
-        ctx.key.remoteJid,
+        number,
         "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request."
       );
       return;
     }
 
     await connectToDatabase();
-    await updateDatabaseWithModelTask(analysisType as ImageAnalysisType);
+    await updateDatabaseWithModelTask(analysisType);
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -284,33 +275,10 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    const { system: responseSystem, prompt: responsePrompt } =
-      generateHumanReadablePrompt(caption, results);
-    let humanReadableResponse = await callOllamaAPI(responsePrompt, {
-      system: responseSystem,
-      temperature: 0,
-      top_k: 20,
-      top_p: 0.45,
-    });
-    console.debug("Human-readable response:", humanReadableResponse);
-
-    humanReadableResponse = humanReadableResponse
-      .split("\n")
-      .map((line) => {
-        let currentColumn = 0;
-        return line.replace(/\t/g, () => {
-          const spaces = 8 - (currentColumn % 8);
-          currentColumn += spaces;
-          return " ".repeat(spaces);
-        });
-      })
-      .join("\n");
-
-    console.debug(
-      "Human-readable response after alignment:",
-      humanReadableResponse
+    const humanReadableResponse = await generateHumanReadableResponse(
+      caption,
+      results
     );
-
     await sendMessage(provider, number, humanReadableResponse);
 
     console.log("Image processed and stored in the database");
@@ -318,7 +286,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await fs.unlink(localPath);
   } catch (error) {
     console.error("Error handling media:", error);
-    const number = ctx.key.remoteJid;
     await sendMessage(
       provider,
       number,
@@ -326,6 +293,55 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
   }
 }
+
+// Helper functions
+async function determineAnalysisType(
+  caption: string
+): Promise<ImageAnalysisType | null> {
+  const { system, prompt } = generateImageAnalysisPrompt(caption);
+  const analysisType = await callOllamaAPI(prompt, {
+    system,
+    temperature: 0,
+    top_k: 20,
+    top_p: 0.45,
+  });
+  console.log("Ollama API response (analysis type):", analysisType);
+
+  return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
+    ? (analysisType as ImageAnalysisType)
+    : null;
+}
+
+async function generateHumanReadableResponse(
+  caption: string,
+  results: unknown
+): Promise<string> {
+  const { system, prompt } = generateHumanReadablePrompt(caption, results);
+  const response = await callOllamaAPI(prompt, {
+    system,
+    temperature: 0,
+    top_k: 20,
+    top_p: 0.45,
+  });
+  console.debug("Human-readable response:", response);
+
+  return alignResponse(response);
+}
+
+function alignResponse(response: string): string {
+  return response
+    .split("\n")
+    .map((line) => {
+      let currentColumn = 0;
+      return line.replace(/\t/g, () => {
+        const spaces = 8 - (currentColumn % 8);
+        currentColumn += spaces;
+        return " ".repeat(spaces);
+      });
+    })
+    .join("\n");
+}
+
 // Export the flow
 export const analyseImageFlow = addKeyword<Provider, Database>(
   EVENTS.MEDIA
