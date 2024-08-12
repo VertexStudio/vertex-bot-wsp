@@ -1,45 +1,70 @@
+/**
+ * @file messageQueue.ts
+ * @description A functional implementation of a message queueing system with debounce functionality.
+ */
+
 interface Message {
     text: string;
     timestamp: number;
 }
 
-const messageQueue: Message[] = [];
-
-const MESSAGE_GAP_SECONDS = 6000;
-
-let messageTimer: NodeJS.Timeout | null = null;
-
-/**
-* Adds a message to the queue for later processing.
-* @param messageText The text of the message to add to the queue.
-* @returns A promise that resolves when the message queue is processed.
-*/
-async function enqueueMessage(messageText: string): Promise<string> {
-    messageQueue.push({ text: messageText, timestamp: Date.now() });
-
-    return new Promise((resolve) => {
-        if (messageTimer) {
-            clearTimeout(messageTimer);
-        }
-
-        messageTimer = setTimeout(() => {
-            resolve(processMessageQueue());
-        }, MESSAGE_GAP_SECONDS);
-    });
+interface QueueConfig {
+    gapSeconds: number;
 }
 
-/**
-* Processes the message queue by combining all messages into a single string and clearing the queue.
-* @returns The combined string of all messages in the queue.
-*/
-function processMessageQueue(): string {
-    if (messageQueue.length === 0) {
-        return '';
+interface QueueState {
+    queue: Message[];
+    timer: NodeJS.Timeout | null;
+    callback: ((body: string) => void) | null;
+}
+
+function createInitialState(): QueueState {
+    return {
+        queue: [],
+        timer: null,
+        callback: null
+    };
+}
+
+function resetTimer(state: QueueState): QueueState {
+    if (state.timer) {
+        clearTimeout(state.timer);
     }
-
-    const combinedMessage = messageQueue.map(message => message.text).join(" ");
-    messageQueue.length = 0;
-    return combinedMessage;
+    return { ...state, timer: null };
 }
 
-export { enqueueMessage, processMessageQueue };
+function processQueue(state: QueueState): [string, QueueState] {
+    const result = state.queue.map(message => message.text).join(" ");
+    console.log('Accumulated messages:', result);
+
+    const newState = {
+        ...state,
+        queue: [],
+        timer: null
+    };
+
+    return [result, newState];
+}
+
+function createMessageQueue(config: QueueConfig) {
+    let state = createInitialState();
+
+    return function enqueueMessage(messageText: string, callback: (body: string) => void): void {
+        console.log('Enqueueing:', messageText);
+
+        state = resetTimer(state);
+        state.queue.push({ text: messageText, timestamp: Date.now() });
+        state.callback = callback;
+
+        state.timer = setTimeout(() => {
+            const [result, newState] = processQueue(state);
+            state = newState;
+            if (state.callback) {
+                state.callback(result);
+                state.callback = null;
+            }
+        }, config.gapSeconds);
+    };
+}
+
+export { createMessageQueue, QueueConfig };

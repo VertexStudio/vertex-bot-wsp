@@ -5,15 +5,11 @@ import { voiceNoteFlow } from "./voiceNote.flow";
 import { groupsID } from "./groupsID.flow";
 import { imageFlow } from "./imageFlow.flow";
 import { resizeFlow } from "./imageFlow.flow";
-import { correctFlow } from "./imageFlow.flow";
-import { incorrectFlow } from "./imageFlow.flow";
 import { analyseImageFlow } from "./analyseImageFlow";
 
 export const flow = createFlow([
   welcomeFlow,
   //   mediaFlow,
-  correctFlow,
-  incorrectFlow,
   voiceNoteFlow,
   groupsID,
   imageFlow,

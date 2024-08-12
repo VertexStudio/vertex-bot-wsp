@@ -2,6 +2,9 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import axios from "axios";
+import { createMessageQueue, QueueConfig } from '../utils/fast-entires'
+const queueConfig: QueueConfig = { gapSeconds: 3000 };
+const enqueueMessage = createMessageQueue(queueConfig);
 
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
 const MODEL = "llama3.1";
@@ -47,9 +50,16 @@ function processResponse(response: string, flowDynamic: Function) {
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { flowDynamic, state, provider }) => {
     try {
-      await typing(ctx, provider);
-      const response = await callOllamaAPI(ctx.body);
-      processResponse(response, flowDynamic);
+        await typing(ctx, provider);
+        try {
+            enqueueMessage(ctx.body, async (body) => {
+                console.log('Processed messages:', body);
+                const response = await callOllamaAPI(body);
+                processResponse(response, flowDynamic);
+            });
+        } catch (error) {
+            console.error('Error processing message:', error);
+        }
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
       processResponse("Error in welcomeFlow: " + error.message, flowDynamic);
