@@ -217,6 +217,7 @@ function generateHumanReadablePrompt(
   4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
   5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
     - Use double line breaks to separate sections, subsections, and parent lists.
+    - When using bold text, use it ONLY like this: *bold text*.
   6. Provide step-by-step instructions or detailed explanations when necessary.
   7. If any URLs are found in the analysis results, state them as plain text.
   8. Keep in mind the overall intent of the user's request.
@@ -323,7 +324,7 @@ async function generateHumanReadableResponse(
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
   const response = await callOllamaAPI(prompt, {
     system,
-    temperature: 0,
+    temperature: 0.1,
     top_k: 20,
     top_p: 0.45,
   });
