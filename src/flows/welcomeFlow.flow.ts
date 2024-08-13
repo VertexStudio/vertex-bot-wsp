@@ -43,7 +43,15 @@ function processResponse(response: string, provider: any, ctx: any) {
 
   chunks.forEach(async (chunk) => {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
-    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: '@' + ctx.key.participant.split('@')[0] + ' ' + cleanedChunk, mentions: [ctx.key.participant] }, { quoted: ctx });
+    let messageText = cleanedChunk;
+    let mentions = [];
+
+    if (ctx.key.participant) {
+      messageText = '@' + ctx.key.participant.split('@')[0] + ' ' + cleanedChunk;
+      mentions = [ctx.key.participant];
+    }
+
+    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
   });
 }
 

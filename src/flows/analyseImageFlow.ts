@@ -138,7 +138,15 @@ async function sendMessage(
   text: string,
   ctx: any
 ): Promise<void> {
-  await provider.vendor.sendMessage(number, { text: '@' + ctx.key.participant.split('@')[0] + ' ' + text, mentions: [ctx.key.participant] }, { quoted: ctx });
+  let messageText = text;
+  let mentions = [];
+
+  if (ctx.key.participant) {
+    messageText = '@' + ctx.key.participant.split('@')[0] + ' ' + text;
+    mentions = [ctx.key.participant];
+  }
+
+  await provider.vendor.sendMessage(number, { text: messageText, mentions }, { quoted: ctx });
 }
 
 async function updateDatabaseWithModelTask(
