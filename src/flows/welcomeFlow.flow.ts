@@ -37,32 +37,32 @@ export async function callOllamaAPI(
   }
 }
 
-function processResponse(response: string, flowDynamic: Function) {
+function processResponse(response: string, provider: any, ctx: any) {
   const cleanedResponse = response.trim();
   const chunks = cleanedResponse.split(/\n\n+/);
 
   chunks.forEach(async (chunk) => {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
-    await flowDynamic([{ body: cleanedChunk }]);
+    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: cleanedChunk }, { quoted: ctx });
   });
 }
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
-  async (ctx, { flowDynamic, state, provider }) => {
+  async (ctx, { state, provider }) => {
     try {
         await typing(ctx, provider);
         try {
             enqueueMessage(ctx.body, async (body) => {
                 console.log('Processed messages:', body);
                 const response = await callOllamaAPI(body);
-                processResponse(response, flowDynamic);
+                processResponse(response, provider, ctx);
             });
         } catch (error) {
             console.error('Error processing message:', error);
         }
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      processResponse("Error in welcomeFlow: " + error.message, flowDynamic);
+      processResponse("Error in welcomeFlow: " + error.message, provider, ctx);
     }
   }
 );
