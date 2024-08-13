@@ -135,9 +135,18 @@ function waitForFirstResult(
 async function sendMessage(
   provider: Provider,
   number: string,
-  text: string
+  text: string,
+  ctx: any
 ): Promise<void> {
-  await provider.vendor.sendMessage(number, { text });
+  let messageText = text;
+  let mentions = [];
+
+  if (ctx.key.participant) {
+    messageText = '@' + ctx.key.participant.split('@')[0] + ' ' + text;
+    mentions = [ctx.key.participant];
+  }
+
+  await provider.vendor.sendMessage(number, { text: messageText, mentions }, { quoted: ctx });
 }
 
 async function updateDatabaseWithModelTask(
@@ -240,7 +249,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await sendMessage(
       provider,
       number,
-      "We're analyzing your image. Please wait..."
+      `We're analyzing your image. Please wait...`,
+      ctx
     );
 
     const caption = ctx.message.imageMessage.caption;
@@ -251,7 +261,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       await sendMessage(
         provider,
         number,
-        "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request."
+        "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request.",
+        ctx
       );
       return;
     }
@@ -279,7 +290,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       caption,
       results
     );
-    await sendMessage(provider, number, humanReadableResponse);
+    await sendMessage(provider, number, humanReadableResponse, ctx);
 
     console.log("Image processed and stored in the database");
 
@@ -289,7 +300,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await sendMessage(
       provider,
       number,
-      "Sorry, there was an issue analyzing the image. Please try again later."
+      "Sorry, there was an issue analyzing the image. Please try again later.",
+      ctx
     );
   }
 }

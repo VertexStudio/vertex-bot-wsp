@@ -37,32 +37,38 @@ export async function callOllamaAPI(
   }
 }
 
-function processResponse(response: string, flowDynamic: Function) {
-  const cleanedResponse = response.trim();
-  const chunks = cleanedResponse.split(/\n\n+/);
+function processResponse(response: string, provider: any, ctx: any): void {
+  const chunks = response.trim().split(/\n\n+/);
 
   chunks.forEach(async (chunk) => {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
-    await flowDynamic([{ body: cleanedChunk }]);
+    const messageText = ctx.key.participant
+      ? `@${ctx.key.participant.split('@')[0]} ${cleanedChunk}`
+      : cleanedChunk;
+    const mentions = ctx.key.participant ? [ctx.key.participant] : [];
+
+    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
   });
 }
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
-  async (ctx, { flowDynamic, state, provider }) => {
+  async (ctx, { state, provider }) => {
+    console.debug("Context: ", ctx);
+    console.debug("extendedTextMessage: ", ctx.message?.extendedTextMessage?.contextInfo?.mentionedJid);
     try {
         await typing(ctx, provider);
         try {
             enqueueMessage(ctx.body, async (body) => {
                 console.log('Processed messages:', body);
                 const response = await callOllamaAPI(body);
-                processResponse(response, flowDynamic);
+                processResponse(response, provider, ctx);
             });
         } catch (error) {
             console.error('Error processing message:', error);
         }
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      processResponse("Error in welcomeFlow: " + error.message, flowDynamic);
+      processResponse("Error in welcomeFlow: " + error.message, provider, ctx);
     }
   }
 );
