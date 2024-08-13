@@ -43,12 +43,14 @@ function processResponse(response: string, provider: any, ctx: any) {
 
   chunks.forEach(async (chunk) => {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
-    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: cleanedChunk }, { quoted: ctx });
+    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: '@' + ctx.key.participant.split('@')[0] + ' ' + cleanedChunk, mentions: [ctx.key.participant] }, { quoted: ctx });
   });
 }
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { state, provider }) => {
+    console.debug("Context: ", ctx);
+    console.debug("extendedTextMessage: ", ctx.message?.extendedTextMessage?.contextInfo?.mentionedJid);
     try {
         await typing(ctx, provider);
         try {
