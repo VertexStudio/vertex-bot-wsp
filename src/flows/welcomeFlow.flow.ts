@@ -53,8 +53,6 @@ function processResponse(response: string, provider: any, ctx: any): void {
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { state, provider }) => {
-    console.debug("Context: ", ctx);
-    console.debug("extendedTextMessage: ", ctx.message?.extendedTextMessage?.contextInfo?.mentionedJid);
     try {
         await typing(ctx, provider);
         try {
