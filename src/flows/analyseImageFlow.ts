@@ -135,9 +135,18 @@ function waitForFirstResult(
 async function sendMessage(
   provider: Provider,
   number: string,
-  text: string
+  text: string,
+  ctx: any
 ): Promise<void> {
-  await provider.vendor.sendMessage(number, { text });
+  let messageText = text;
+  let mentions = [];
+
+  if (ctx.key.participant) {
+    messageText = '@' + ctx.key.participant.split('@')[0] + ' ' + text;
+    mentions = [ctx.key.participant];
+  }
+
+  await provider.vendor.sendMessage(number, { text: messageText, mentions }, { quoted: ctx });
 }
 
 async function updateDatabaseWithModelTask(
@@ -165,7 +174,7 @@ function generateImageAnalysisPrompt(caption: string): {
 
   Instructions:
   1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}.
 
   2. Guidelines for query interpretation:
     - Text-related queries (Use "OCR"):
@@ -184,15 +193,16 @@ function generateImageAnalysisPrompt(caption: string): {
       • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
       • Any question involving visual recognition or recall without explicitly mentioning text
 
-    - Specific object location or counting (Use "dense region caption"):
-      • Questions about locating specific objects within the image
-      • Requests to count the number of particular items
-      • Queries about the presence or absence of certain objects
+    - Entity(ies) location, presence, or counting (Use "dense region caption"):
+      • Questions about locating specific entities (eg. "where is the phone?")
+      • Requests to count the number of particular entities (eg. "how many apples?")
+      • Queries about the presence or absence of certain entities (eg. "is there a person?", "what's she holding?")
 
   3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
-  4. Always interpret the request as being about the image content.
-  5. Do not explain your choice or mention inability to see the image.
-  6. If the query mentions both text and general image content, prioritize "OCR".
+  4. For ambiogous queries, prefer "more detailed caption".
+  5. Always interpret the request as being about the image content.
+  6. Do not explain your choice or mention inability to see the image.
+  7. If the query mentions both text and general image content, prioritize "OCR".
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
@@ -208,70 +218,57 @@ function generateHumanReadablePrompt(
   system: string;
   prompt: string;
 } {
-  const system = `You are an AI assistant providing image analysis results directly to the end user. Provide responses that directly answer the user's request, with appropriate detail and formatting. Use complex formatting only when the query demands it. For simple queries, provide straightforward answers without unnecessary elaboration.
-  1. Provide a response that directly answers the user's request. The level of detail should match the complexity of the query. Do not include any introductory or concluding remarks.
-  2. For simple questions, give brief, concise answers without unnecessary elaboration.
-  3. For more complex queries or requests for further explanation, provide detailed information, breaking down concepts as needed.
-  4. Use natural language and explain any technical terms if they must be used.
-  5. If the answer can't be fully determined from the image analysis, provide relevant information and acknowledge any limitations.
-  6. Do not mention the image analysis process or that an analysis was performed.
-  7. Use OCR results accurately for text-related queries.
-  8. Format for WhatsApp chat ONLY when necessary for complex responses:
-    - Use asterisks for bullet points (e.g., * Item 1\\n* Item 2\\n* Item 3)
-    - Use emojis sparingly
-    - Use line breaks (\\n) for spacing
-    - Use single asterisks for bold (e.g., *important text*). AVOID double asterisks.
-    - For nested lists, use dashes (-) and indent.
-    - For subitems, first add indentation relative to the parent item (at least 8 spaces per level), then add dashes, then add text.
-    - Use double line breaks.
-  9. Provide step-by-step instructions or detailed explanations only when explicitly requested or necessary for understanding.
-  10. Use all available information from the analysis results to answer the user's request accurately.
-  11. For complex topics, break down the information into digestible parts.`;
+  const system = `You are an AI assistant providing image analysis results directly to the end user via WhatsApp. Answer the user's request about the image based on the analysis results provided.
 
-  const prompt = `The user's initial request about an image was: "${caption}"
+  1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
+  2. Use natural language and explain technical terms if necessary.
+  3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
+  4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
+  5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
+    - Use double line breaks to separate sections, subsections, and parent lists.
+    - When using bold text, use it ONLY like this: *bold text*.
+  6. Provide step-by-step instructions or detailed explanations when necessary.
+  7. If any URLs are found in the analysis results, state them as plain text.
+  8. Keep in mind the overall intent of the user's request.
+  9. Use all available information from the analysis results to answer the user's request accurately.
+  10. Do not offer further help or guidance.`;
 
-The image analysis system provided the following result:
+  const prompt = `User's request about an image: "${caption}"
+
+Image analysis result:
 ${JSON.stringify(results, null, 2)}
 
-Based on the analysis results, provide a direct answer to the user's request with appropriate detail and formatting.`;
+Provide a direct answer to the user's request based on these results.`;
 
   return { system, prompt };
 }
 
-// Main handler function
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
+  const number = ctx.key.remoteJid;
   try {
-    const number = ctx.key.remoteJid;
     await sendMessage(
       provider,
       number,
-      "We're analyzing your image. Please wait..."
+      `We're analyzing your image. Please wait...`,
+      ctx
     );
 
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    const { system: analysisSystem, prompt: analysisPrompt } =
-      generateImageAnalysisPrompt(caption);
-    const analysisType = await callOllamaAPI(analysisPrompt, {
-      system: analysisSystem,
-      temperature: 0,
-      top_k: 20,
-      top_p: 0.45,
-    });
-    console.log("Ollama API response (analysis type):", analysisType);
-
-    if (!IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)) {
+    const analysisType = await determineAnalysisType(caption);
+    if (!analysisType) {
       await sendMessage(
         provider,
-        ctx.key.remoteJid,
-        "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request."
+        number,
+        "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request.",
+        ctx
       );
       return;
     }
 
     await connectToDatabase();
-    await updateDatabaseWithModelTask(analysisType as ImageAnalysisType);
+    await updateDatabaseWithModelTask(analysisType);
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -289,32 +286,75 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    const { system: responseSystem, prompt: responsePrompt } =
-      generateHumanReadablePrompt(caption, results);
-    const humanReadableResponse = await callOllamaAPI(responsePrompt, {
-      system: responseSystem,
-      temperature: 0,
-      top_k: 20,
-      top_p: 0.45,
-    });
-    console.log("Human-readable response:", humanReadableResponse);
-
-    await sendMessage(provider, number, humanReadableResponse);
+    const humanReadableResponse = await generateHumanReadableResponse(
+      caption,
+      results
+    );
+    await sendMessage(provider, number, humanReadableResponse, ctx);
 
     console.log("Image processed and stored in the database");
 
     await fs.unlink(localPath);
   } catch (error) {
     console.error("Error handling media:", error);
-    const number = ctx.key.remoteJid;
     await sendMessage(
       provider,
       number,
-      "Sorry, there was an issue analyzing the image. Please try again later."
+      "Sorry, there was an issue analyzing the image. Please try again later.",
+      ctx
     );
   }
 }
+
 // Export the flow
 export const analyseImageFlow = addKeyword<Provider, Database>(
   EVENTS.MEDIA
 ).addAction((ctx, { provider }) => handleMedia(ctx, provider));
+
+// Helper functions
+async function determineAnalysisType(
+  caption: string
+): Promise<ImageAnalysisType | null> {
+  const { system, prompt } = generateImageAnalysisPrompt(caption);
+  const analysisType = await callOllamaAPI(prompt, {
+    system,
+    temperature: 0,
+    top_k: 20,
+    top_p: 0.45,
+  });
+  console.log("Ollama API response (analysis type):", analysisType);
+
+  return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
+    ? (analysisType as ImageAnalysisType)
+    : null;
+}
+
+async function generateHumanReadableResponse(
+  caption: string,
+  results: unknown
+): Promise<string> {
+  const { system, prompt } = generateHumanReadablePrompt(caption, results);
+  const response = await callOllamaAPI(prompt, {
+    system,
+    temperature: 0.1,
+    top_k: 20,
+    top_p: 0.45,
+  });
+  console.debug("Human-readable response:", response);
+
+  return alignResponse(response);
+}
+
+function alignResponse(response: string): string {
+  return response
+    .split("\n")
+    .map((line) => {
+      let currentColumn = 0;
+      return line.replace(/\t/g, () => {
+        const spaces = 8 - (currentColumn % 8);
+        currentColumn += spaces;
+        return " ".repeat(spaces);
+      });
+    })
+    .join("\n");
+}
