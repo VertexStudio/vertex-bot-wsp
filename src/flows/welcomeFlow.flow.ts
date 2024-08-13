@@ -37,19 +37,15 @@ export async function callOllamaAPI(
   }
 }
 
-function processResponse(response: string, provider: any, ctx: any) {
-  const cleanedResponse = response.trim();
-  const chunks = cleanedResponse.split(/\n\n+/);
+function processResponse(response: string, provider: any, ctx: any): void {
+  const chunks = response.trim().split(/\n\n+/);
 
   chunks.forEach(async (chunk) => {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
-    let messageText = cleanedChunk;
-    let mentions = [];
-
-    if (ctx.key.participant) {
-      messageText = '@' + ctx.key.participant.split('@')[0] + ' ' + cleanedChunk;
-      mentions = [ctx.key.participant];
-    }
+    const messageText = ctx.key.participant
+      ? `@${ctx.key.participant.split('@')[0]} ${cleanedChunk}`
+      : cleanedChunk;
+    const mentions = ctx.key.participant ? [ctx.key.participant] : [];
 
     await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
   });
