@@ -289,7 +289,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    enqueueMessage(ctx.body, async (ctx) => {
+    enqueueMessage(ctx.body, async (_) => {
       const humanReadableResponse = await generateHumanReadableResponse(
         caption,
         results
