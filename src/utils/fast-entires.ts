@@ -9,13 +9,14 @@ interface Message {
 }
 
 interface QueueConfig {
-    gapSeconds: number;
+    // We'll keep this for future use if needed
+    gapMilliseconds: number;
 }
 
 interface QueueState {
     queue: Message[];
     timer: NodeJS.Timeout | null;
-    callback: ((body: string) => void) | null;
+    callback: ((bodies: string[]) => void) | null;
 }
 
 function createInitialState(): QueueState {
@@ -33,9 +34,9 @@ function resetTimer(state: QueueState): QueueState {
     return { ...state, timer: null };
 }
 
-function processQueue(state: QueueState): [string, QueueState] {
-    const result = state.queue.map(message => message.text).join(" ");
-    console.log('Accumulated messages:', result);
+function processQueue(state: QueueState): [string[], QueueState] {
+    const results = state.queue.map(message => message.text);
+    console.log('Accumulated messages:', results);
 
     const newState = {
         ...state,
@@ -43,28 +44,20 @@ function processQueue(state: QueueState): [string, QueueState] {
         timer: null
     };
 
-    return [result, newState];
+    return [results, newState];
 }
 
 function createMessageQueue(config: QueueConfig) {
-    let state = createInitialState();
+    return async function enqueueMessage(messageText: string, callback: (body: string) => Promise<void>): Promise<void> {
+        console.log('Processing:', messageText);
 
-    return function enqueueMessage(messageText: string, callback: (body: string) => void): void {
-        console.log('Enqueueing:', messageText);
-
-        state = resetTimer(state);
-        state.queue.push({ text: messageText, timestamp: Date.now() });
-        state.callback = callback;
-
-        state.timer = setTimeout(() => {
-            const [result, newState] = processQueue(state);
-            state = newState;
-            if (state.callback) {
-                state.callback(result);
-                state.callback = null;
-            }
-        }, config.gapSeconds);
+        try {
+            await callback(messageText);
+        } catch (error) {
+            console.error('Error processing message:', error);
+        }
     };
 }
+
 
 export { createMessageQueue, QueueConfig };

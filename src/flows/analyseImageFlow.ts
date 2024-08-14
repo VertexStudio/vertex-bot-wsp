@@ -8,8 +8,6 @@ import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { callOllamaAPI } from "./welcomeFlow.flow";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
-const queueConfig: QueueConfig = { gapSeconds: 3000 };
-const enqueueMessage = createMessageQueue(queueConfig);
 
 // Type definitions
 type ImageAnalysisType =
@@ -289,7 +287,10 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    enqueueMessage(ctx.body, async (_) => {
+    const queueConfig: QueueConfig = { gapMilliseconds: 0 };
+    const enqueueMessage = createMessageQueue(queueConfig);
+
+    enqueueMessage(ctx.body, async (messageText) => {
       const humanReadableResponse = await generateHumanReadableResponse(
         caption,
         results
