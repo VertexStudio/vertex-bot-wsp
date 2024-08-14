@@ -8,7 +8,7 @@ import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { callOllamaAPI } from "./welcomeFlow.flow";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
-const queueConfig: QueueConfig = { gapSeconds: 3000 };
+const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 // Type definitions
