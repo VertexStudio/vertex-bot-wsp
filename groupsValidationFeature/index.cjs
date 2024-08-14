@@ -30232,84 +30232,56 @@ class BaileysProvider extends bot.ProviderClass {
 						payload.from = baileyCleanNumber(payload.from, true);
 					}
 		
-					this.emit('message', payload);
-
-					if (messageCtx?.messageStubParameters?.length && messageCtx.messageStubParameters[0].includes('absent'))
-                        return;
-                    if (messageCtx?.messageStubParameters?.length &&
-                        messageCtx.messageStubParameters[0].includes('No session'))
-                        return;
-                    if (messageCtx?.messageStubParameters?.length &&
-                        messageCtx.messageStubParameters[0].includes('Bad MAC'))
-                        return;
-                    if (messageCtx?.messageStubParameters?.length &&
-                        messageCtx.messageStubParameters[0].includes('Invalid'))
-                        return;
-                    if (messageCtx?.message?.protocolMessage?.type === 'EPHEMERAL_SETTING')
-                        return;
-					
-					// Detectar location
+					// Early returns for specific message types we want to ignore
+					if (messageCtx?.messageStubParameters?.length && 
+						(messageCtx.messageStubParameters[0].includes('absent') ||
+						 messageCtx.messageStubParameters[0].includes('No session') ||
+						 messageCtx.messageStubParameters[0].includes('Bad MAC') ||
+						 messageCtx.messageStubParameters[0].includes('Invalid'))) {
+						return;
+					}
+					if (messageCtx?.message?.protocolMessage?.type === 'EPHEMERAL_SETTING') return;
+					if (payload.from === 'status@broadcast') return;
+		
+					// Handle different types of media messages
 					if (messageCtx.message?.locationMessage) {
 						const { degreesLatitude, degreesLongitude } = messageCtx.message.locationMessage;
 						if (typeof degreesLatitude === 'number' && typeof degreesLongitude === 'number') {
-							payload = {
-								...payload,
-								body: bot.utils.generateRefProvider('_event_location_'),
-							};
+							payload.body = bot.utils.generateRefProvider('_event_location_');
 						}
+					} else if (messageCtx.message?.videoMessage || 
+							   messageCtx.message?.imageMessage || 
+							   messageCtx.message?.stickerMessage) {
+						payload.body = bot.utils.generateRefProvider('_event_media_');
+					} else if (messageCtx.message?.documentMessage) {
+						payload.body = bot.utils.generateRefProvider('_event_document_');
+					} else if (messageCtx.message?.audioMessage) {
+						payload.body = bot.utils.generateRefProvider('_event_voice_note_');
 					}
-					
-					// Detectar video
-					if (messageCtx.message?.videoMessage) {
-						payload = { ...payload, body: bot.utils.generateRefProvider('_event_media_') };
-					}
-					
-					// Detectar Sticker
-					if (messageCtx.message?.stickerMessage) {
-						payload = { ...payload, body: bot.utils.generateRefProvider('_event_media_') };
-					}
-					
-					// Detectar media
-					if (messageCtx.message?.imageMessage) {
-						payload = { ...payload, body: bot.utils.generateRefProvider('_event_media_') };
-					}
-					
-					// Detectar file
-					if (messageCtx.message?.documentMessage) {
-						payload = { ...payload, body: bot.utils.generateRefProvider('_event_document_') };
-					}
-					
-					// Detectar voice note
-					if (messageCtx.message?.audioMessage) {
-						payload = { ...payload, body: bot.utils.generateRefProvider('_event_voice_note_') };
-					}
-					
-					if (payload.from === 'status@broadcast')
-						return;
-					
-					//payload.from = baileyCleanNumber(payload.from, true);
-					
-					if (this.globalVendorArgs.writeMyself === 'none' && payload?.key?.fromMe)
-						return;
+		
+					// Handle button and list responses
+					const btnCtx = payload?.message?.buttonsResponseMessage?.selectedDisplayText;
+					if (btnCtx) payload.body = btnCtx;
+		
+					const listRowId = payload?.message?.listResponseMessage?.title;
+					if (listRowId) payload.body = listRowId;
+		
+					// Check if we should process this message based on sender
+					if (this.globalVendorArgs.writeMyself === 'none' && payload?.key?.fromMe) return;
 					if (this.globalVendorArgs.host?.phone !== payload.from &&
 						payload?.key?.fromMe &&
-						!['both'].includes(this.globalVendorArgs.writeMyself))
-						return;
+						!['both'].includes(this.globalVendorArgs.writeMyself)) return;
 					if (this.globalVendorArgs.host?.phone === payload.from &&
-						!['both', 'host'].includes(this.globalVendorArgs.writeMyself))
-						return;
-					
-					if (!baileyIsValidNumber(payload.from)) {
-						return;
+						!['both', 'host'].includes(this.globalVendorArgs.writeMyself)) return;
+		
+					if (!baileyIsValidNumber(payload.from)) return;
+		
+					if (isGroup) {
+						payload.to = messageCtx.key.remoteJid;
 					}
-					
-					const btnCtx = payload?.message?.buttonsResponseMessage?.selectedDisplayText;
-					if (btnCtx)
-						payload.body = btnCtx;
-					
-					const listRowId = payload?.message?.listResponseMessage?.title;
-					if (listRowId)
-						payload.body = listRowId;
+		
+					// Emit the message event only once, after all processing is done
+					this.emit('message', payload);
 				},
 			},			
 			{
