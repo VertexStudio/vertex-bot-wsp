@@ -30310,29 +30310,6 @@ class BaileysProvider extends bot.ProviderClass {
 					const listRowId = payload?.message?.listResponseMessage?.title;
 					if (listRowId)
 						payload.body = listRowId;
-					
-					const processDuplicate = () => {
-						if (messageCtx?.key?.id) {
-							const idWs = `${messageCtx.key.id}__${payload.from}`;
-							const isDuplicate = this.idsDuplicates.includes(idWs);
-							if (isDuplicate) {
-								this.idsDuplicates = [];
-								return false;
-							}
-							if (this.idsDuplicates.length > 10) {
-								this.idsDuplicates = [];
-							}
-							this.idsDuplicates.push(idWs);
-						}
-						return true;
-					};
-					
-					if (processDuplicate()) {
-						if (isGroup) {
-							payload.to = messageCtx.key.remoteJid;
-						}
-						this.emit('message', payload);
-					}
 				},
 			},			
 			{
