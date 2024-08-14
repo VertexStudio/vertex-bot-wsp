@@ -4,6 +4,7 @@ import { typing } from "../utils/presence";
 import axios from "axios";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires'
 import { LRUCache } from 'lru-cache'
+import { IMAGE_ANALYSIS_TYPES } from './analyseImageFlow';
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -14,9 +15,14 @@ const MODEL = "llama3.1";
 const contextCache = new LRUCache<string, number[]>({ max: 100 })
 const MAX_CONTEXT_LENGTH = 4096
 
+const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results for image analysis. Respond helpfully and concisely to user queries.
+
+You can IGNORE all these analysis types: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
+
 export async function callOllamaAPI(
   prompt: string,
   userId: string,
+  userName: string,
   options: {
     system?: string;
     temperature?: number;
@@ -25,11 +31,13 @@ export async function callOllamaAPI(
   } = {}
 ): Promise<string> {
   try {
+    console.debug("User name:", userName)
     const context = contextCache.get(userId) || []
+    const prefixedPrompt = `${userName}: ${prompt}`
     const response = await axios.post(OLLAMA_API_URL, {
       model: MODEL,
-      prompt,
-      system: options.system,
+      prompt: prefixedPrompt,
+      system: options.system || DEFAULT_SYSTEM_MESSAGE,
       stream: false,
       context: context,
       options: {
@@ -75,8 +83,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         try {
             enqueueMessage(ctx.body, async (body) => {
                 console.log('Processed messages:', body);
-                const userId = ctx.key.remoteJid // Use a unique identifier for the user
-                const response = await callOllamaAPI(body, userId);
+                const userId = ctx.key.remoteJid
+                const userName = ctx.pushName || 'User'
+                const response = await callOllamaAPI(body, userId, userName, {
+                    system: DEFAULT_SYSTEM_MESSAGE,
+                    temperature: 0.7,
+                    top_k: 40,
+                    top_p: 0.9,
+                });
                 processResponse(response, provider, ctx);
             });
         } catch (error) {
