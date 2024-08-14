@@ -7,6 +7,9 @@ import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { callOllamaAPI } from "./welcomeFlow.flow";
+import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
+const queueConfig: QueueConfig = { gapSeconds: 3000 };
+const enqueueMessage = createMessageQueue(queueConfig);
 
 // Type definitions
 type ImageAnalysisType =
@@ -286,11 +289,13 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    const humanReadableResponse = await generateHumanReadableResponse(
-      caption,
-      results
-    );
-    await sendMessage(provider, number, humanReadableResponse, ctx);
+    enqueueMessage(ctx.body, async (ctx) => {
+      const humanReadableResponse = await generateHumanReadableResponse(
+        caption,
+        results
+      );
+      await sendMessage(provider, number, humanReadableResponse, ctx);
+    });
 
     console.log("Image processed and stored in the database");
 
