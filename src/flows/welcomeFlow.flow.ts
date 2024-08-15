@@ -6,7 +6,7 @@ import { createMessageQueue, QueueConfig } from '../utils/fast-entires'
 import { LRUCache } from 'lru-cache'
 import { IMAGE_ANALYSIS_TYPES } from './analyseImageFlow';
 
-const queueConfig: QueueConfig = { gapSeconds: 3000 };
+const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
@@ -16,8 +16,7 @@ const contextCache = new LRUCache<string, number[]>({ max: 100 })
 const MAX_CONTEXT_LENGTH = 4096
 
 const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results for image analysis. Respond helpfully and concisely to user queries.
-
-You can IGNORE all these analysis types: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
+You can IGNORE all these analysis types and never use them to answer an user query: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
 
 export async function callOllamaAPI(
   prompt: string,
@@ -34,6 +33,11 @@ export async function callOllamaAPI(
     console.debug("User name:", userName)
     const context = contextCache.get(userId) || []
     const prefixedPrompt = `${userName}: ${prompt}`
+    
+    console.log("Prompt for ollama response:", prefixedPrompt);
+    console.log("system message:", options.system || DEFAULT_SYSTEM_MESSAGE);
+    console.debug("Context: ", context);
+
     const response = await axios.post(OLLAMA_API_URL, {
       model: MODEL,
       prompt: prefixedPrompt,
@@ -67,6 +71,7 @@ function processResponse(response: string, provider: any, ctx: any): void {
 
   chunks.forEach(async (chunk) => {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
+    console.log("cleanedChunk:", cleanedChunk);
     const messageText = ctx.key.participant
       ? `@${ctx.key.participant.split('@')[0]} ${cleanedChunk}`
       : cleanedChunk;
@@ -91,6 +96,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
                     top_k: 40,
                     top_p: 0.9,
                 });
+                console.log('Ollama response in welcomeFlow:', response);
                 processResponse(response, provider, ctx);
             });
         } catch (error) {
