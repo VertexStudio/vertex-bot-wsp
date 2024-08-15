@@ -71,7 +71,7 @@ function processResponse(response: string, provider: any, ctx: any): void {
       ? `@${ctx.key.participant.split('@')[0]} ${cleanedChunk}`
       : cleanedChunk;
     const mentions = ctx.key.participant ? [ctx.key.participant] : [];
-
+    console.log("Sending message:", messageText);
     await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
   });
 }
