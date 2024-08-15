@@ -4,6 +4,7 @@ import { typing } from "../utils/presence";
 import axios from "axios";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires'
 import { LRUCache } from 'lru-cache'
+import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import { IMAGE_ANALYSIS_TYPES } from './analyseImageFlow';
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
@@ -15,9 +16,7 @@ const MODEL = "llama3.1";
 const contextCache = new LRUCache<string, number[]>({ max: 100 })
 const MAX_CONTEXT_LENGTH = 4096
 
-const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results for image analysis. Respond helpfully and concisely to user queries.
-
-You can IGNORE all these analysis types: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
+const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results for image analysis. Respond naturally, helpfully and concisely to user queries and image analysis results.`;
 
 export async function callOllamaAPI(
   prompt: string,
@@ -62,7 +61,7 @@ export async function callOllamaAPI(
   }
 }
 
-function processResponse(response: string, provider: any, ctx: any): void {
+function processResponse(response: string, provider: Provider, ctx: any): void {
   const chunks = response.trim().split(/\n\n+/);
 
   chunks.forEach(async (chunk) => {
@@ -72,7 +71,8 @@ function processResponse(response: string, provider: any, ctx: any): void {
       : cleanedChunk;
     const mentions = ctx.key.participant ? [ctx.key.participant] : [];
 
-    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
+    const result = await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions}, { quoted: ctx });
+    provider.vendor.waitForMessage(result.key.id);
   });
 }
 
