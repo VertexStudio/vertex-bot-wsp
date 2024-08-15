@@ -6,7 +6,7 @@ import { createMessageQueue, QueueConfig } from '../utils/fast-entires'
 import { LRUCache } from 'lru-cache'
 import { IMAGE_ANALYSIS_TYPES } from './analyseImageFlow';
 
-const queueConfig: QueueConfig = { gapSeconds: 0 };
+const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
