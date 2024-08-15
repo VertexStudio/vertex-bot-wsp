@@ -33,10 +33,6 @@ export async function callOllamaAPI(
     console.debug("User name:", userName)
     const context = contextCache.get(userId) || []
     const prefixedPrompt = `${userName}: ${prompt}`
-    
-    console.log("Prompt for ollama response:", prefixedPrompt);
-    console.log("system message:", options.system || DEFAULT_SYSTEM_MESSAGE);
-    console.debug("Context: ", context);
 
     const response = await axios.post(OLLAMA_API_URL, {
       model: MODEL,
@@ -71,7 +67,6 @@ function processResponse(response: string, provider: any, ctx: any): void {
 
   chunks.forEach(async (chunk) => {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
-    console.log("cleanedChunk:", cleanedChunk);
     const messageText = ctx.key.participant
       ? `@${ctx.key.participant.split('@')[0]} ${cleanedChunk}`
       : cleanedChunk;
@@ -96,7 +91,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
                     top_k: 40,
                     top_p: 0.9,
                 });
-                console.log('Ollama response in welcomeFlow:', response);
                 processResponse(response, provider, ctx);
             });
         } catch (error) {
