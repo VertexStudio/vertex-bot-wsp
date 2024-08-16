@@ -36,7 +36,7 @@ const {
   CAMERA_ID,
 } = process.env;
 
-const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
+export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
   // "object detection",
   "dense region caption",
@@ -248,6 +248,9 @@ Provide a direct answer to the user's request based on these results.`;
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
+  const userId = ctx.key.remoteJid;
+  const userName = ctx.pushName || 'System';
+  const systemName = 'System';
   try {
     await sendMessage(
       provider,
@@ -259,7 +262,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    const analysisType = await determineAnalysisType(caption);
+    const analysisType = await determineAnalysisType(caption, userId, userName);
     if (!analysisType) {
       await sendMessage(
         provider,
@@ -292,7 +295,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     enqueueMessage(ctx.body, async (_) => {
       const humanReadableResponse = await generateHumanReadableResponse(
         caption,
-        results
+        results,
+        userId,
+        systemName
       );
       await sendMessage(provider, number, humanReadableResponse, ctx);
     });
@@ -318,10 +323,12 @@ export const analyseImageFlow = addKeyword<Provider, Database>(
 
 // Helper functions
 async function determineAnalysisType(
-  caption: string
+  caption: string,
+  userId: string,
+  userName: string
 ): Promise<ImageAnalysisType | null> {
   const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const analysisType = await callOllamaAPI(prompt, {
+  const analysisType = await callOllamaAPI(prompt, userId, userName, {
     system,
     temperature: 0,
     top_k: 20,
@@ -336,10 +343,12 @@ async function determineAnalysisType(
 
 async function generateHumanReadableResponse(
   caption: string,
-  results: unknown
+  results: unknown,
+  userId: string,
+  userName: string
 ): Promise<string> {
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const response = await callOllamaAPI(prompt, {
+  const response = await callOllamaAPI(prompt, userId, userName, {
     system,
     temperature: 0.1,
     top_k: 20,
