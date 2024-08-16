@@ -16,7 +16,11 @@ const MODEL = "llama3.1";
 const contextCache = new LRUCache<string, number[]>({ max: 100 })
 const MAX_CONTEXT_LENGTH = 4096
 
-const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results for image analysis. Respond naturally, helpfully and concisely to user queries and image analysis results.`;
+const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results for image analysis. Respond helpfully and concisely to user queries. 
+
+IMPORTANT: Always respond in the exact language used by the user in the last message. Do not translate or provide responses in multiple languages.
+
+You can IGNORE all these analysis types and never use them to answer an user query: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
 
 export async function callOllamaAPI(
   prompt: string,
@@ -61,7 +65,17 @@ export async function callOllamaAPI(
   }
 }
 
+async function sendMessageAndWait(provider: Provider, ctx: any, messageText: string, mentions: string[]): Promise<void> {
+  const result = await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
+  console.log('sendMessage result:', JSON.stringify(result, null, 2));
+  
+  if (result.key && result.key.id) {
+    await provider.vendor.waitForMessage(result.key.id);
+  }
+}
+
 function processResponse(response: string, provider: Provider, ctx: any): void {
+  console.debug("Processing response:", response);
   const chunks = response.trim().split(/\n\n+/);
 
   chunks.forEach(async (chunk) => {
@@ -71,8 +85,7 @@ function processResponse(response: string, provider: Provider, ctx: any): void {
       : cleanedChunk;
     const mentions = ctx.key.participant ? [ctx.key.participant] : [];
 
-    const result = await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions}, { quoted: ctx });
-    provider.vendor.waitForMessage(result.key.id);
+    await sendMessageAndWait(provider, ctx, messageText, mentions);
   });
 }
 
@@ -87,9 +100,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
                 const userName = ctx.pushName || 'User'
                 const response = await callOllamaAPI(body, userId, userName, {
                     system: DEFAULT_SYSTEM_MESSAGE,
-                    temperature: 0.7,
-                    top_k: 40,
-                    top_p: 0.9,
+                    temperature: 0.5,
                 });
                 processResponse(response, provider, ctx);
             });
