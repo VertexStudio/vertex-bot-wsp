@@ -11,6 +11,7 @@ const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
+const OLLAMA_API_URL_CHAT = "http://localhost:11434/api/chat";
 const MODEL = "llama3.1";
 
 const contextCache = new LRUCache<string, number[]>({ max: 100 })
@@ -21,6 +22,11 @@ const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp gro
 IMPORTANT: Always respond in the exact language used by the user in the last message sent by the user. Do not translate or provide responses in multiple languages.
 
 You can IGNORE all these analysis types and never use them to answer an user query: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
+
+
+export class Message {
+  static arr: Array<{ role: string; content: string }> = [];
+}
 
 export async function callOllamaAPI(
   prompt: string,
@@ -65,6 +71,30 @@ export async function callOllamaAPI(
   }
 }
 
+export async function callOllamaAPIChat(
+  userName: string,
+): Promise<{
+  role: string;
+  content: string;
+}> {
+  try {
+    console.debug("User name:", userName)
+
+    const response = await axios.post(OLLAMA_API_URL_CHAT, {
+      model: MODEL,
+      messages: Message.arr,
+      stream: false,
+    });
+
+    console.debug("Response Ollama API Chat:", response.data);
+
+    return response.data.message;
+  } catch (error) {
+    console.error("Error calling Ollama API:", error);
+    throw error;
+  }
+}
+
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { state, provider }) => {
     try {
@@ -74,11 +104,20 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
                 console.log('Processed messages:', body);
                 const userId = ctx.key.remoteJid
                 const userName = ctx.pushName || 'User'
-                const response = await callOllamaAPI(body, userId, userName, {
-                    system: DEFAULT_SYSTEM_MESSAGE,
-                    temperature: 0.3,
-                });
-                provider.vendor.sendMessage(ctx.key.remoteJid, { text: response }, { quoted: ctx })
+
+                Message.arr.push({ role: "user", content: `User ${userName}:`+body });
+
+                //log Message arr
+                console.log("*****************************************************************");
+                console.log("Message array: ",Message.arr);
+                console.log("*****************************************************************");
+
+                const response = await callOllamaAPIChat(userName);
+              
+                // Add system message to the context
+                Message.arr.push(response)
+
+                provider.vendor.sendMessage(ctx.key.remoteJid, { text: response.content }, { quoted: ctx })
             });
         } catch (error) {
             console.error('Error processing message:', error);
