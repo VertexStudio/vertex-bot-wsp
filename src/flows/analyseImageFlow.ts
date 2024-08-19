@@ -295,7 +295,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    Message.arr.push({ role: 'tool', content: `Info about the image asked by user ${userId}:${userName}: ${results[0]}` });
+    Message.arr.push({ role: 'tool', content: `Respuesta a: ${userName}: ${results[0]}` });
 
     console.log("*****************************************************************");
     console.log("Message array: ", Message.arr);
