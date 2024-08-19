@@ -263,7 +263,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    Message.arr.push({ role: 'user', content: `User ${userId}:${userName} is requesting information about an image`+caption });
+    Message.arr.push({ role: 'user', content: `${userName}: ` + caption });
 
     const analysisType = await determineAnalysisType(caption, userId, userName);
     if (!analysisType) {
@@ -296,6 +296,10 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     console.log("Initial analysis data:", results);
 
     Message.arr.push({ role: 'tool', content: `Info about the image asked by user ${userId}:${userName}: ${results[0]}` });
+
+    console.log("*****************************************************************");
+    console.log("Message array: ", Message.arr);
+    console.log("*****************************************************************");
 
     enqueueMessage(ctx.body, async (_) => {
       const humanReadableResponse = await generateHumanReadableResponse(
