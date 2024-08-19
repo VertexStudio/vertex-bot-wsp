@@ -37,18 +37,18 @@ export async function callOllamaAPI(
   }
 }
 
-function processResponse(response: string, provider: any, ctx: any): void {
+async function processResponse(response: string, provider: any, ctx: any): Promise<void> {
   const chunks = response.trim().split(/\n\n+/);
 
-  chunks.forEach(async (chunk) => {
+  for (const chunk of chunks) {
     const cleanedChunk = chunk.trim().replace(/【.*?】/g, "");
     const messageText = ctx.key.participant
-      ? `@${ctx.key.participant.split('@')[0]} ${cleanedChunk}`
-      : cleanedChunk;
+        ? `@${ctx.key.participant.split('@')[0]} ${cleanedChunk}`
+        : cleanedChunk;
     const mentions = ctx.key.participant ? [ctx.key.participant] : [];
 
-    await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
-  });
+     await provider.vendor.sendMessage(ctx.key.remoteJid, { text: messageText, mentions }, { quoted: ctx });
+  }
 }
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
