@@ -2,10 +2,10 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import axios from "axios";
-import { createMessageQueue, QueueConfig } from '../utils/fast-entires'
-import { LRUCache } from 'lru-cache'
+import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
+import { LRUCache } from "lru-cache";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { IMAGE_ANALYSIS_TYPES } from './analyseImageFlow';
+import { IMAGE_ANALYSIS_TYPES } from "./analyseImageFlow";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -14,15 +14,12 @@ const OLLAMA_API_URL = "http://localhost:11434/api/generate";
 const OLLAMA_API_URL_CHAT = "http://localhost:11434/api/chat";
 const MODEL = "llama3.1";
 
-const contextCache = new LRUCache<string, number[]>({ max: 100 })
-const MAX_CONTEXT_LENGTH = 4096
+const contextCache = new LRUCache<string, number[]>({ max: 100 });
+const MAX_CONTEXT_LENGTH = 4096;
 
-const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results (external to you) for image analysis. Respond naturally, helpfully and concisely to user queries.
+const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with '[user_name]: ' which are from group members, and tool results which are image analysis results. Respond naturally, helpfully and concisely to user queries.
 
-IMPORTANT: Always respond in the exact language used by the user in the last message sent by the user. Do not translate or provide responses in multiple languages.
-
-You can IGNORE all these analysis types and never use them to answer an user query: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
-
+IMPORTANT: Always respond in the exact language used by the user in the last message sent by the user. Do not translate or provide responses in multiple languages.`;
 
 export class Message {
   static arr: Array<{ role: string; content: string }> = [];
@@ -40,9 +37,9 @@ export async function callOllamaAPI(
   } = {}
 ): Promise<string> {
   try {
-    console.debug("User name:", userName)
-    const context = contextCache.get(userId) || []
-    const prefixedPrompt = `${userName}: ${prompt}`
+    console.debug("User name:", userName);
+    const context = contextCache.get(userId) || [];
+    const prefixedPrompt = `${userName}: ${prompt}`;
     const response = await axios.post(OLLAMA_API_URL, {
       model: MODEL,
       prompt: prefixedPrompt,
@@ -58,8 +55,8 @@ export async function callOllamaAPI(
 
     // Update the context in the cache
     if (response.data.context) {
-      const newContext = response.data.context.slice(-MAX_CONTEXT_LENGTH)
-      contextCache.set(userId, newContext)
+      const newContext = response.data.context.slice(-MAX_CONTEXT_LENGTH);
+      contextCache.set(userId, newContext);
     }
 
     console.debug("Current context length:", contextCache.get(userId)?.length);
@@ -71,14 +68,12 @@ export async function callOllamaAPI(
   }
 }
 
-export async function callOllamaAPIChat(
-  userName: string,
-): Promise<{
+export async function callOllamaAPIChat(userName: string): Promise<{
   role: string;
   content: string;
 }> {
   try {
-    console.debug("User name:", userName)
+    console.debug("User name:", userName);
 
     const response = await axios.post(OLLAMA_API_URL_CHAT, {
       model: MODEL,
@@ -98,33 +93,48 @@ export async function callOllamaAPIChat(
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { state, provider }) => {
     try {
-        await typing(ctx, provider);
-        try {
-            enqueueMessage(ctx.body, async (body) => {
-                console.log('Processed messages:', body);
-                const userId = ctx.key.remoteJid
-                const userName = ctx.pushName || 'User'
+      await typing(ctx, provider);
+      try {
+        enqueueMessage(ctx.body, async (body) => {
+          console.log("Processed messages:", body);
+          const userId = ctx.key.remoteJid;
+          const userName = ctx.pushName || "User";
 
-                Message.arr.push({ role: "user", content: `User ${userName}:`+body });
+          Message.arr.push({
+            role: "user",
+            content: `${userName}: ` + body,
+          });
 
-                //log Message arr
-                console.log("*****************************************************************");
-                console.log("Message array: ",Message.arr);
-                console.log("*****************************************************************");
+          //log Message arr
+          console.log(
+            "*****************************************************************"
+          );
+          console.log("Message array: ", Message.arr);
+          console.log(
+            "*****************************************************************"
+          );
 
-                const response = await callOllamaAPIChat(userName);
-              
-                // Add system message to the context
-                Message.arr.push(response)
+          const response = await callOllamaAPIChat(userName);
 
-                provider.vendor.sendMessage(ctx.key.remoteJid, { text: response.content }, { quoted: ctx })
-            });
-        } catch (error) {
-            console.error('Error processing message:', error);
-        }
+          // Add system message to the context
+          Message.arr.push(response);
+
+          provider.vendor.sendMessage(
+            ctx.key.remoteJid,
+            { text: response.content },
+            { quoted: ctx }
+          );
+        });
+      } catch (error) {
+        console.error("Error processing message:", error);
+      }
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      provider.vendor.sendMessage(ctx.key.remoteJid, { text: "Error in welcomeFlow: " + error.message }, { quoted: ctx })
+      provider.vendor.sendMessage(
+        ctx.key.remoteJid,
+        { text: "Error in welcomeFlow: " + error.message },
+        { quoted: ctx }
+      );
     }
   }
 );

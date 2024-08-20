@@ -296,6 +296,18 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       content: `${results[0]}`,
     });
 
+    const humanReadableResponse = await generateHumanReadableResponse(
+      caption,
+      results,
+      userId,
+      systemName
+    );
+
+    messagesToPush.push({
+      role: "assistant",
+      content: humanReadableResponse,
+    });
+
     Message.arr.push(...messagesToPush);
 
     console.log(
@@ -307,12 +319,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     enqueueMessage(ctx.body, async (_) => {
-      const humanReadableResponse = await generateHumanReadableResponse(
-        caption,
-        results,
-        userId,
-        systemName
-      );
       await sendMessage(provider, number, humanReadableResponse, ctx);
     });
 
