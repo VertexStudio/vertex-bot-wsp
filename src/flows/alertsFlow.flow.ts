@@ -227,7 +227,7 @@ async function handleReaction(reactions: any[]) {
     }
 }
 
-export const imageFlow = addKeyword<Provider, Database>("alertas", { sensitive: false })
+export const alertsFlow = addKeyword<Provider, Database>("alertas", { sensitive: false })
     .addAction(async (ctx, { provider: _provider }) => {
         if (isProcessing) {
             console.log(`Attempt to execute while already processing. Ignoring.`);
