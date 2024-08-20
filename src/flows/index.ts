@@ -3,8 +3,8 @@ import { welcomeFlow } from "./welcomeFlow.flow";
 import { mediaFlow } from "./mediaFlow";
 import { voiceNoteFlow } from "./voiceNote.flow";
 import { groupsID } from "./groupsID.flow";
-import { imageFlow } from "./imageFlow.flow";
-import { resizeFlow } from "./imageFlow.flow";
+import { alertsFlow } from "./alertsFlow.flow";
+import { resizeFlow } from "./alertsFlow.flow";
 import { analyseImageFlow } from "./analyseImageFlow";
 
 export const flow = createFlow([
@@ -12,7 +12,7 @@ export const flow = createFlow([
   //   mediaFlow,
   voiceNoteFlow,
   groupsID,
-  imageFlow,
+  alertsFlow,
   resizeFlow,
   analyseImageFlow,
 ]);
