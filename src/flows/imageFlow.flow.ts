@@ -44,16 +44,18 @@ const resizedImages: Set<string> = new Set();
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
 
-    //query 
+    //Live query to get the analysis of the new anomalie
     const anomalyLiveQuery = `LIVE SELECT (<-analysis[*])[0] AS analysis FROM analysis_anomalies;`;
 
     const db = await initDb();
 
     const [liveQuery] = await db.query<[UUID]>(anomalyLiveQuery);
 
+    //Subscribe to live query to get new anomalies
     db.subscribeLive(liveQuery,
         async (action, result) => {
 
+            //Get analysis and snap of the anomaly
             const analysis = result['analysis'] as { id: Record<string, string>; results: string };
 
             const getSnapQuery = "(SELECT (<-snap_analysis<-snap[*])[0] AS snap FROM $analysis)[0];";
@@ -62,16 +64,13 @@ async function anomalyLiveQuery(): Promise<UUID> {
                 analysis: analysis.id
             });
 
-            console.log("Snap antesxd: ", getSnap);
-
             const snap = getSnap["snap"] as Snap;
 
-            console.log("este", snap.data);
-
+            //Alert will be only sent for CREATE action
             if (action != "CREATE") return;
             console.log("Analysis", analysis);
-            // console.log(currentCtx, provider);
 
+            //Send image to the group
             if (currentCtx && provider) {
                 sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
             }
