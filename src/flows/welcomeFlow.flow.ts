@@ -7,9 +7,10 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
-const OLLAMA_API_URL = "http://localhost:11434/api/generate";
-const OLLAMA_API_URL_CHAT = "http://localhost:11434/api/chat";
-const MODEL = "veoveo:latest";
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://localhost:11434";
+const OLLAMA_API_URL_GENERATE = `${OLLAMA_API_URL}/api/generate`;
+const OLLAMA_API_URL_CHAT = `${OLLAMA_API_URL}/api/chat`;
+const MODEL = process.env.MODEL || "llama3.1";
 
 const DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:
 
@@ -74,7 +75,7 @@ export async function callOllamaAPI(
   } = {}
 ): Promise<string> {
   try {
-    const response = await axios.post(OLLAMA_API_URL, {
+    const response = await axios.post(OLLAMA_API_URL_GENERATE, {
       model: MODEL,
       prompt,
       system: options.system || DEFAULT_SYSTEM_MESSAGE,
