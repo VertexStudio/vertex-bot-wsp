@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import { callOllamaAPI } from "../services/ollamaService";
+import { sendMessage as sendMessageService } from "../services/messageService";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -151,11 +152,7 @@ async function sendMessage(
     mentions = [ctx.key.participant];
   }
 
-  await provider.vendor.sendMessage(
-    number,
-    { text: messageText, mentions },
-    { quoted: ctx }
-  );
+  await sendMessageService(provider, number, messageText, mentions, ctx);
 }
 
 async function updateDatabaseWithModelTask(
