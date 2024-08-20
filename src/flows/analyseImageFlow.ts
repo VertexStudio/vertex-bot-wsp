@@ -6,9 +6,11 @@ import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
-import { callOllamaAPI, callOllamaAPIChat, Message } from "./welcomeFlow.flow";
-import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
+import { callOllamaAPI } from "./welcomeFlow.flow";
+import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Messages } from "openai/resources/beta/threads/messages";
+import { Session, sessions } from "./welcomeFlow.flow";
+
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
@@ -146,11 +148,15 @@ async function sendMessage(
   let mentions = [];
 
   if (ctx.key.participant) {
-    messageText = '@' + ctx.key.participant.split('@')[0] + ' ' + text;
+    messageText = "@" + ctx.key.participant.split("@")[0] + " " + text;
     mentions = [ctx.key.participant];
   }
 
-  await provider.vendor.sendMessage(number, { text: messageText, mentions }, { quoted: ctx });
+  await provider.vendor.sendMessage(
+    number,
+    { text: messageText, mentions },
+    { quoted: ctx }
+  );
 }
 
 async function updateDatabaseWithModelTask(
@@ -249,9 +255,8 @@ Provide a direct answer to the user's request based on these results.`;
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
-  const userId = ctx.key.remoteJid;
-  const userName = ctx.pushName || 'System';
-  const systemName = 'System';
+  const userName = ctx.pushName || "System";
+  const systemName = "System";
   try {
     await sendMessage(
       provider,
@@ -263,21 +268,17 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    Message.arr.push({ role: 'user', content: `User: ${userName}: ` + caption });
-
-    const analysisType = await determineAnalysisType(caption, userId, userName);
-    if (!analysisType) {
-      await sendMessage(
-        provider,
-        number,
-        "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request.",
-        ctx
-      );
-      return;
+    // Get or create a session for this user
+    if (!sessions.has(number)) {
+      sessions.set(number, new Session());
     }
+    const session = sessions.get(number)!;
+
+    // Add user message to the session
+    session.addMessage({ role: "user", content: `${userName}: ${caption}` });
 
     await connectToDatabase();
-    await updateDatabaseWithModelTask(analysisType);
+    await updateDatabaseWithModelTask(await determineAnalysisType(caption));
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -295,19 +296,33 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    Message.arr.push({ role: 'tool', content: `User: ${userName}: ${results[0]}` });
+    // Add tool message to the session
+    session.addMessage({
+      role: "tool",
+      content: `${results[0]}`,
+    });
 
-    console.log("*****************************************************************");
-    console.log("Message array: ", Message.arr);
-    console.log("*****************************************************************");
+    const humanReadableResponse = await generateHumanReadableResponse(
+      caption,
+      results
+    );
+
+    // Add assistant message to the session
+    session.addMessage({
+      role: "assistant",
+      content: humanReadableResponse,
+    });
+
+    // Log session messages
+    console.log(
+      "*****************************************************************"
+    );
+    console.log("Session messages: ", session.messages);
+    console.log(
+      "*****************************************************************"
+    );
 
     enqueueMessage(ctx.body, async (_) => {
-      const humanReadableResponse = await generateHumanReadableResponse(
-        caption,
-        results,
-        userId,
-        systemName
-      );
       await sendMessage(provider, number, humanReadableResponse, ctx);
     });
 
@@ -332,12 +347,10 @@ export const analyseImageFlow = addKeyword<Provider, Database>(
 
 // Helper functions
 async function determineAnalysisType(
-  caption: string,
-  userId: string,
-  userName: string
+  caption: string
 ): Promise<ImageAnalysisType | null> {
   const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const analysisType = await callOllamaAPI(prompt, userId, userName, {
+  const analysisType = await callOllamaAPI(prompt, {
     system,
     temperature: 0,
     top_k: 20,
@@ -352,12 +365,10 @@ async function determineAnalysisType(
 
 async function generateHumanReadableResponse(
   caption: string,
-  results: unknown,
-  userId: string,
-  userName: string
+  results: unknown
 ): Promise<string> {
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const response = await callOllamaAPI(prompt, userId, userName, {
+  const response = await callOllamaAPI(prompt, {
     system,
     temperature: 0.1,
     top_k: 20,
