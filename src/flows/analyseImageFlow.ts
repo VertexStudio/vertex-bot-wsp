@@ -6,10 +6,10 @@ import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
-import { callOllamaAPI } from "./welcomeFlow.flow";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { Messages } from "openai/resources/beta/threads/messages";
-import { Session, sessions } from "./welcomeFlow.flow";
+import { Session, sessions } from "../models/Session";
+import { callOllamaAPI } from "../services/ollamaService";
+import { sendMessage as sendMessageService } from "../services/messageService";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -152,11 +152,7 @@ async function sendMessage(
     mentions = [ctx.key.participant];
   }
 
-  await provider.vendor.sendMessage(
-    number,
-    { text: messageText, mentions },
-    { quoted: ctx }
-  );
+  await sendMessageService(provider, number, messageText, mentions, ctx);
 }
 
 async function updateDatabaseWithModelTask(
