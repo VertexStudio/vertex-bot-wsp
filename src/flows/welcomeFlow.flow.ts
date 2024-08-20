@@ -41,7 +41,13 @@ const DEFAULT_SYSTEM_MESSAGE = `You are an AI assistant in a WhatsApp group chat
 Remember, your role is to assist and interact as VeoVeo Bot, not to speak on behalf of any human participants.`;
 
 export class Message {
-  static arr: Array<{ role: string; content: string }> = [];
+  static arr: Array<{ role: string; content: string }> = [
+    { role: "system", content: DEFAULT_SYSTEM_MESSAGE },
+  ];
+
+  static reset() {
+    this.arr = [{ role: "system", content: DEFAULT_SYSTEM_MESSAGE }];
+  }
 }
 
 export async function callOllamaAPI(
@@ -73,17 +79,34 @@ export async function callOllamaAPI(
   }
 }
 
-export async function callOllamaAPIChat(userName: string): Promise<{
+export async function callOllamaAPIChat(
+  userName: string,
+  options: {
+    temperature?: number;
+    top_k?: number;
+    top_p?: number;
+  } = {}
+): Promise<{
   role: string;
   content: string;
 }> {
   try {
     console.debug("User name:", userName);
 
+    // Ensure the system message is always the first in the array
+    if (Message.arr[0].role !== "system") {
+      Message.reset();
+    }
+
     const response = await axios.post(OLLAMA_API_URL_CHAT, {
       model: MODEL,
       messages: Message.arr,
       stream: false,
+      options: {
+        temperature: options.temperature ?? 0.7,
+        top_k: options.top_k ?? 40,
+        top_p: options.top_p ?? 0.9,
+      },
     });
 
     console.debug("Response Ollama API Chat:", response.data);
