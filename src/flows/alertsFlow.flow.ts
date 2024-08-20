@@ -1,20 +1,16 @@
-import { EVENTS, addKeyword } from "@builderbot/bot";
+import { addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
-import { getDb, initDb } from "../database/surreal";
+import { initDb } from "../database/surreal";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import * as fs from "fs";
 import * as path from "path";
 import { typing } from "../utils/presence";
-import * as chokidar from "chokidar";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
 import { UUID } from "surrealdb.js";
 import * as os from 'os';
 
-const IMAGE_DIRECTORY = "./assets/images";
 const RESIZED_DIRECTORY = "./assets/resized";
-const CORRECT_DIRECTORY = "./assets/corrects";
-const INCORRECT_DIRECTORY = "./assets/incorrects";
 const MESSAGE_GAP_SECONDS = 3000;
 
 const queueConfig: QueueConfig = { gapSeconds: MESSAGE_GAP_SECONDS };
@@ -97,21 +93,6 @@ function parseImageToUrlFromUint8Array(data: Uint8Array, format: string): string
     return tmpFilePath;
 }
 
-// function getImagesOrderedByDate(directory: string): string[] {
-//     console.log(`[${processId}] Getting images ordered by date`);
-//     return fs.readdirSync(directory)
-//         .filter(file => {
-//             const ext = path.extname(file).toLowerCase();
-//             return ['.jpg', '.jpeg', '.png', '.gif'].includes(ext);
-//         })
-//         .map(file => ({
-//             name: file,
-//             time: fs.statSync(path.join(directory, file)).mtime.getTime()
-//         }))
-//         .sort((a, b) => a.time - b.time)
-//         .map(file => file.name);
-// }
-
 async function sendImage(ctx: any, provider: Provider, imagePath: string, caption?: string): Promise<void> {
     console.log(`[${processId}] Sending image: ${imagePath}`);
     const number = ctx.key.remoteJid;
@@ -149,15 +130,6 @@ async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
     });
 }
 
-// function handleNewImage(imagePath: string) {
-//     console.log(`New image detected: ${imagePath}`);
-//     if (currentCtx && provider) {
-//         enqueueImage(currentCtx, provider, imagePath);
-//     } else {
-//         console.log("Cannot send image: context or provider not available");
-//     }
-// }
-
 async function resizeImage(imagePath: string, width: number, height: number): Promise<string> {
     console.log(`[${processId}] Resizing image: ${imagePath}`);
     if (!fs.existsSync(RESIZED_DIRECTORY)) {
@@ -172,18 +144,6 @@ async function resizeImage(imagePath: string, width: number, height: number): Pr
     resizedImages.add(outputPath);
     return outputPath;
 }
-
-// const watcher = chokidar.watch(IMAGE_DIRECTORY, {
-//     persistent: true
-// });
-
-// watcher
-//     .on('add', (filePath: string) => {
-//         const ext = path.extname(filePath).toLowerCase();
-//         if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
-//             handleNewImage(filePath);
-//         }
-//     });
 
 async function handleReaction(reactions: any[]) {
     if (reactions.length === 0) {
@@ -211,7 +171,6 @@ async function handleReaction(reactions: any[]) {
         return;
     }
 
-    const { path: imagePath } = imageMessage;
     try {
         if (emoji === "✅") {
             await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como correcta.`);
@@ -293,11 +252,3 @@ export const resizeFlow = addKeyword<Provider, Database>("resize")
             await _provider.sendText(ctx.key.remoteJid, "Invalid command format. Use 'resize X' where X is the image number.");
         }
     });
-
-async function moveImage(imagePath: string, destinationDir: string): Promise<string> {
-    console.log(`[${processId}] Moving image: ${imagePath} to ${destinationDir}`);
-    const destinationPath = path.join(destinationDir, path.basename(imagePath));
-
-    await fs.promises.rename(imagePath, destinationPath);
-    return destinationPath;
-}
