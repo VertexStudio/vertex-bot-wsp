@@ -56,7 +56,7 @@ export class Session {
       0
     );
     while (totalChars > MAX_CHAR_LIMIT && this.messages.length > 1) {
-      const removed = this.messages.splice(1, 1)[0]; // Remove the second message (after system message)
+      const removed = this.messages.splice(1, 1)[0];
       totalChars -= removed.content.length;
     }
   }
