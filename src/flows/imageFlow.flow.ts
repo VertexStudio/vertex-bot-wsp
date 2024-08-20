@@ -9,6 +9,7 @@ import * as chokidar from "chokidar";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
 import { UUID } from "surrealdb.js";
+import * as os from 'os';
 
 const IMAGE_DIRECTORY = "./assets/images";
 const RESIZED_DIRECTORY = "./assets/resized";
@@ -24,6 +25,12 @@ interface ImageMessage {
     timestamp: number;
     id?: string;
 }
+interface Snap {
+    data: Uint8Array;
+    format: 'jpeg' | 'png' | 'bmp' | 'gif'; // Use a union type if there are other formats
+    id: Record<string, string>; // Assuming `RecordId` is a string, otherwise replace with the correct type
+    queued_timestamp: Date;
+}
 
 const imageQueue: ImageMessage[] = [];
 let isProcessing = false;
@@ -32,6 +39,74 @@ let provider: Provider;
 let currentCtx: any;
 const sentImages: Map<string, { path: string, id: string }> = new Map();
 const resizedImages: Set<string> = new Set();
+
+
+//Listen to new anomalies
+async function anomalyLiveQuery(): Promise<UUID> {
+
+    //query 
+    const anomalyLiveQuery = `LIVE SELECT (<-analysis[*])[0] AS analysis FROM analysis_anomalies;`;
+
+    const db = await initDb();
+
+    const [liveQuery] = await db.query<[UUID]>(anomalyLiveQuery);
+
+    db.subscribeLive(liveQuery,
+        async (action, result) => {
+
+            const analysis = result['analysis'] as { id: Record<string, string>; results: string };
+
+            const getSnapQuery = "(SELECT (<-snap_analysis<-snap[*])[0] AS snap FROM $analysis)[0];";
+
+            const [getSnap] = await db.query(getSnapQuery, {
+                analysis: analysis.id
+            });
+
+            console.log("Snap antesxd: ", getSnap);
+
+            const snap = getSnap["snap"] as Snap;
+
+            console.log("este", snap.data);
+
+            if (action != "CREATE") return;
+            console.log("Analysis", analysis);
+            // console.log(currentCtx, provider);
+
+            if (currentCtx && provider) {
+                provider.vendor.sendMessage(currentCtx.key.remoteJid,
+                    {
+                        image: { url: parseImageToUrlFromUint8Array(snap.data, snap.format) },
+                        caption: analysis.results
+                    },
+                    {
+                        quoted: currentCtx
+                    }
+                )
+
+                // sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
+            }
+
+        }
+    );
+
+    return liveQuery;
+
+}
+
+//helper function to parse image from Uint8Array to URL
+function parseImageToUrlFromUint8Array(data: Uint8Array, format: string): string {
+    // Example data
+    const buffer = Buffer.from(data);
+
+    const tmpDir = os.tmpdir();
+    const tmpFilePath = path.join(tmpDir, `file_${Date.now()}.${format}`);
+
+    fs.writeFileSync(tmpFilePath, buffer);
+
+    return tmpFilePath;
+}
+
+await anomalyLiveQuery();
 
 function getImagesOrderedByDate(directory: string): string[] {
     console.log(`[${processId}] Getting images ordered by date`);
@@ -48,12 +123,12 @@ function getImagesOrderedByDate(directory: string): string[] {
         .map(file => file.name);
 }
 
-async function sendImage(ctx: any, provider: Provider, imagePath: string) {
+async function sendImage(ctx: any, provider: Provider, imagePath: string, caption?: string): Promise<void> {
     console.log(`[${processId}] Sending image: ${imagePath}`);
     const number = ctx.key.remoteJid;
     const sentMessage = await provider.vendor.sendMessage(number, {
         image: { url: imagePath },
-        caption: path.basename(imagePath)
+        caption: caption || path.basename(imagePath)
     });
 
     console.log(sentMessage);
@@ -81,7 +156,7 @@ async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
 
     const { imagePath } = imageQueue.shift()!;
     messageQueue(imagePath, async (body) => {
-        await sendImage(ctx, provider, body);
+        await sendImage(ctx, provider, body, null);
     });
 }
 
@@ -109,39 +184,17 @@ async function resizeImage(imagePath: string, width: number, height: number): Pr
     return outputPath;
 }
 
-const watcher = chokidar.watch(IMAGE_DIRECTORY, {
-    persistent: true
-});
+// const watcher = chokidar.watch(IMAGE_DIRECTORY, {
+//     persistent: true
+// });
 
-watcher
-    .on('add', (filePath: string) => {
-        const ext = path.extname(filePath).toLowerCase();
-        if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
-            handleNewImage(filePath);
-        }
-    });
-
-async function anomalyLiveQuery() {
-
-    const anomalyLiveQuery = `LIVE SELECT id FROM camera;`;
-
-    const db = await initDb();
-
-    const [liveQuery] = await db.query<[UUID]>(anomalyLiveQuery);
-    console.log(liveQuery);
-
-    db.subscribeLive(liveQuery,
-        (action, result) => {
-            console.log("Live Query Action: ", action);
-            console.log("Live Query Result: ", result);
-        }
-    );
-
-    return liveQuery;
-
-}
-
-await anomalyLiveQuery();
+// watcher
+//     .on('add', (filePath: string) => {
+//         const ext = path.extname(filePath).toLowerCase();
+//         if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
+//             handleNewImage(filePath);
+//         }
+//     });
 
 async function handleReaction(reactions: any[]) {
     if (reactions.length === 0) {
@@ -185,7 +238,7 @@ async function handleReaction(reactions: any[]) {
     }
 }
 
-export const imageFlow = addKeyword<Provider, Database>("imagenes", { sensitive: false })
+export const imageFlow = addKeyword<Provider, Database>("alertas", { sensitive: false })
     .addAction(async (ctx, { provider: _provider }) => {
         if (isProcessing) {
             console.log(`Attempt to execute while already processing. Ignoring.`);
@@ -221,7 +274,7 @@ export const imageFlow = addKeyword<Provider, Database>("imagenes", { sensitive:
             await provider.sendText(ctx.key.remoteJid, "All images have been enqueued and will be sent shortly. New images will be sent automatically.");
 
             if (!isProcessing) {
-                processImageQueue(ctx, provider);
+                // processImageQueue(ctx, provider);
             }
 
             provider.on("reaction", handleReaction);
