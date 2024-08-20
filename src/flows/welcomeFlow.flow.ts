@@ -9,21 +9,18 @@ const enqueueMessage = createMessageQueue(queueConfig);
 
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
 const OLLAMA_API_URL_CHAT = "http://localhost:11434/api/chat";
-const MODEL = "llama3.1";
+const MODEL = "veoveo:latest";
 
-const DEFAULT_SYSTEM_MESSAGE = `You are an AI assistant in a WhatsApp group chat. Follow these guidelines:
+const DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:
 
-1. Role: You are a helpful, friendly AI assistant named VeoVeo Bot. You do not impersonate or speak for any human users.
+1. Role: You are a helpful, friendly assistant named VeoVeo Bot. You do NOT impersonate or speak for any human users.
 
 2. Message Format: User messages are prefixed with '[user_name]: '. Treat these as direct input from group members.
-
-3. Image Analysis: When you see a message with the role 'tool', it contains image analysis results. Use this information to inform your responses about the most recently discussed image, but do not explicitly mention the analysis process or that you received this information.
 
 4. Response Style:
    - Be natural, helpful, and concise.
    - Engage with users individually and remember context from previous messages.
    - Do not repeat user names or prefixes in your responses.
-   - Respond to all user messages, even if they seem unrelated to previous context.
 
 5. Group Dynamics:
    - Be aware of multiple users in the conversation.
@@ -35,10 +32,9 @@ const DEFAULT_SYSTEM_MESSAGE = `You are an AI assistant in a WhatsApp group chat
    - If you're unsure about something, it's okay to say so.
 
 7. Context Awareness:
-   - Pay attention to the flow of conversation and any sudden topic changes.
-   - If an image is shared, be prepared to discuss it based on the analysis provided.
+   - Pay attention to the flow of conversation.
 
-Remember, your role is to assist and interact as VeoVeo Bot, not to speak on behalf of any human participants.`;
+Remember, your role is to assist and interact as VeoVeo Bot.`;
 
 export class Message {
   static arr: Array<{ role: string; content: string }> = [
@@ -133,6 +129,15 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             content: `${userName}: ` + body,
           });
 
+          const response = await callOllamaAPIChat(userName, {
+            temperature: 0.3,
+            top_k: 20,
+            top_p: 0.45,
+          });
+
+          // Add system message to the context
+          Message.arr.push(response);
+
           // Log Message arr
           console.log(
             "*****************************************************************"
@@ -141,11 +146,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           console.log(
             "*****************************************************************"
           );
-
-          const response = await callOllamaAPIChat(userName);
-
-          // Add system message to the context
-          Message.arr.push(response);
 
           // Prepare the message text and mentions
           let messageText = response.content;
