@@ -7,7 +7,7 @@ import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { callOllamaAPI, callOllamaAPIChat, Message } from "./welcomeFlow.flow";
-import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
+import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Messages } from "openai/resources/beta/threads/messages";
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -146,11 +146,15 @@ async function sendMessage(
   let mentions = [];
 
   if (ctx.key.participant) {
-    messageText = '@' + ctx.key.participant.split('@')[0] + ' ' + text;
+    messageText = "@" + ctx.key.participant.split("@")[0] + " " + text;
     mentions = [ctx.key.participant];
   }
 
-  await provider.vendor.sendMessage(number, { text: messageText, mentions }, { quoted: ctx });
+  await provider.vendor.sendMessage(
+    number,
+    { text: messageText, mentions },
+    { quoted: ctx }
+  );
 }
 
 async function updateDatabaseWithModelTask(
@@ -250,8 +254,8 @@ Provide a direct answer to the user's request based on these results.`;
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   const userId = ctx.key.remoteJid;
-  const userName = ctx.pushName || 'System';
-  const systemName = 'System';
+  const userName = ctx.pushName || "System";
+  const systemName = "System";
   try {
     await sendMessage(
       provider,
@@ -263,21 +267,13 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    Message.arr.push({ role: 'user', content: `User: ${userName}: ` + caption });
-
-    const analysisType = await determineAnalysisType(caption, userId, userName);
-    if (!analysisType) {
-      await sendMessage(
-        provider,
-        number,
-        "I'm sorry, I couldn't determine the appropriate analysis type. Please try rephrasing your request.",
-        ctx
-      );
-      return;
-    }
+    const messagesToPush = [];
+    messagesToPush.push({ role: "user", content: `${userName}: ${caption}` });
 
     await connectToDatabase();
-    await updateDatabaseWithModelTask(analysisType);
+    await updateDatabaseWithModelTask(
+      await determineAnalysisType(caption, userId, userName)
+    );
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -295,11 +291,20 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    Message.arr.push({ role: 'tool', content: `User: ${userName}: ${results[0]}` });
+    messagesToPush.push({
+      role: "tool",
+      content: `${results[0]}`,
+    });
 
-    console.log("*****************************************************************");
+    Message.arr.push(...messagesToPush);
+
+    console.log(
+      "*****************************************************************"
+    );
     console.log("Message array: ", Message.arr);
-    console.log("*****************************************************************");
+    console.log(
+      "*****************************************************************"
+    );
 
     enqueueMessage(ctx.body, async (_) => {
       const humanReadableResponse = await generateHumanReadableResponse(
