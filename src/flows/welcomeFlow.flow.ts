@@ -3,9 +3,6 @@ import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import axios from "axios";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { LRUCache } from "lru-cache";
-import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { IMAGE_ANALYSIS_TYPES } from "./analyseImageFlow";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -13,9 +10,6 @@ const enqueueMessage = createMessageQueue(queueConfig);
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
 const OLLAMA_API_URL_CHAT = "http://localhost:11434/api/chat";
 const MODEL = "llama3.1";
-
-const contextCache = new LRUCache<string, number[]>({ max: 100 });
-const MAX_CONTEXT_LENGTH = 4096;
 
 const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with '[user_name]: ' which are from group members, and tool results which are image analysis results. Respond naturally, helpfully and concisely to user queries. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
 
