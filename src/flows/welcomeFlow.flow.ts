@@ -2,30 +2,73 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import axios from "axios";
-import { createMessageQueue, QueueConfig } from '../utils/fast-entires'
-import { LRUCache } from 'lru-cache'
-import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { IMAGE_ANALYSIS_TYPES } from './analyseImageFlow';
+import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
-const OLLAMA_API_URL = "http://localhost:11434/api/generate";
-const MODEL = "llama3.1";
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://localhost:11434";
+const OLLAMA_API_URL_GENERATE = `${OLLAMA_API_URL}/api/generate`;
+const OLLAMA_API_URL_CHAT = `${OLLAMA_API_URL}/api/chat`;
+const MODEL = process.env.MODEL || "llama3.1";
 
-const contextCache = new LRUCache<string, number[]>({ max: 100 })
-const MAX_CONTEXT_LENGTH = 4096
+const DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:
 
-const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with 'user: ' which are from group members, and 'system: ' which are system results (external to you) for image analysis. Respond naturally, helpfully and concisely to user queries.
+1. Role: You are a helpful, friendly assistant named VeoVeo Bot. You do NOT impersonate or speak for any human users.
 
-IMPORTANT: Always respond in the exact language used by the user in the last message sent by the user. Do not translate or provide responses in multiple languages.
+2. Message Format: User messages are prefixed with '[user_name]: '. Treat these as direct input from group members.
 
-You can IGNORE all these analysis types and never use them to answer an user query: ${IMAGE_ANALYSIS_TYPES.join(', ')}.`;
+4. Response Style:
+   - Be natural, helpful, and concise.
+   - Engage with users individually and remember context from previous messages.
+   - Do not repeat user names or prefixes in your responses.
+   - Speak only in one language.
+
+5. Group Dynamics:
+   - Be aware of multiple users in the conversation.
+   - Don't assume information about users that hasn't been explicitly stated.
+   - If a user asks about another user, only reference information that has been shared in the visible conversation.
+
+6. Limitations:
+   - Do not generate or pretend to be user messages.
+   - If you're unsure about something, it's okay to say so.
+
+7. Context Awareness:
+   - Pay attention to the flow of conversation.
+   - Query tool results when the user asks about the image.
+
+Remember, your role is to assist and interact as VeoVeo Bot.`;
+
+const MAX_CHAR_LIMIT = 512000;
+
+export class Session {
+  messages: Array<{ role: string; content: string }>;
+
+  constructor() {
+    this.messages = [{ role: "system", content: DEFAULT_SYSTEM_MESSAGE }];
+  }
+
+  addMessage(message: { role: string; content: string }) {
+    this.messages.push(message);
+    this.trimMessages();
+  }
+
+  trimMessages() {
+    let totalChars = this.messages.reduce(
+      (sum, msg) => sum + msg.content.length,
+      0
+    );
+    while (totalChars > MAX_CHAR_LIMIT && this.messages.length > 1) {
+      const removed = this.messages.splice(1, 1)[0];
+      totalChars -= removed.content.length;
+    }
+  }
+}
+
+export const sessions = new Map<string, Session>();
 
 export async function callOllamaAPI(
   prompt: string,
-  userId: string,
-  userName: string,
   options: {
     system?: string;
     temperature?: number;
@@ -34,15 +77,11 @@ export async function callOllamaAPI(
   } = {}
 ): Promise<string> {
   try {
-    console.debug("User name:", userName)
-    const context = contextCache.get(userId) || []
-    const prefixedPrompt = `${userName}: ${prompt}`
-    const response = await axios.post(OLLAMA_API_URL, {
+    const response = await axios.post(OLLAMA_API_URL_GENERATE, {
       model: MODEL,
-      prompt: prefixedPrompt,
+      prompt,
       system: options.system || DEFAULT_SYSTEM_MESSAGE,
       stream: false,
-      context: context,
       options: {
         temperature: options.temperature ?? 0.7,
         top_k: options.top_k ?? 40,
@@ -50,15 +89,47 @@ export async function callOllamaAPI(
       },
     });
 
-    // Update the context in the cache
-    if (response.data.context) {
-      const newContext = response.data.context.slice(-MAX_CONTEXT_LENGTH)
-      contextCache.set(userId, newContext)
-    }
-
-    console.debug("Current context length:", contextCache.get(userId)?.length);
-
     return response.data.response;
+  } catch (error) {
+    console.error("Error calling Ollama API:", error);
+    throw error;
+  }
+}
+
+export async function callOllamaAPIChat(
+  userId: string,
+  userName: string,
+  options: {
+    temperature?: number;
+    top_k?: number;
+    top_p?: number;
+  } = {}
+): Promise<{
+  role: string;
+  content: string;
+}> {
+  try {
+    console.debug("User name:", userName);
+
+    if (!sessions.has(userId)) {
+      sessions.set(userId, new Session());
+    }
+    const session = sessions.get(userId)!;
+
+    const response = await axios.post(OLLAMA_API_URL_CHAT, {
+      model: MODEL,
+      messages: session.messages,
+      stream: false,
+      options: {
+        temperature: options.temperature ?? 0.7,
+        top_k: options.top_k ?? 40,
+        top_p: options.top_p ?? 0.9,
+      },
+    });
+
+    console.debug("Response Ollama API Chat:", response.data);
+
+    return response.data.message;
   } catch (error) {
     console.error("Error calling Ollama API:", error);
     throw error;
@@ -68,24 +139,66 @@ export async function callOllamaAPI(
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { state, provider }) => {
     try {
-        await typing(ctx, provider);
-        try {
-            enqueueMessage(ctx.body, async (body) => {
-                console.log('Processed messages:', body);
-                const userId = ctx.key.remoteJid
-                const userName = ctx.pushName || 'User'
-                const response = await callOllamaAPI(body, userId, userName, {
-                    system: DEFAULT_SYSTEM_MESSAGE,
-                    temperature: 0.3,
-                });
-                provider.vendor.sendMessage(ctx.key.remoteJid, { text: response }, { quoted: ctx })
-            });
-        } catch (error) {
-            console.error('Error processing message:', error);
-        }
+      await typing(ctx, provider);
+      try {
+        enqueueMessage(ctx.body, async (body) => {
+          console.log("Processed messages:", body);
+          const userId = ctx.key.remoteJid;
+          const userName = ctx.pushName || "User";
+
+          if (!sessions.has(userId)) {
+            sessions.set(userId, new Session());
+          }
+          const session = sessions.get(userId)!;
+
+          session.addMessage({
+            role: "user",
+            content: `${userName}: ${body}`,
+          });
+
+          const response = await callOllamaAPIChat(userId, userName, {
+            temperature: 0.3,
+            top_k: 20,
+            top_p: 0.45,
+          });
+
+          session.addMessage(response);
+
+          // Log session messages
+          console.log(
+            "*****************************************************************"
+          );
+          console.log("Session messages: ", session.messages);
+          console.log(
+            "*****************************************************************"
+          );
+
+          // Prepare the message text and mentions
+          let messageText = response.content;
+          let mentions = [];
+
+          if (ctx.key.participant) {
+            messageText =
+              "@" + ctx.key.participant.split("@")[0] + " " + messageText;
+            mentions = [ctx.key.participant];
+          }
+
+          provider.vendor.sendMessage(
+            ctx.key.remoteJid,
+            { text: messageText, mentions },
+            { quoted: ctx }
+          );
+        });
+      } catch (error) {
+        console.error("Error processing message:", error);
+      }
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      provider.vendor.sendMessage(ctx.key.remoteJid, { text: "Error in welcomeFlow: " + error.message }, { quoted: ctx })
+      provider.vendor.sendMessage(
+        ctx.key.remoteJid,
+        { text: "Error in welcomeFlow: " + error.message },
+        { quoted: ctx }
+      );
     }
   }
 );
