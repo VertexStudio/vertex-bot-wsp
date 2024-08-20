@@ -8,6 +8,7 @@ import { typing } from "../utils/presence";
 import * as chokidar from "chokidar";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
+import { UUID } from "surrealdb.js";
 
 const IMAGE_DIRECTORY = "./assets/images";
 const RESIZED_DIRECTORY = "./assets/resized";
@@ -122,18 +123,25 @@ watcher
 
 async function anomalyLiveQuery() {
 
-    const anomaly_live_query = `LIVE SELECT id FROM camera;`;
-    console.log(anomaly_live_query);
+    const anomalyLiveQuery = `LIVE SELECT id FROM camera;`;
 
     const db = await initDb();
 
-    let live_query = await db.query(anomaly_live_query);
+    const [liveQuery] = await db.query<[UUID]>(anomalyLiveQuery);
+    console.log(liveQuery);
 
-    return live_query;
+    db.subscribeLive(liveQuery,
+        (action, result) => {
+            console.log("Live Query Action: ", action);
+            console.log("Live Query Result: ", result);
+        }
+    );
+
+    return liveQuery;
 
 }
 
-let liveQueryREsult = await anomalyLiveQuery();
+await anomalyLiveQuery();
 
 async function handleReaction(reactions: any[]) {
     if (reactions.length === 0) {
