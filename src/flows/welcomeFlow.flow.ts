@@ -11,9 +11,7 @@ const OLLAMA_API_URL = "http://localhost:11434/api/generate";
 const OLLAMA_API_URL_CHAT = "http://localhost:11434/api/chat";
 const MODEL = "llama3.1";
 
-const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with '[user_name]: ' which are from group members, and tool results which are image analysis results. Respond naturally, helpfully and concisely to user queries. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
-
-IMPORTANT: Always respond in the exact language used by the user in the last message sent by the user. Do not translate or provide responses in multiple languages.`;
+const DEFAULT_SYSTEM_MESSAGE = `You are a helpful AI assistant in a WhatsApp group with many people. You'll see messages prefixed with '[user_name]: ' which are from group members, and tool results which are image analysis results, right after the user's query about an image. Respond naturally, helpfully and concisely to user queries. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.`;
 
 export class Message {
   static arr: Array<{ role: string; content: string }> = [];
@@ -85,7 +83,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             content: `${userName}: ` + body,
           });
 
-          //log Message arr
+          // Log Message arr
           console.log(
             "*****************************************************************"
           );
@@ -99,9 +97,19 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           // Add system message to the context
           Message.arr.push(response);
 
+          // Prepare the message text and mentions
+          let messageText = response.content;
+          let mentions = [];
+
+          if (ctx.key.participant) {
+            messageText =
+              "@" + ctx.key.participant.split("@")[0] + " " + messageText;
+            mentions = [ctx.key.participant];
+          }
+
           provider.vendor.sendMessage(
             ctx.key.remoteJid,
-            { text: response.content },
+            { text: messageText, mentions },
             { quoted: ctx }
           );
         });
