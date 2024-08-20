@@ -86,7 +86,7 @@ await anomalyLiveQuery();
 
 //helper function to parse image from Uint8Array to URL
 function parseImageToUrlFromUint8Array(data: Uint8Array, format: string): string {
-    // Example data
+
     const buffer = Buffer.from(data);
 
     const tmpDir = os.tmpdir();
@@ -97,20 +97,20 @@ function parseImageToUrlFromUint8Array(data: Uint8Array, format: string): string
     return tmpFilePath;
 }
 
-function getImagesOrderedByDate(directory: string): string[] {
-    console.log(`[${processId}] Getting images ordered by date`);
-    return fs.readdirSync(directory)
-        .filter(file => {
-            const ext = path.extname(file).toLowerCase();
-            return ['.jpg', '.jpeg', '.png', '.gif'].includes(ext);
-        })
-        .map(file => ({
-            name: file,
-            time: fs.statSync(path.join(directory, file)).mtime.getTime()
-        }))
-        .sort((a, b) => a.time - b.time)
-        .map(file => file.name);
-}
+// function getImagesOrderedByDate(directory: string): string[] {
+//     console.log(`[${processId}] Getting images ordered by date`);
+//     return fs.readdirSync(directory)
+//         .filter(file => {
+//             const ext = path.extname(file).toLowerCase();
+//             return ['.jpg', '.jpeg', '.png', '.gif'].includes(ext);
+//         })
+//         .map(file => ({
+//             name: file,
+//             time: fs.statSync(path.join(directory, file)).mtime.getTime()
+//         }))
+//         .sort((a, b) => a.time - b.time)
+//         .map(file => file.name);
+// }
 
 async function sendImage(ctx: any, provider: Provider, imagePath: string, caption?: string): Promise<void> {
     console.log(`[${processId}] Sending image: ${imagePath}`);
@@ -149,14 +149,14 @@ async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
     });
 }
 
-function handleNewImage(imagePath: string) {
-    console.log(`New image detected: ${imagePath}`);
-    if (currentCtx && provider) {
-        enqueueImage(currentCtx, provider, imagePath);
-    } else {
-        console.log("Cannot send image: context or provider not available");
-    }
-}
+// function handleNewImage(imagePath: string) {
+//     console.log(`New image detected: ${imagePath}`);
+//     if (currentCtx && provider) {
+//         enqueueImage(currentCtx, provider, imagePath);
+//     } else {
+//         console.log("Cannot send image: context or provider not available");
+//     }
+// }
 
 async function resizeImage(imagePath: string, width: number, height: number): Promise<string> {
     console.log(`[${processId}] Resizing image: ${imagePath}`);
@@ -214,11 +214,9 @@ async function handleReaction(reactions: any[]) {
     const { path: imagePath } = imageMessage;
     try {
         if (emoji === "✅") {
-            await moveImage(imagePath, CORRECT_DIRECTORY);
-            await provider.sendText(reactionKey.remoteJid, `Imagen marcada como correcta.`);
+            await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como correcta.`);
         } else if (emoji === "❌") {
-            await moveImage(imagePath, INCORRECT_DIRECTORY);
-            await provider.sendText(reactionKey.remoteJid, `Imagen marcada como incorrecta.`);
+            await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como incorrecta.`);
         }
         sentImages.delete(reactionId.id);
     } catch (error) {
@@ -244,23 +242,23 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", { sensitive:
             currentCtx = ctx;
             provider = _provider;
 
-            const orderedImages = getImagesOrderedByDate(IMAGE_DIRECTORY);
+            // const orderedImages = getImagesOrderedByDate(IMAGE_DIRECTORY);
 
-            if (orderedImages.length === 0) {
-                console.log(`[${processId}] No images available`);
-                await provider.sendText(ctx.key.remoteJid, "No images available. New images will be sent automatically when added.");
-                isProcessing = false;
-                return;
-            }
+            // if (orderedImages.length === 0) {
+            //     console.log(`[${processId}] No images available`);
+            //     await provider.sendText(ctx.key.remoteJid, "No images available. New images will be sent automatically when added.");
+            //     isProcessing = false;
+            //     return;
+            // }
 
-            console.log(`[${processId}] Found ${orderedImages.length} images`);
+            // console.log(`[${processId}] Found ${orderedImages.length} images`);
 
-            for (const image of orderedImages) {
-                const imagePath = path.join(IMAGE_DIRECTORY, image);
-                await enqueueImage(ctx, provider, imagePath);
-            }
+            // for (const image of orderedImages) {
+            //     const imagePath = path.join(IMAGE_DIRECTORY, image);
+            //     await enqueueImage(ctx, provider, imagePath);
+            // }
 
-            await provider.sendText(ctx.key.remoteJid, "All images have been enqueued and will be sent shortly. New images will be sent automatically.");
+            await provider.sendText(ctx.key.remoteJid, "Las alertas han sido activadas.");
 
             if (!isProcessing) {
                 // processImageQueue(ctx, provider);
