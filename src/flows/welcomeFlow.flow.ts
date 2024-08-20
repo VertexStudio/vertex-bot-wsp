@@ -6,7 +6,7 @@ import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 
-const queueConfig: QueueConfig = { gapSeconds: 0 };
+const queueConfig: QueueConfig = { gapMs: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
