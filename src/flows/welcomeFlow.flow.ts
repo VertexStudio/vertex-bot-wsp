@@ -36,15 +36,33 @@ const DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group 
 
 Remember, your role is to assist and interact as VeoVeo Bot.`;
 
-export class Message {
-  static arr: Array<{ role: string; content: string }> = [
-    { role: "system", content: DEFAULT_SYSTEM_MESSAGE },
-  ];
+const MAX_CHAR_LIMIT = 512000;
 
-  static reset() {
-    this.arr = [{ role: "system", content: DEFAULT_SYSTEM_MESSAGE }];
+export class Session {
+  messages: Array<{ role: string; content: string }>;
+
+  constructor() {
+    this.messages = [{ role: "system", content: DEFAULT_SYSTEM_MESSAGE }];
+  }
+
+  addMessage(message: { role: string; content: string }) {
+    this.messages.push(message);
+    this.trimMessages();
+  }
+
+  trimMessages() {
+    let totalChars = this.messages.reduce(
+      (sum, msg) => sum + msg.content.length,
+      0
+    );
+    while (totalChars > MAX_CHAR_LIMIT && this.messages.length > 1) {
+      const removed = this.messages.splice(1, 1)[0]; // Remove the second message (after system message)
+      totalChars -= removed.content.length;
+    }
   }
 }
+
+export const sessions = new Map<string, Session>();
 
 export async function callOllamaAPI(
   prompt: string,
@@ -76,6 +94,7 @@ export async function callOllamaAPI(
 }
 
 export async function callOllamaAPIChat(
+  userId: string,
   userName: string,
   options: {
     temperature?: number;
@@ -89,14 +108,14 @@ export async function callOllamaAPIChat(
   try {
     console.debug("User name:", userName);
 
-    // Ensure the system message is always the first in the array
-    if (Message.arr[0].role !== "system") {
-      Message.reset();
+    if (!sessions.has(userId)) {
+      sessions.set(userId, new Session());
     }
+    const session = sessions.get(userId)!;
 
     const response = await axios.post(OLLAMA_API_URL_CHAT, {
       model: MODEL,
-      messages: Message.arr,
+      messages: session.messages,
       stream: false,
       options: {
         temperature: options.temperature ?? 0.7,
@@ -124,25 +143,29 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           const userId = ctx.key.remoteJid;
           const userName = ctx.pushName || "User";
 
-          Message.arr.push({
+          if (!sessions.has(userId)) {
+            sessions.set(userId, new Session());
+          }
+          const session = sessions.get(userId)!;
+
+          session.addMessage({
             role: "user",
-            content: `${userName}: ` + body,
+            content: `${userName}: ${body}`,
           });
 
-          const response = await callOllamaAPIChat(userName, {
+          const response = await callOllamaAPIChat(userId, userName, {
             temperature: 0.3,
             top_k: 20,
             top_p: 0.45,
           });
 
-          // Add system message to the context
-          Message.arr.push(response);
+          session.addMessage(response);
 
-          // Log Message arr
+          // Log session messages
           console.log(
             "*****************************************************************"
           );
-          console.log("Message array: ", Message.arr);
+          console.log("Session messages: ", session.messages);
           console.log(
             "*****************************************************************"
           );

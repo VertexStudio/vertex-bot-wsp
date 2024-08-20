@@ -6,9 +6,11 @@ import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
-import { callOllamaAPI, callOllamaAPIChat, Message } from "./welcomeFlow.flow";
+import { callOllamaAPI } from "./welcomeFlow.flow";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Messages } from "openai/resources/beta/threads/messages";
+import { Session, sessions } from "./welcomeFlow.flow";
+
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
@@ -266,8 +268,14 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
 
-    const messagesToPush = [];
-    messagesToPush.push({ role: "user", content: `${userName}: ${caption}` });
+    // Get or create a session for this user
+    if (!sessions.has(number)) {
+      sessions.set(number, new Session());
+    }
+    const session = sessions.get(number)!;
+
+    // Add user message to the session
+    session.addMessage({ role: "user", content: `${userName}: ${caption}` });
 
     await connectToDatabase();
     await updateDatabaseWithModelTask(await determineAnalysisType(caption));
@@ -288,7 +296,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    messagesToPush.push({
+    // Add tool message to the session
+    session.addMessage({
       role: "tool",
       content: `${results[0]}`,
     });
@@ -298,17 +307,17 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       results
     );
 
-    messagesToPush.push({
+    // Add assistant message to the session
+    session.addMessage({
       role: "assistant",
       content: humanReadableResponse,
     });
 
-    Message.arr.push(...messagesToPush);
-
+    // Log session messages
     console.log(
       "*****************************************************************"
     );
-    console.log("Message array: ", Message.arr);
+    console.log("Session messages: ", session.messages);
     console.log(
       "*****************************************************************"
     );
