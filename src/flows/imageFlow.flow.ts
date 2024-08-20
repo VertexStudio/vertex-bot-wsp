@@ -1,5 +1,6 @@
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
+import { getDb, initDb } from "../database/surreal";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import * as fs from "fs";
 import * as path from "path";
@@ -118,6 +119,21 @@ watcher
             handleNewImage(filePath);
         }
     });
+
+async function anomalyLiveQuery() {
+
+    const anomaly_live_query = `LIVE SELECT id FROM camera;`;
+    console.log(anomaly_live_query);
+
+    const db = await initDb();
+
+    let live_query = await db.query(anomaly_live_query);
+
+    return live_query;
+
+}
+
+let liveQueryREsult = await anomalyLiveQuery();
 
 async function handleReaction(reactions: any[]) {
     if (reactions.length === 0) {
