@@ -73,17 +73,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
             // console.log(currentCtx, provider);
 
             if (currentCtx && provider) {
-                provider.vendor.sendMessage(currentCtx.key.remoteJid,
-                    {
-                        image: { url: parseImageToUrlFromUint8Array(snap.data, snap.format) },
-                        caption: analysis.results
-                    },
-                    {
-                        quoted: currentCtx
-                    }
-                )
-
-                // sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
+                sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
             }
 
         }
