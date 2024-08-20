@@ -253,7 +253,6 @@ Provide a direct answer to the user's request based on these results.`;
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
-  const userId = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
   const systemName = "System";
   try {
@@ -271,9 +270,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     messagesToPush.push({ role: "user", content: `${userName}: ${caption}` });
 
     await connectToDatabase();
-    await updateDatabaseWithModelTask(
-      await determineAnalysisType(caption, userId, userName)
-    );
+    await updateDatabaseWithModelTask(await determineAnalysisType(caption));
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -298,9 +295,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const humanReadableResponse = await generateHumanReadableResponse(
       caption,
-      results,
-      userId,
-      systemName
+      results
     );
 
     messagesToPush.push({
@@ -343,12 +338,10 @@ export const analyseImageFlow = addKeyword<Provider, Database>(
 
 // Helper functions
 async function determineAnalysisType(
-  caption: string,
-  userId: string,
-  userName: string
+  caption: string
 ): Promise<ImageAnalysisType | null> {
   const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const analysisType = await callOllamaAPI(prompt, userId, userName, {
+  const analysisType = await callOllamaAPI(prompt, {
     system,
     temperature: 0,
     top_k: 20,
@@ -363,12 +356,10 @@ async function determineAnalysisType(
 
 async function generateHumanReadableResponse(
   caption: string,
-  results: unknown,
-  userId: string,
-  userName: string
+  results: unknown
 ): Promise<string> {
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const response = await callOllamaAPI(prompt, userId, userName, {
+  const response = await callOllamaAPI(prompt, {
     system,
     temperature: 0.1,
     top_k: 20,

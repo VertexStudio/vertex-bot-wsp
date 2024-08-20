@@ -27,8 +27,6 @@ export class Message {
 
 export async function callOllamaAPI(
   prompt: string,
-  userId: string,
-  userName: string,
   options: {
     system?: string;
     temperature?: number;
@@ -37,29 +35,17 @@ export async function callOllamaAPI(
   } = {}
 ): Promise<string> {
   try {
-    console.debug("User name:", userName);
-    const context = contextCache.get(userId) || [];
-    const prefixedPrompt = `${userName}: ${prompt}`;
     const response = await axios.post(OLLAMA_API_URL, {
       model: MODEL,
-      prompt: prefixedPrompt,
+      prompt,
       system: options.system || DEFAULT_SYSTEM_MESSAGE,
       stream: false,
-      context: context,
       options: {
         temperature: options.temperature ?? 0.7,
         top_k: options.top_k ?? 40,
         top_p: options.top_p ?? 0.9,
       },
     });
-
-    // Update the context in the cache
-    if (response.data.context) {
-      const newContext = response.data.context.slice(-MAX_CONTEXT_LENGTH);
-      contextCache.set(userId, newContext);
-    }
-
-    console.debug("Current context length:", contextCache.get(userId)?.length);
 
     return response.data.response;
   } catch (error) {
