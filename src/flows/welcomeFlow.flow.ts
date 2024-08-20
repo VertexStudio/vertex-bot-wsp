@@ -11,7 +11,7 @@ const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 const OLLAMA_API_URL = "http://localhost:11434/api/generate";
-const MODEL = "llama3.1:8b";
+const MODEL = "llama3.1";
 
 const contextCache = new LRUCache<string, number[]>({ max: 100 })
 const MAX_CONTEXT_LENGTH = 4096

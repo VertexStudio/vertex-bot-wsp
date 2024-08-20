@@ -82,6 +82,8 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
 }
 
+await anomalyLiveQuery();
+
 //helper function to parse image from Uint8Array to URL
 function parseImageToUrlFromUint8Array(data: Uint8Array, format: string): string {
     // Example data
@@ -94,8 +96,6 @@ function parseImageToUrlFromUint8Array(data: Uint8Array, format: string): string
 
     return tmpFilePath;
 }
-
-await anomalyLiveQuery();
 
 function getImagesOrderedByDate(directory: string): string[] {
     console.log(`[${processId}] Getting images ordered by date`);
