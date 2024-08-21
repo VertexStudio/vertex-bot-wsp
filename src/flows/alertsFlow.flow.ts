@@ -174,14 +174,14 @@ async function handleReaction(reactions: any[]) {
     }
 
     console.log(`Reaction details:`, reaction);
-    console.log(`Sent Images:`, Array.from(sentImages.entries()));
+    console.log(`Sent alerts:`, Array.from(sentImages.entries()));
 
     const reactionId = reaction.key;
     console.log("ReactionID: ", reactionId.id);
     const alertId = Array.from(sentAlerts.keys()).find(alertId => alertId == reactionId.id);
     if (!alertId) {
-        console.log(`No matching image found for reaction. Reaction ID: ${reactionId.id}`);
-        console.log(`Sent Images IDs:`, Array.from(sentAlerts.keys()));
+        console.log(`No matching alerts found for reaction. Reaction ID: ${reactionId.id}`);
+        console.log(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
         return;
     }
 
@@ -211,10 +211,10 @@ async function handleReaction(reactions: any[]) {
 
         if (correctEmojiList.includes(emoji)) {
             status = true;
-            await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como correcta.`);
+            await provider.sendText(reactionKey.remoteJid, `Anomaly detection marked as correct.`);
         } else if (incorrectEmojiList.includes(emoji)) {
             status = false;
-            await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como incorrecta.`);
+            await provider.sendText(reactionKey.remoteJid, `Anomaly detection marked as incorrect.`);
         }
 
         await db.update(anomalyRecord.id, {
@@ -224,8 +224,8 @@ async function handleReaction(reactions: any[]) {
 
         sentImages.delete(reactionId.id);
     } catch (error) {
-        console.error(`[${processId}] Error moving image:`, error);
-        await provider.sendText(reactionKey.remoteJid, "Hubo un error el recibir el feedback.");
+        console.error(`[${processId}] Could not recieve feedback`, error);
+        await provider.sendText(reactionKey.remoteJid, "Sorry, an error occured while processing your feedback.");
     }
 }
 
@@ -245,34 +245,13 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", { sensitive:
             currentCtx = ctx;
             provider = _provider;
 
-            // const orderedImages = getImagesOrderedByDate(IMAGE_DIRECTORY);
-
-            // if (orderedImages.length === 0) {
-            //     console.log(`[${processId}] No images available`);
-            //     await provider.sendText(ctx.key.remoteJid, "No images available. New images will be sent automatically when added.");
-            //     isProcessing = false;
-            //     return;
-            // }
-
-            // console.log(`[${processId}] Found ${orderedImages.length} images`);
-
-            // for (const image of orderedImages) {
-            //     const imagePath = path.join(IMAGE_DIRECTORY, image);
-            //     await enqueueImage(ctx, provider, imagePath);
-            // }
-
-            await provider.sendText(ctx.key.remoteJid, "Las alertas han sido activadas.");
-
-            if (!isProcessing) {
-                // processImageQueue(ctx, provider);
-            }
+            await provider.sendText(ctx.key.remoteJid, "Alerts are now active. You will receive alerts for new anomalies.");
 
             provider.on("reaction", handleReaction);
 
         } catch (error) {
-            console.error(`[${processId}] Error processing images:`, error);
-            await provider.sendText(ctx.key.remoteJid, "Error activando las alertas.");
-            isProcessing = false;
+            console.error(`[${processId}] Error while activating alerts.`, error);
+            await provider.sendText(ctx.key.remoteJid, "Sorry, an error occurred while activating alerts.");
         }
     });
 
