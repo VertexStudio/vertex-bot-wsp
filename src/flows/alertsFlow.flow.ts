@@ -173,14 +173,14 @@ async function handleReaction(reactions: any[]) {
 
     try {
         if (emoji === "✅") {
-            await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como correcta.`);
+            await provider.sendText(reactionKey.remoteJid, `Anomaly marked as correct.`);
         } else if (emoji === "❌") {
-            await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como incorrecta.`);
+            await provider.sendText(reactionKey.remoteJid, `Anomaly marked as incorrect.`);
         }
         sentImages.delete(reactionId.id);
     } catch (error) {
         console.error(`[${processId}] Error moving image:`, error);
-        await provider.sendText(reactionKey.remoteJid, "Hubo un error al mover la imagen.");
+        await provider.sendText(reactionKey.remoteJid, "There was an error moving the image.");
     }
 }
 
@@ -217,7 +217,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", { sensitive:
             //     await enqueueImage(ctx, provider, imagePath);
             // }
 
-            await provider.sendText(ctx.key.remoteJid, "Las alertas han sido activadas.");
+            await provider.sendText(ctx.key.remoteJid, "The alerts have been activated.");
 
             if (!isProcessing) {
                 // processImageQueue(ctx, provider);
