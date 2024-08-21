@@ -225,7 +225,7 @@ async function handleReaction(reactions: any[]) {
         sentImages.delete(reactionId.id);
     } catch (error) {
         console.error(`[${processId}] Error moving image:`, error);
-        await provider.sendText(reactionKey.remoteJid, "Hobo un error el recibir el feedback.");
+        await provider.sendText(reactionKey.remoteJid, "Hubo un error el recibir el feedback.");
     }
 }
 
