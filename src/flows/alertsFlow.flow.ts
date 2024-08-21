@@ -192,33 +192,40 @@ async function handleReaction(reactions: any[]) {
         const analysisData = sentAlerts.get(alertId);
         console.log(`${analysisData.tb}:${analysisData.id}`);
 
-        const analysisRecordQuery = `(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.tb}:${analysisData.id})[0];`;
+        const [analysisRecord] = await db.query<AnalysisAnomalies[]>(`(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.tb}:${analysisData.id})[0];`);
 
-        const [analysisRecord] = await db.query<AnalysisAnomalies[]>(analysisRecordQuery);
-        console.log("🚀 ~ handleReaction ~ analysisRecord:", analysisRecord.out)
+        if (!analysisRecord) {
+            throw new Error();
+        }
 
         const [anomalyRecord] = await db.query<Anomaly[]>(`(SELECT * FROM anomaly WHERE id = ${analysisRecord.out})[0];`);
-        console.log("🚀 ~ handleReaction ~ anomalyRecord:", anomalyRecord);
+
+        if (!anomalyRecord) {
+            throw new Error();
+        }
+
         let status = null;
 
-        if (emoji === "✅") {
+        const correctEmojiList = ["✅", "👍"];
+        const incorrectEmojiList = ["❌", "👎"];
+
+        if (correctEmojiList.includes(emoji)) {
             status = true;
             await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como correcta.`);
-        } else if (emoji === "❌") {
+        } else if (incorrectEmojiList.includes(emoji)) {
             status = false;
             await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como incorrecta.`);
         }
 
-        const updateResult = await db.update(anomalyRecord.id, {
+        await db.update(anomalyRecord.id, {
             status,
             timestamp: anomalyRecord.timestamp
         });
-        console.log("🚀 ~ handleReaction ~ updateResult:", updateResult)
 
         sentImages.delete(reactionId.id);
     } catch (error) {
         console.error(`[${processId}] Error moving image:`, error);
-        await provider.sendText(reactionKey.remoteJid, "Hubo un error al mover la imagen.");
+        await provider.sendText(reactionKey.remoteJid, "Hobo un error el recibir el feedback.");
     }
 }
 
