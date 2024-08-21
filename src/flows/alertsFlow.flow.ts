@@ -159,26 +159,32 @@ async function resizeImage(imagePath: string, width: number, height: number): Pr
     return outputPath;
 }
 
+//Handle reaction to the alert
 async function handleReaction(reactions: any[]) {
+
+    //Validate how many reaction are in the image
     if (reactions.length === 0) {
         console.log(`No reactions received.`);
         return;
     }
 
+    //Get the first reaction
     const reaction = reactions[0];
     const { key: reactionKey, text: emoji } = reaction.reaction || {};
 
+    //Validate the reaction format
     if (!reactionKey || !emoji) {
         console.log(`Invalid reaction format`);
         return;
     }
-
-    console.log(`Reaction details:`, reaction);
-    console.log(`Sent alerts:`, Array.from(sentImages.entries()));
-
+    
+    //Get the ID of the reaction
+    //This ID is the same as the ID of the message
     const reactionId = reaction.key;
-    console.log("ReactionID: ", reactionId.id);
+    
+    //Find the alert ID that matches the reaction ID
     const alertId = Array.from(sentAlerts.keys()).find(alertId => alertId == reactionId.id);
+
     if (!alertId) {
         console.log(`No matching alerts found for reaction. Reaction ID: ${reactionId.id}`);
         console.log(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
@@ -189,15 +195,17 @@ async function handleReaction(reactions: any[]) {
 
         const db = await initDb();
 
+        //Get the analysis data of the alert by the message ID
         const analysisData = sentAlerts.get(alertId);
-        console.log(`${analysisData.tb}:${analysisData.id}`);
 
+        //Get the analysis record of the alert
         const [analysisRecord] = await db.query<AnalysisAnomalies[]>(`(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.tb}:${analysisData.id})[0];`);
 
         if (!analysisRecord) {
             throw new Error();
         }
 
+        //Get the anomaly record of the analysis
         const [anomalyRecord] = await db.query<Anomaly[]>(`(SELECT * FROM anomaly WHERE id = ${analysisRecord.out})[0];`);
 
         if (!anomalyRecord) {
@@ -206,9 +214,12 @@ async function handleReaction(reactions: any[]) {
 
         let status = null;
 
+        //Array of the valid reactions
         const correctEmojiList = ["✅", "👍"];
         const incorrectEmojiList = ["❌", "👎"];
 
+        //Check if the reaction is correct or incorrect and set the status
+        //Send message to indicate that feedback has been received
         if (correctEmojiList.includes(emoji)) {
             status = true;
             await provider.sendText(reactionKey.remoteJid, `Anomaly detection marked as correct.`);
@@ -217,6 +228,7 @@ async function handleReaction(reactions: any[]) {
             await provider.sendText(reactionKey.remoteJid, `Anomaly detection marked as incorrect.`);
         }
 
+        //Update the status of the anomaly record
         await db.update(anomalyRecord.id, {
             status,
             timestamp: anomalyRecord.timestamp
