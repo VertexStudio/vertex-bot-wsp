@@ -7,7 +7,7 @@ import * as path from "path";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from '../utils/fast-entires';
-import { UUID } from "surrealdb.js";
+import { RecordId, UUID } from "surrealdb.js";
 import * as os from 'os';
 
 const RESIZED_DIRECTORY = "./assets/resized";
@@ -23,9 +23,20 @@ interface ImageMessage {
 }
 interface Snap {
     data: Uint8Array;
-    format: 'jpeg' | 'png' | 'bmp' | 'gif'; // Use a union type if there are other formats
-    id: Record<string, string>; // Assuming `RecordId` is a string, otherwise replace with the correct type
+    format: 'jpeg' | 'png' | 'bmp' | 'gif';
+    id: Record<string, string>;
     queued_timestamp: Date;
+}
+
+interface AnalysisAnomalies {
+    out: RecordId;
+    in: RecordId;
+    status: boolean;
+}
+
+interface Anomaly {
+    id: RecordId;
+    timestamp: Date;
 }
 
 const imageQueue: ImageMessage[] = [];
@@ -36,6 +47,7 @@ let currentCtx: any;
 const sentImages: Map<string, { path: string, id: string }> = new Map();
 const resizedImages: Set<string> = new Set();
 
+const sentAlerts = new Map<string, Record<string, string>>();
 
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
@@ -53,7 +65,6 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
             //Get analysis and snap of the anomaly
             const analysis = result['analysis'] as { id: Record<string, string>; results: string };
-
             const getSnapQuery = "(SELECT (<-snap_analysis<-snap[*])[0] AS snap FROM $analysis)[0];";
 
             const [getSnap] = await db.query(getSnapQuery, {
@@ -68,7 +79,8 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
             //Send image to the group
             if (currentCtx && provider) {
-                sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
+                const messageId = await sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
+                sentAlerts.set(messageId, analysis.id);
             }
 
         }
@@ -93,7 +105,7 @@ function parseImageToUrlFromUint8Array(data: Uint8Array, format: string): string
     return tmpFilePath;
 }
 
-async function sendImage(ctx: any, provider: Provider, imagePath: string, caption?: string): Promise<void> {
+async function sendImage(ctx: any, provider: Provider, imagePath: string, caption?: string): Promise<string> {
     console.log(`[${processId}] Sending image: ${imagePath}`);
     const number = ctx.key.remoteJid;
     const sentMessage = await provider.vendor.sendMessage(number, {
@@ -107,8 +119,10 @@ async function sendImage(ctx: any, provider: Provider, imagePath: string, captio
         const messageId = sentMessage.key.id;
         sentImages.set(messageId, { path: imagePath, id: messageId });
         console.log(`[${processId}] Image sent with ID: ${messageId}`);
+        return messageId;
     } else {
         console.log(`[${processId}] Error: No ID found for sent message.`);
+        return "";
     }
 }
 
@@ -164,19 +178,43 @@ async function handleReaction(reactions: any[]) {
 
     const reactionId = reaction.key;
     console.log("ReactionID: ", reactionId.id);
-    const imageMessage = Array.from(sentImages.values()).find(img => img.id === reactionId.id);
-    if (!imageMessage) {
+    const alertId = Array.from(sentAlerts.keys()).find(alertId => alertId == reactionId.id);
+    if (!alertId) {
         console.log(`No matching image found for reaction. Reaction ID: ${reactionId.id}`);
-        console.log(`Sent Images IDs:`, Array.from(sentImages.keys()));
+        console.log(`Sent Images IDs:`, Array.from(sentAlerts.keys()));
         return;
     }
 
     try {
+
+        const db = await initDb();
+
+        const analysisData = sentAlerts.get(alertId);
+        console.log(`${analysisData.tb}:${analysisData.id}`);
+
+        const analysisRecordQuery = `(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.tb}:${analysisData.id})[0];`;
+
+        const [analysisRecord] = await db.query<AnalysisAnomalies[]>(analysisRecordQuery);
+        console.log("🚀 ~ handleReaction ~ analysisRecord:", analysisRecord.out)
+
+        const [anomalyRecord] = await db.query<Anomaly[]>(`(SELECT * FROM anomaly WHERE id = ${analysisRecord.out})[0];`);
+        console.log("🚀 ~ handleReaction ~ anomalyRecord:", anomalyRecord);
+        let status = null;
+
         if (emoji === "✅") {
+            status = true;
             await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como correcta.`);
         } else if (emoji === "❌") {
+            status = false;
             await provider.sendText(reactionKey.remoteJid, `Anomalia marcada como incorrecta.`);
         }
+
+        const updateResult = await db.update(anomalyRecord.id, {
+            status,
+            timestamp: anomalyRecord.timestamp
+        });
+        console.log("🚀 ~ handleReaction ~ updateResult:", updateResult)
+
         sentImages.delete(reactionId.id);
     } catch (error) {
         console.error(`[${processId}] Error moving image:`, error);
@@ -193,7 +231,6 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", { sensitive:
 
         isProcessing = true;
         processId = Date.now();
-        console.log(`[${processId}] Starting image processing`);
 
         try {
             typing(ctx, _provider);
@@ -227,7 +264,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", { sensitive:
 
         } catch (error) {
             console.error(`[${processId}] Error processing images:`, error);
-            await provider.sendText(ctx.key.remoteJid, "There was an error processing the images.");
+            await provider.sendText(ctx.key.remoteJid, "Error activando las alertas.");
             isProcessing = false;
         }
     });
