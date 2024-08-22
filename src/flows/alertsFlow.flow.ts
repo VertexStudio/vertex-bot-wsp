@@ -59,32 +59,35 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     const [liveQuery] = await db.query<[UUID]>(anomalyLiveQuery);
 
-    //Subscribe to live query to get new anomalies
-    db.subscribeLive(liveQuery,
-        async (action, result) => {
+    try {
+        //Subscribe to live query to get new anomalies
+        db.subscribeLive(liveQuery,
+            async (action, result) => {
 
-            //Get analysis and snap of the anomaly
-            const analysis = result['analysis'] as { id: Record<string, string>; results: string };
-            const getSnapQuery = "(SELECT (<-snap_analysis<-snap[*])[0] AS snap FROM $analysis)[0];";
+                //Get analysis and snap of the anomaly
+                const analysis = result['analysis'] as { id: Record<string, string>; results: string };
 
-            const [getSnap] = await db.query(getSnapQuery, {
-                analysis: analysis.id
-            });
+                //Get the snap (image) that is associated with the analysis
+                const [getSnap] = await db.query("(SELECT (<-snap_analysis<-snap[*])[0] AS snap FROM $analysis)[0];", {
+                    analysis: analysis.id
+                });
 
-            const snap = getSnap["snap"] as Snap;
+                const snap = getSnap["snap"] as Snap;
 
-            //Alert will be only sent for CREATE action
-            if (action != "CREATE") return;
-            console.log("Analysis", analysis);
+                //Alert will be only sent for CREATE action
+                if (action != "CREATE") return;
 
-            //Send image to the group
-            if (currentCtx && provider) {
-                const messageId = await sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
-                sentAlerts.set(messageId, analysis.id);
+                //Send image to the group
+                if (currentCtx && provider) {
+                    const messageId = await sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
+                    sentAlerts.set(messageId, analysis.id);
+                }
+
             }
-
-        }
-    );
+        );
+    } catch (error) {
+        console.error(`[${processId}] Error in live query subscription: `, error);
+    }
 
     return liveQuery;
 
@@ -177,11 +180,11 @@ async function handleReaction(reactions: any[]) {
         console.log(`Invalid reaction format`);
         return;
     }
-    
+
     //Get the ID of the reaction
     //This ID is the same as the ID of the message
     const reactionId = reaction.key;
-    
+
     //Find the alert ID that matches the reaction ID
     const alertId = Array.from(sentAlerts.keys()).find(alertId => alertId == reactionId.id);
 
