@@ -59,11 +59,11 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     const [liveQuery] = await db.query<[UUID]>(anomalyLiveQuery);
 
-    try {
-        //Subscribe to live query to get new anomalies
-        db.subscribeLive(liveQuery,
-            async (action, result) => {
+    //Subscribe to live query to get new anomalies
+    db.subscribeLive(liveQuery,
+        async (action, result) => {
 
+            try {
                 //Get analysis and snap of the anomaly
                 const analysis = result['analysis'] as { id: Record<string, string>; results: string };
 
@@ -82,15 +82,14 @@ async function anomalyLiveQuery(): Promise<UUID> {
                     const messageId = await sendImage(currentCtx, provider, parseImageToUrlFromUint8Array(snap.data, snap.format), analysis.results);
                     sentAlerts.set(messageId, analysis.id);
                 }
-
+            } catch (error) {
+                console.error(`[${processId}] Error while processing anomaly`, error);
             }
-        );
-    } catch (error) {
-        console.error(`[${processId}] Error in live query subscription: `, error);
-    }
+
+        }
+    );
 
     return liveQuery;
-
 }
 
 await anomalyLiveQuery();
