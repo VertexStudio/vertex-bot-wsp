@@ -15,6 +15,7 @@ This is a project that uses the BuilderBot SDK to create a chatbot with Baileys.
 - OPENAI_API_KEY=
 - MONGODB_URI=
 - IMGUR_CLIENT_ID=
+- MODEL= (Optional, default is "llama3.1").
 3. Run "pnpm i"
 4. Run "pnpm dev"
 5. Scan the QR code from the bot.qr.png file with WhatsApp
