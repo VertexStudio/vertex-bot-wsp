@@ -77,7 +77,7 @@ async function processImage(localPath: string): Promise<Buffer> {
   return sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
 }
 
-async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
+async function insertImageIntoDatabase(jpegBuffer: Buffer, caption: String): Promise<string> {
   const insertQuery = `
     BEGIN TRANSACTION;
     LET $new_snap = CREATE snap SET
@@ -95,7 +95,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
   const insertResult = await db.query(insertQuery, {
     data: base64String,
     format: "jpeg",
-    caption: "Testing",
+    caption,
     camera: new RecordId("camera", CAMERA_ID),
   });
 
@@ -282,7 +282,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     console.log("File saved at:", localPath);
 
     const jpegBuffer = await processImage(localPath);
-    const newSnapId = await insertImageIntoDatabase(jpegBuffer);
+    const newSnapId = await insertImageIntoDatabase(jpegBuffer, caption);
     console.log("New snap ID:", newSnapId);
 
     const analysisResult = await setUpLiveQuery(newSnapId);
