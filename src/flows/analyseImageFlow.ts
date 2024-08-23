@@ -83,6 +83,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
     LET $new_snap = CREATE snap SET
       data = encoding::base64::decode($data),
       format = $format,
+      caption = $caption,
       queued_timestamp = time::now();
     RELATE $camera->camera_snaps->$new_snap;
     RETURN $new_snap;
@@ -94,6 +95,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
   const insertResult = await db.query(insertQuery, {
     data: base64String,
     format: "jpeg",
+    caption: "Testing",
     camera: new RecordId("camera", CAMERA_ID),
   });
 
