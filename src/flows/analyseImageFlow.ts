@@ -77,12 +77,13 @@ async function processImage(localPath: string): Promise<Buffer> {
   return sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
 }
 
-async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
+async function insertImageIntoDatabase(jpegBuffer: Buffer, caption: String): Promise<string> {
   const insertQuery = `
     BEGIN TRANSACTION;
     LET $new_snap = CREATE snap SET
       data = encoding::base64::decode($data),
       format = $format,
+      caption = $caption,
       queued_timestamp = time::now();
     RELATE $camera->camera_snaps->$new_snap;
     RETURN $new_snap;
@@ -94,6 +95,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer): Promise<string> {
   const insertResult = await db.query(insertQuery, {
     data: base64String,
     format: "jpeg",
+    ...(caption.trim() !== '' ? { caption } : {}),
     camera: new RecordId("camera", CAMERA_ID),
   });
 
@@ -262,7 +264,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     const caption = ctx.message.imageMessage.caption;
-    console.log("Received caption:", caption);
+
+    if (!caption){
+      console.log("No caption received");
+    }else{
+      console.log("Received caption:", caption);
+    }
 
     // Get or create a session for this user
     if (!sessions.has(number)) {
@@ -280,7 +287,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     console.log("File saved at:", localPath);
 
     const jpegBuffer = await processImage(localPath);
-    const newSnapId = await insertImageIntoDatabase(jpegBuffer);
+    const newSnapId = await insertImageIntoDatabase(jpegBuffer, caption);
     console.log("New snap ID:", newSnapId);
 
     const analysisResult = await setUpLiveQuery(newSnapId);
