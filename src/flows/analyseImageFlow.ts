@@ -95,7 +95,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer, caption: String): Pro
   const insertResult = await db.query(insertQuery, {
     data: base64String,
     format: "jpeg",
-    caption,
+    ...(caption.trim() !== '' ? { caption } : {}),
     camera: new RecordId("camera", CAMERA_ID),
   });
 
@@ -264,7 +264,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     const caption = ctx.message.imageMessage.caption;
-    console.log("Received caption:", caption);
+
+    if (!caption){
+      console.log("No caption received");
+    }else{
+      console.log("Received caption:", caption);
+    }
 
     // Get or create a session for this user
     if (!sessions.has(number)) {
