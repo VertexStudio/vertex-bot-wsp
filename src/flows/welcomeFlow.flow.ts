@@ -23,18 +23,36 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         }
         const session = sessions.get(userId)!;
 
-        session.addMessage({
+        // Create a temporary message to send to the API
+        const tempUserMessage = {
           role: "user",
           content: `${userName}: ${body}`,
-        });
+        };
 
-        const response = await callOllamaAPIChat(session, {
-          temperature: 0.3,
-          top_k: 20,
-          top_p: 0.45,
-        });
+        // Call the API with the user's message
+        const response = await callOllamaAPIChat(
+          session,
+          {
+            temperature: 0.3,
+            top_k: 20,
+            top_p: 0.45,
+          },
+          tempUserMessage
+        );
 
-        session.addMessage(response);
+        // Push both user and assistant messages at the same time
+        session.addMessage([
+          {
+            role: "user",
+            content: `${userName}: ${body}`,
+            tokens: response.promptTokens,
+          },
+          {
+            role: "assistant",
+            content: response.content,
+            tokens: response.responseTokens,
+          },
+        ]);
 
         console.log("Session messages: ", session.messages);
 

@@ -26,30 +26,47 @@ export class Session {
   
   Remember, your role is to assist and interact as VeoVeo Bot.`;
 
-  private static readonly MAX_CHAR_LIMIT = 512000;
+  private static readonly MAX_TOKEN_LIMIT = 128000;
 
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string; tokens?: number }>;
+  totalTokens: number;
+  lastPromptEvalCount: number;
 
   constructor() {
     this.messages = [
       { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
     ];
+    this.totalTokens = 0;
+    this.lastPromptEvalCount = 0;
   }
 
-  addMessage(message: { role: string; content: string }) {
-    this.messages.push(message);
+  addMessage(
+    message:
+      | { role: string; content: string; tokens: number }
+      | Array<{ role: string; content: string; tokens: number }>
+  ) {
+    if (Array.isArray(message)) {
+      this.messages.push(...message);
+      this.totalTokens += message.reduce((sum, msg) => sum + msg.tokens, 0);
+    } else {
+      this.messages.push(message);
+      this.totalTokens += message.tokens;
+    }
     this.trimMessages();
   }
 
   private trimMessages() {
-    let totalChars = this.messages.reduce(
-      (sum, msg) => sum + msg.content.length,
-      0
-    );
-    while (totalChars > Session.MAX_CHAR_LIMIT && this.messages.length > 1) {
+    while (
+      this.totalTokens > Session.MAX_TOKEN_LIMIT &&
+      this.messages.length > 1
+    ) {
       const removed = this.messages.splice(1, 1)[0];
-      totalChars -= removed.content.length;
+      this.totalTokens -= removed.tokens || 0;
     }
+  }
+
+  updateLastPromptEvalCount(count: number) {
+    this.lastPromptEvalCount = count;
   }
 }
 

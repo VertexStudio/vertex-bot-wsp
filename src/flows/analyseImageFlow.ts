@@ -8,7 +8,7 @@ import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
-import { callOllamaAPI } from "../services/ollamaService";
+import { callOllamaAPI, callOllamaAPIChat } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
@@ -257,7 +257,6 @@ Provide a direct answer to the user's request based on these results.`;
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
-  const systemName = "System";
   try {
     await sendMessage(
       provider,
@@ -280,11 +279,13 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     }
     const session = sessions.get(number)!;
 
-    // Add user message to the session
-    session.addMessage({ role: "user", content: `${userName}: ${caption}` });
-
     await connectToDatabase();
-    await updateDatabaseWithModelTask(await determineAnalysisType(caption));
+    const analysisType = await determineAnalysisType(
+      caption,
+      session.lastPromptEvalCount
+    );
+    session.updateLastPromptEvalCount(analysisType.totalPromptEvalCount);
+    await updateDatabaseWithModelTask(analysisType.response);
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -302,22 +303,37 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    // Add tool message to the session
-    session.addMessage({
-      role: "tool",
-      content: `${results[0]}`,
-    });
-
-    const humanReadableResponse = await generateHumanReadableResponse(
+    const humanReadableResult = await generateHumanReadableResponse(
       caption,
-      results
+      results,
+      session.lastPromptEvalCount
     );
 
-    // Add assistant message to the session
-    session.addMessage({
-      role: "assistant",
-      content: humanReadableResponse,
-    });
+    // Calculate tool message tokens
+    const toolMessageTokens =
+      humanReadableResult.promptTokens -
+      (analysisType.totalPromptEvalCount - session.lastPromptEvalCount);
+
+    session.updateLastPromptEvalCount(humanReadableResult.totalPromptEvalCount);
+
+    // Add user, tool, and assistant messages to the session all at once
+    session.addMessage([
+      {
+        role: "user",
+        content: `${userName}: ${caption}`,
+        tokens: analysisType.promptTokens,
+      },
+      {
+        role: "tool",
+        content: `${results[0]}`,
+        tokens: toolMessageTokens,
+      },
+      {
+        role: "assistant",
+        content: humanReadableResult.response,
+        tokens: humanReadableResult.responseTokens,
+      },
+    ]);
 
     // Log session messages
     console.log(
@@ -329,7 +345,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     enqueueMessage(ctx.body, async (_) => {
-      await sendMessage(provider, number, humanReadableResponse, ctx);
+      await sendMessage(provider, number, humanReadableResult.response, ctx);
     });
 
     console.log("Image processed and stored in the database");
@@ -353,36 +369,66 @@ export const analyseImageFlow = addKeyword<Provider, Database>(
 
 // Helper functions
 async function determineAnalysisType(
-  caption: string
-): Promise<ImageAnalysisType | null> {
+  caption: string,
+  lastPromptEvalCount: number
+): Promise<{
+  response: ImageAnalysisType;
+  promptTokens: number;
+  totalPromptEvalCount: number;
+}> {
   const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const analysisType = await callOllamaAPI(prompt, {
-    system,
-    temperature: 0,
-    top_k: 20,
-    top_p: 0.45,
-  });
-  console.log("Ollama API response (analysis type):", analysisType);
+  const result = await callOllamaAPI(
+    prompt,
+    {
+      system,
+      temperature: 0,
+      top_k: 20,
+      top_p: 0.45,
+    },
+    lastPromptEvalCount
+  );
+  console.log("Ollama API response (analysis type):", result.response);
 
-  return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
-    ? (analysisType as ImageAnalysisType)
-    : null;
+  return {
+    response: IMAGE_ANALYSIS_TYPES.includes(
+      result.response as ImageAnalysisType
+    )
+      ? (result.response as ImageAnalysisType)
+      : null,
+    promptTokens: result.promptTokens,
+    totalPromptEvalCount: result.totalPromptEvalCount,
+  };
 }
 
 async function generateHumanReadableResponse(
   caption: string,
-  results: unknown
-): Promise<string> {
+  results: unknown,
+  lastPromptEvalCount: number
+): Promise<{
+  response: string;
+  promptTokens: number;
+  responseTokens: number;
+  totalPromptEvalCount: number;
+}> {
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const response = await callOllamaAPI(prompt, {
-    system,
-    temperature: 0.1,
-    top_k: 20,
-    top_p: 0.45,
-  });
-  console.debug("Human-readable response:", response);
+  const result = await callOllamaAPI(
+    prompt,
+    {
+      system,
+      temperature: 0.1,
+      top_k: 20,
+      top_p: 0.45,
+    },
+    lastPromptEvalCount
+  );
+  console.debug("Human-readable response:", result.response);
 
-  return alignResponse(response);
+  return {
+    response: alignResponse(result.response),
+    promptTokens: result.promptTokens,
+    responseTokens: result.responseTokens,
+    totalPromptEvalCount: result.totalPromptEvalCount,
+  };
 }
 
 function alignResponse(response: string): string {
