@@ -77,7 +77,10 @@ async function processImage(localPath: string): Promise<Buffer> {
   return sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
 }
 
-async function insertImageIntoDatabase(jpegBuffer: Buffer, caption: String): Promise<string> {
+async function insertImageIntoDatabase(
+  jpegBuffer: Buffer,
+  caption: String
+): Promise<string> {
   const insertQuery = `
     BEGIN TRANSACTION;
     LET $new_snap = CREATE snap SET
@@ -95,7 +98,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer, caption: String): Pro
   const insertResult = await db.query(insertQuery, {
     data: base64String,
     format: "jpeg",
-    ...(caption.trim() !== '' ? { caption } : {}),
+    ...(caption.trim() !== "" ? { caption } : {}),
     camera: new RecordId("camera", CAMERA_ID),
   });
 
@@ -265,9 +268,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const caption = ctx.message.imageMessage.caption;
 
-    if (!caption){
+    if (!caption) {
       console.log("No caption received");
-    }else{
+    } else {
       console.log("Received caption:", caption);
     }
 

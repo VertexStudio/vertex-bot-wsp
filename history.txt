@@ -1,0 +1,10 @@
+#V2
+CREATE snap:5 SET data = encoding::base64::decode("/9j/4AAQSkZJRgABAgAAAQABAAD/wAARCAQ4B4ADAREAAhEBAxEB/AFoAWgBaACgAoAKAEY4oAUUAJQAUAFABQAUAFAC0ABoASgBaACgAoASgoKACgk//2Q"), format = 'jpeg', queued_timestamp = time::now(), detect_anomaly=true;
+SELECT * FROM snap
+exit
+CREATE snap:5 SET data = encoding::base64::decode("/9j/4AAQSkZJRgABAgAAAQABAAD/wAARCAQ4B4ADAREAAhEBAxEB/AFoAWgBaACgAoAKAEY4oAUUAJQAUAFABQAUAFAC0ABoASgBaACgAoASgoKACgk//2Q"), format = 'jpeg', queued_timestamp = time::now(), detect_anomaly=true;
+SELECT * FROM task
+INFO FOR TABLE task
+exi
+INFO FOR TABLE task
+exit

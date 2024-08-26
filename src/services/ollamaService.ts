@@ -1,10 +1,10 @@
-import axios from "axios";
-import { Session } from "../models/Session";
+import { Ollama } from "ollama";
+import { Session } from "~/models/Session";
 
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://localhost:11434";
-const OLLAMA_API_URL_GENERATE = `${OLLAMA_API_URL}/api/generate`;
-const OLLAMA_API_URL_CHAT = `${OLLAMA_API_URL}/api/chat`;
 const MODEL = process.env.MODEL || "llama3.1";
+
+const ollama = new Ollama({ host: OLLAMA_API_URL });
 
 export async function callOllamaAPI(
   prompt: string,
@@ -16,19 +16,18 @@ export async function callOllamaAPI(
   } = {}
 ): Promise<string> {
   try {
-    const response = await axios.post(OLLAMA_API_URL_GENERATE, {
+    const response = await ollama.generate({
       model: MODEL,
       prompt,
-      system: options.system || Session.DEFAULT_SYSTEM_MESSAGE,
-      stream: false,
+      system: options.system,
       options: {
-        temperature: options.temperature ?? 0.7,
-        top_k: options.top_k ?? 40,
-        top_p: options.top_p ?? 0.9,
+        temperature: options.temperature,
+        top_k: options.top_k,
+        top_p: options.top_p,
       },
     });
 
-    return response.data.response;
+    return response.response;
   } catch (error) {
     console.error("Error calling Ollama API:", error);
     throw error;
@@ -47,20 +46,19 @@ export async function callOllamaAPIChat(
   content: string;
 }> {
   try {
-    const response = await axios.post(OLLAMA_API_URL_CHAT, {
+    const response = await ollama.chat({
       model: MODEL,
       messages: session.messages,
-      stream: false,
       options: {
-        temperature: options.temperature ?? 0.7,
-        top_k: options.top_k ?? 40,
-        top_p: options.top_p ?? 0.9,
+        temperature: options.temperature,
+        top_k: options.top_k,
+        top_p: options.top_p,
       },
     });
 
-    console.debug("Response Ollama API Chat:", response.data);
+    console.debug("Response Ollama API Chat:", response);
 
-    return response.data.message;
+    return response.message;
   } catch (error) {
     console.error("Error calling Ollama API:", error);
     throw error;
