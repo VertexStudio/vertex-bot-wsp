@@ -288,6 +288,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const analysisSystemTokens = await getOrCalculateSystemPromptTokens(
       analysisSystem
     );
+    console.debug("Analysis system tokens:", analysisSystemTokens);
 
     const analysisType = await callOllamaAPI(analysisPrompt, {
       system: analysisSystem,
@@ -323,6 +324,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const humanReadableSystemTokens = await getOrCalculateSystemPromptTokens(
       humanReadableSystem
     );
+    console.debug("Human readable system tokens:", humanReadableSystemTokens);
 
     const humanReadableResult = await callOllamaAPI(humanReadablePrompt, {
       system: humanReadableSystem,
@@ -336,6 +338,10 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const toolMessageTokens =
       humanReadableResult.promptTokens - humanReadableSystemTokens;
     const assistantMessageTokens = humanReadableResult.responseTokens;
+
+    console.debug("User message tokens:", userMessageTokens);
+    console.debug("Tool message tokens:", toolMessageTokens);
+    console.debug("Assistant message tokens:", assistantMessageTokens);
 
     // Add user, tool, and assistant messages to the session all at once
     session.addMessage([
