@@ -19,15 +19,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const userName = ctx.pushName || "User";
 
         if (!sessions.has(userId)) {
-          sessions.set(userId, new Session());
+          const newSession = new Session();
+          await newSession.initializeSystemMessageTokens();
+          sessions.set(userId, newSession);
         }
         const session = sessions.get(userId)!;
 
-        // Create a temporary message to send to the API
-        const tempUserMessage = {
-          role: "user",
-          content: `${userName}: ${body}`,
-        };
+        const userMessage = `${userName}: ${body}`;
 
         // Call the API with the user's message
         const response = await callOllamaAPIChat(
@@ -37,15 +35,18 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             top_k: 20,
             top_p: 0.45,
           },
-          tempUserMessage
+          userMessage
         );
+
+        // Calculate user message tokens
+        const userMessageTokens = response.promptTokens - session.totalTokens;
 
         // Push both user and assistant messages at the same time
         session.addMessage([
           {
             role: "user",
-            content: `${userName}: ${body}`,
-            tokens: response.promptTokens,
+            content: userMessage,
+            tokens: userMessageTokens,
           },
           {
             role: "assistant",

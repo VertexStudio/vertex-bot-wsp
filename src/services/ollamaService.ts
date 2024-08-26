@@ -4,7 +4,7 @@ import { Session } from "~/models/Session";
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://localhost:11434";
 const MODEL = process.env.MODEL || "llama3.1";
 
-const ollama = new Ollama({ host: OLLAMA_API_URL });
+export const ollama = new Ollama({ host: OLLAMA_API_URL });
 
 export async function callOllamaAPI(
   prompt: string,
@@ -54,7 +54,7 @@ export async function callOllamaAPIChat(
     top_k?: number;
     top_p?: number;
   } = {},
-  tempUserMessage?: { role: string; content: string }
+  userMessage?: string
 ): Promise<{
   role: string;
   content: string;
@@ -62,8 +62,8 @@ export async function callOllamaAPIChat(
   responseTokens: number;
 }> {
   try {
-    const messages = tempUserMessage
-      ? [...session.messages, tempUserMessage]
+    const messages = userMessage
+      ? [...session.messages, { role: "user", content: userMessage }]
       : session.messages;
 
     const response = await ollama.chat({
@@ -78,16 +78,13 @@ export async function callOllamaAPIChat(
 
     console.debug("Response Ollama API Chat:", response);
 
-    const promptTokens =
-      response.prompt_eval_count - session.lastPromptEvalCount;
-    session.updateLastPromptEvalCount(
-      response.prompt_eval_count + response.eval_count
-    );
+    const promptTokens = response.prompt_eval_count;
+    const responseTokens = response.eval_count;
 
     return {
       ...response.message,
       promptTokens,
-      responseTokens: response.eval_count,
+      responseTokens,
     };
   } catch (error) {
     console.error("Error calling Ollama API:", error);

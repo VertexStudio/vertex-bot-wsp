@@ -1,3 +1,5 @@
+import { callOllamaAPIChat, ollama } from "~/services/ollamaService";
+
 export class Session {
   static readonly DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:
   
@@ -31,6 +33,7 @@ export class Session {
   messages: Array<{ role: string; content: string; tokens?: number }>;
   totalTokens: number;
   lastPromptEvalCount: number;
+  systemMessageTokens: number;
 
   constructor() {
     this.messages = [
@@ -38,6 +41,20 @@ export class Session {
     ];
     this.totalTokens = 0;
     this.lastPromptEvalCount = 0;
+    this.systemMessageTokens = 0;
+  }
+
+  async initializeSystemMessageTokens() {
+    if (this.systemMessageTokens === 0) {
+      const response = await ollama.chat({
+        model: "llama3.1",
+        messages: this.messages,
+      });
+      this.systemMessageTokens = response.prompt_eval_count;
+      this.totalTokens = this.systemMessageTokens;
+      this.lastPromptEvalCount = response.prompt_eval_count;
+      this.messages[0].tokens = this.systemMessageTokens;
+    }
   }
 
   addMessage(

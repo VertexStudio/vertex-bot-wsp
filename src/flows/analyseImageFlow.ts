@@ -311,10 +311,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     // Calculate tool message tokens
     const toolMessageTokens =
-      humanReadableResult.promptTokens -
-      (analysisType.totalPromptEvalCount - session.lastPromptEvalCount);
+      humanReadableResult.promptTokens - session.lastPromptEvalCount;
 
-    session.updateLastPromptEvalCount(humanReadableResult.totalPromptEvalCount);
+    session.updateLastPromptEvalCount(
+      humanReadableResult.totalPromptEvalCount +
+        humanReadableResult.responseTokens
+    );
 
     // Add user, tool, and assistant messages to the session all at once
     session.addMessage([
