@@ -13,8 +13,7 @@ export async function callOllamaAPI(
     temperature?: number;
     top_k?: number;
     top_p?: number;
-  } = {},
-  lastPromptEvalCount: number
+  } = {}
 ): Promise<{
   response: string;
   promptTokens: number;
@@ -33,11 +32,11 @@ export async function callOllamaAPI(
       },
     });
 
-    const promptTokens = response.prompt_eval_count - lastPromptEvalCount;
+    console.debug("Response Ollama API:", response);
 
     return {
       response: response.response,
-      promptTokens,
+      promptTokens: response.prompt_eval_count,
       responseTokens: response.eval_count,
       totalPromptEvalCount: response.prompt_eval_count,
     };
@@ -90,4 +89,28 @@ export async function callOllamaAPIChat(
     console.error("Error calling Ollama API:", error);
     throw error;
   }
+}
+
+export async function getSystemPromptTokens(
+  systemPrompt: string
+): Promise<number> {
+  const response = await ollama.chat({
+    model: MODEL,
+    messages: [{ role: "system", content: systemPrompt }],
+  });
+  return response.prompt_eval_count;
+}
+
+const systemPromptTokensCache: { [key: string]: number } = {};
+
+export async function getOrCalculateSystemPromptTokens(
+  systemPrompt: string
+): Promise<number> {
+  const cacheKey = Buffer.from(systemPrompt).toString("base64");
+  if (!(cacheKey in systemPromptTokensCache)) {
+    systemPromptTokensCache[cacheKey] = await getSystemPromptTokens(
+      systemPrompt
+    );
+  }
+  return systemPromptTokensCache[cacheKey];
 }

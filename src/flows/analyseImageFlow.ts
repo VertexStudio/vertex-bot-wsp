@@ -8,8 +8,9 @@ import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
-import { callOllamaAPI, callOllamaAPIChat } from "../services/ollamaService";
+import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
+import { getOrCalculateSystemPromptTokens } from "../services/ollamaService";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -280,12 +281,24 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const session = sessions.get(number)!;
 
     await connectToDatabase();
-    const analysisType = await determineAnalysisType(
-      caption,
-      session.lastPromptEvalCount
+    const { system: analysisSystem, prompt: analysisPrompt } =
+      generateImageAnalysisPrompt(caption);
+
+    // Get system prompt tokens for image analysis (cached)
+    const analysisSystemTokens = await getOrCalculateSystemPromptTokens(
+      analysisSystem
     );
-    session.updateLastPromptEvalCount(analysisType.totalPromptEvalCount);
-    await updateDatabaseWithModelTask(analysisType.response);
+
+    const analysisType = await callOllamaAPI(analysisPrompt, {
+      system: analysisSystem,
+      temperature: 0,
+      top_k: 20,
+      top_p: 0.45,
+    });
+
+    await updateDatabaseWithModelTask(
+      analysisType.response as ImageAnalysisType
+    );
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.log("File saved at:", localPath);
@@ -303,27 +316,33 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    const humanReadableResult = await generateHumanReadableResponse(
-      caption,
-      results,
-      session.lastPromptEvalCount
+    const { system: humanReadableSystem, prompt: humanReadablePrompt } =
+      generateHumanReadablePrompt(caption, results);
+
+    // Get system prompt tokens for human readable response (cached)
+    const humanReadableSystemTokens = await getOrCalculateSystemPromptTokens(
+      humanReadableSystem
     );
 
-    // Calculate tool message tokens
+    const humanReadableResult = await callOllamaAPI(humanReadablePrompt, {
+      system: humanReadableSystem,
+      temperature: 0.1,
+      top_k: 20,
+      top_p: 0.45,
+    });
+
+    // Calculate message sizes
+    const userMessageTokens = analysisType.promptTokens - analysisSystemTokens;
     const toolMessageTokens =
-      humanReadableResult.promptTokens - session.lastPromptEvalCount;
-
-    session.updateLastPromptEvalCount(
-      humanReadableResult.totalPromptEvalCount +
-        humanReadableResult.responseTokens
-    );
+      humanReadableResult.promptTokens - humanReadableSystemTokens;
+    const assistantMessageTokens = humanReadableResult.responseTokens;
 
     // Add user, tool, and assistant messages to the session all at once
     session.addMessage([
       {
         role: "user",
         content: `${userName}: ${caption}`,
-        tokens: analysisType.promptTokens,
+        tokens: userMessageTokens,
       },
       {
         role: "tool",
@@ -333,9 +352,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       {
         role: "assistant",
         content: humanReadableResult.response,
-        tokens: humanReadableResult.responseTokens,
+        tokens: assistantMessageTokens,
       },
     ]);
+
+    // Update the last prompt eval count
+    session.updateLastPromptEvalCount(humanReadableResult.totalPromptEvalCount);
 
     // Log session messages
     console.log(
@@ -370,25 +392,18 @@ export const analyseImageFlow = addKeyword<Provider, Database>(
 ).addAction((ctx, { provider }) => handleMedia(ctx, provider));
 
 // Helper functions
-async function determineAnalysisType(
-  caption: string,
-  lastPromptEvalCount: number
-): Promise<{
+async function determineAnalysisType(caption: string): Promise<{
   response: ImageAnalysisType;
   promptTokens: number;
   totalPromptEvalCount: number;
 }> {
   const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const result = await callOllamaAPI(
-    prompt,
-    {
-      system,
-      temperature: 0,
-      top_k: 20,
-      top_p: 0.45,
-    },
-    lastPromptEvalCount
-  );
+  const result = await callOllamaAPI(prompt, {
+    system,
+    temperature: 0,
+    top_k: 20,
+    top_p: 0.45,
+  });
   console.log("Ollama API response (analysis type):", result.response);
 
   return {
@@ -404,8 +419,7 @@ async function determineAnalysisType(
 
 async function generateHumanReadableResponse(
   caption: string,
-  results: unknown,
-  lastPromptEvalCount: number
+  results: unknown
 ): Promise<{
   response: string;
   promptTokens: number;
@@ -413,16 +427,12 @@ async function generateHumanReadableResponse(
   totalPromptEvalCount: number;
 }> {
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const result = await callOllamaAPI(
-    prompt,
-    {
-      system,
-      temperature: 0.1,
-      top_k: 20,
-      top_p: 0.45,
-    },
-    lastPromptEvalCount
-  );
+  const result = await callOllamaAPI(prompt, {
+    system,
+    temperature: 0.1,
+    top_k: 20,
+    top_p: 0.45,
+  });
   console.debug("Human-readable response:", result.response);
 
   return {
