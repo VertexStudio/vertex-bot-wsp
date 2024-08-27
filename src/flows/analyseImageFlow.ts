@@ -312,6 +312,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       },
     });
 
+    const message = alignResponse(humanReadableResult.message.content);
+
     const userMessageTokens =
       analysisType.promptTokens - selectAnalysisTypeSystemTokens;
     const toolMessageTokens =
@@ -333,13 +335,15 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       },
       {
         role: "assistant",
-        content: humanReadableResult.message.content,
+        content: message,
         tokens: assistantMessageTokens,
       },
     ]);
 
     // Update the last prompt eval count
-    session.updateLastPromptEvalCount(humanReadableResult.prompt_eval_count);
+    session.updateLastPromptEvalCount(
+      humanReadableResult.prompt_eval_count + assistantMessageTokens
+    );
 
     // Log session messages
     console.log(
@@ -351,15 +355,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     enqueueMessage(ctx.body, async (_) => {
-      await sendMessage(
-        provider,
-        number,
-        humanReadableResult.message.content,
-        ctx
-      );
+      await sendMessage(provider, number, message, ctx);
     });
-
-    console.log("Image processed and stored in the database");
 
     await fs.unlink(localPath);
   } catch (error) {
@@ -379,57 +376,6 @@ export const analyseImageFlow = addKeyword<Provider, Database>(
 ).addAction((ctx, { provider }) => handleMedia(ctx, provider));
 
 // Helper functions
-// async function determineAnalysisType(caption: string): Promise<{
-//   response: ImageAnalysisType;
-//   promptTokens: number;
-//   totalPromptEvalCount: number;
-// }> {
-//   const { system, prompt } = generateImageAnalysisPrompt(caption, userName);
-//   const result = await callOllamaAPI(prompt, {
-//     system,
-//     temperature: 0,
-//     top_k: 20,
-//     top_p: 0.45,
-//   });
-//   console.log("Ollama API response (analysis type):", result.response);
-
-//   return {
-//     response: IMAGE_ANALYSIS_TYPES.includes(
-//       result.response as ImageAnalysisType
-//     )
-//       ? (result.response as ImageAnalysisType)
-//       : null,
-//     promptTokens: result.promptTokens,
-//     totalPromptEvalCount: result.totalPromptEvalCount,
-//   };
-// }
-
-// async function generateHumanReadableResponse(
-//   caption: string,
-//   results: unknown
-// ): Promise<{
-//   response: string;
-//   promptTokens: number;
-//   responseTokens: number;
-//   totalPromptEvalCount: number;
-// }> {
-//   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-//   const result = await callOllamaAPI(prompt, {
-//     system,
-//     temperature: 0.1,
-//     top_k: 20,
-//     top_p: 0.45,
-//   });
-//   console.debug("Human-readable response:", result.response);
-
-//   return {
-//     response: alignResponse(result.response),
-//     promptTokens: result.promptTokens,
-//     responseTokens: result.responseTokens,
-//     totalPromptEvalCount: result.totalPromptEvalCount,
-//   };
-// }
-
 function alignResponse(response: string): string {
   return response
     .split("\n")
