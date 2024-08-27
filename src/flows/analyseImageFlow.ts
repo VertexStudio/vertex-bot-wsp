@@ -10,9 +10,9 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import {
   callOllamaAPI,
-  getSystemPromptTokens,
   MODEL,
   ollama,
+  getSystemPromptTokens,
 } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
 import { getOrCalculateSystemPromptTokens } from "../services/ollamaService";
@@ -62,6 +62,67 @@ export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
 
 // Database connection
 let db: Surreal | undefined;
+
+const SELECT_ANALYSIS_SYSTEM_PROMPT = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
+
+  Instructions:
+  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
+    ${IMAGE_ANALYSIS_TYPES.join(", ")}.
+
+  2. Guidelines for query interpretation:
+    - Text-related queries (Use "OCR"):
+      • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
+      • Queries about documents, reports, labels, instructions, signs, or any written information
+      • Requests to explain, clarify, or provide more information about visible text
+      • Questions about specific textual content (e.g., prices, scores, dates, names)
+      • Requests to translate or interpret text in the image
+      • ANY query using words like "explain", "clarify", "elaborate", "describe", or "interpret" when referring to content that could be text
+
+    - General queries and detailed descriptions (Use "more detailed caption"):
+      • Requests about the overall image content, context, or scene description
+      • Identifying or describing objects, people, animals, or environments
+      • Questions about actions, events, or situations depicted in the image
+      • Requests for detailed information about visual elements (e.g., colors, styles, arrangements)
+      • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
+      • Any question involving visual recognition or recall without explicitly mentioning text
+
+    - Entity(ies) location, presence, or counting (Use "dense region caption"):
+      • Questions about locating specific entities (eg. "where is the phone?")
+      • Requests to count the number of particular entities (eg. "how many apples?")
+      • Queries about the presence or absence of certain entities (eg. "is there a person?", "what's she holding?")
+
+  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
+  4. For ambiogous queries, prefer "more detailed caption".
+  5. Always interpret the request as being about the image content.
+  6. Do not explain your choice or mention inability to see the image.
+  7. If the query mentions both text and general image content, prioritize "OCR".
+  8. The format of the user's request is: "[user_name]: [caption]".
+  9. Pay attention only to the caption part of the request.
+
+  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
+
+const selectAnalysisTypeSystemTokens = await getOrCalculateSystemPromptTokens(
+  SELECT_ANALYSIS_SYSTEM_PROMPT
+);
+
+const ANALYSE_RESULTS_SYSTEM_PROMPT = `You are an AI assistant providing image analysis results directly to the end user via WhatsApp. Answer the user's request about the image based on the analysis results provided by the tool.
+
+1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
+2. Use natural language and explain technical terms if necessary.
+3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
+4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
+5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
+  - Use double line breaks to separate sections, subsections, and parent lists.
+  - When using bold text, use it ONLY like this: *bold text*.
+6. Provide step-by-step instructions or detailed explanations when necessary.
+7. If any URLs are found in the analysis results, state them as plain text.
+8. Keep in mind the overall intent of the user's request.
+9. Use all available information from the analysis results to answer the user's request accurately.
+10. Do not offer further help or guidance.`;
+
+const analyseResultsSystemTokens = await getOrCalculateSystemPromptTokens(
+  ANALYSE_RESULTS_SYSTEM_PROMPT
+);
 
 async function connectToDatabase(): Promise<void> {
   db = new Surreal();
@@ -182,72 +243,6 @@ async function updateDatabaseWithModelTask(
   console.log("Query result:", query);
 }
 
-// Prompt generation functions
-function generateImageAnalysisPrompt(
-  caption: string,
-  userName: string
-): {
-  system: string;
-  prompt: string;
-} {
-  const system = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
-
-  Instructions:
-  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}.
-
-  2. Guidelines for query interpretation:
-    - Text-related queries (Use "OCR"):
-      • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
-      • Queries about documents, reports, labels, instructions, signs, or any written information
-      • Requests to explain, clarify, or provide more information about visible text
-      • Questions about specific textual content (e.g., prices, scores, dates, names)
-      • Requests to translate or interpret text in the image
-      • ANY query using words like "explain", "clarify", "elaborate", "describe", or "interpret" when referring to content that could be text
-
-    - General queries and detailed descriptions (Use "more detailed caption"):
-      • Requests about the overall image content, context, or scene description
-      • Identifying or describing objects, people, animals, or environments
-      • Questions about actions, events, or situations depicted in the image
-      • Requests for detailed information about visual elements (e.g., colors, styles, arrangements)
-      • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
-      • Any question involving visual recognition or recall without explicitly mentioning text
-
-    - Entity(ies) location, presence, or counting (Use "dense region caption"):
-      • Questions about locating specific entities (eg. "where is the phone?")
-      • Requests to count the number of particular entities (eg. "how many apples?")
-      • Queries about the presence or absence of certain entities (eg. "is there a person?", "what's she holding?")
-
-  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
-  4. For ambiogous queries, prefer "more detailed caption".
-  5. Always interpret the request as being about the image content.
-  6. Do not explain your choice or mention inability to see the image.
-  7. If the query mentions both text and general image content, prioritize "OCR".
-  8. The format of the user's request is: "[user_name]: [caption]".
-  9. Pay attention only to the caption part of the request.
-
-  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
-
-  const prompt = `${userName}: ${caption}`;
-
-  return { system, prompt };
-}
-
-const ANALYSE_RESULTS_SYSTEM_PROMPT = `You are an AI assistant providing image analysis results directly to the end user via WhatsApp. Answer the user's request about the image based on the analysis results provided by the tool.
-
-1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
-2. Use natural language and explain technical terms if necessary.
-3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
-4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
-5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
-  - Use double line breaks to separate sections, subsections, and parent lists.
-  - When using bold text, use it ONLY like this: *bold text*.
-6. Provide step-by-step instructions or detailed explanations when necessary.
-7. If any URLs are found in the analysis results, state them as plain text.
-8. Keep in mind the overall intent of the user's request.
-9. Use all available information from the analysis results to answer the user's request accurately.
-10. Do not offer further help or guidance.`;
-
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
@@ -274,16 +269,10 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const session = sessions.get(number)!;
 
     await connectToDatabase();
-    const { system: analysisSystem, prompt: analysisPrompt } =
-      generateImageAnalysisPrompt(caption, userName);
+    const selectAnalysisTypeUserPrompt = `${userName}: ${caption}`;
 
-    // Get system prompt tokens for image analysis (cached)
-    const analysisSystemTokens = await getOrCalculateSystemPromptTokens(
-      analysisSystem
-    );
-
-    const analysisType = await callOllamaAPI(analysisPrompt, {
-      system: analysisSystem,
+    const analysisType = await callOllamaAPI(selectAnalysisTypeUserPrompt, {
+      system: SELECT_ANALYSIS_SYSTEM_PROMPT,
       temperature: 0,
       top_k: 20,
       top_p: 0.45,
@@ -309,17 +298,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    // Get system prompt tokens for human readable response (cached)
-    const humanReadableSystemTokens = await getSystemPromptTokens(
-      ANALYSE_RESULTS_SYSTEM_PROMPT
-    );
-    console.debug("Human readable system tokens:", humanReadableSystemTokens);
-
     const humanReadableResult = await ollama.chat({
       model: MODEL,
       messages: [
         { role: "system", content: ANALYSE_RESULTS_SYSTEM_PROMPT },
-        { role: "user", content: analysisPrompt },
+        { role: "user", content: selectAnalysisTypeUserPrompt },
         { role: "tool", content: results[0] },
       ],
       options: {
@@ -328,12 +311,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
         top_p: 0.45,
       },
     });
-    console.debug("Human readable result:", humanReadableResult);
 
-    const userMessageTokens = analysisType.promptTokens - analysisSystemTokens;
+    const userMessageTokens =
+      analysisType.promptTokens - selectAnalysisTypeSystemTokens;
     const toolMessageTokens =
       humanReadableResult.prompt_eval_count -
-      (humanReadableSystemTokens + userMessageTokens);
+      (analyseResultsSystemTokens + userMessageTokens);
     const assistantMessageTokens = humanReadableResult.eval_count;
 
     // Add user, tool, and assistant messages to the session all at once
