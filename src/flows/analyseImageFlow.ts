@@ -9,13 +9,11 @@ import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import {
-  callOllamaAPI,
   MODEL,
   ollama,
   getSystemPromptTokens,
 } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
-import { getOrCalculateSystemPromptTokens } from "../services/ollamaService";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -101,7 +99,7 @@ const SELECT_ANALYSIS_SYSTEM_PROMPT = `You are an AI assistant for image analysi
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
-const selectAnalysisTypeSystemTokens = await getOrCalculateSystemPromptTokens(
+const selectAnalysisTypeSystemTokens = await getSystemPromptTokens(
   SELECT_ANALYSIS_SYSTEM_PROMPT
 );
 
@@ -120,7 +118,7 @@ const ANALYSE_RESULTS_SYSTEM_PROMPT = `You are an AI assistant providing image a
 9. Use all available information from the analysis results to answer the user's request accurately.
 10. Do not offer further help or guidance.`;
 
-const analyseResultsSystemTokens = await getOrCalculateSystemPromptTokens(
+const analyseResultsSystemTokens = await getSystemPromptTokens(
   ANALYSE_RESULTS_SYSTEM_PROMPT
 );
 
@@ -244,12 +242,12 @@ async function updateDatabaseWithModelTask(
 }
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
-  const number = ctx.key.remoteJid;
+  const userId = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
   try {
     await sendMessage(
       provider,
-      number,
+      userId,
       `We're analyzing your image. Please wait...`,
       ctx
     );
@@ -262,20 +260,18 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       console.log("Received caption:", caption);
     }
 
-    // Get or create a session for this user
-    if (!sessions.has(number)) {
-      sessions.set(number, new Session());
-    }
-    const session = sessions.get(number)!;
-
     await connectToDatabase();
     const selectAnalysisTypeUserPrompt = `${userName}: ${caption}`;
 
-    const analysisType = await callOllamaAPI(selectAnalysisTypeUserPrompt, {
+    const analysisType = await ollama.generate({
+      model: MODEL,
+      prompt: selectAnalysisTypeUserPrompt,
       system: SELECT_ANALYSIS_SYSTEM_PROMPT,
-      temperature: 0,
-      top_k: 20,
-      top_p: 0.45,
+      options: {
+        temperature: 0,
+        top_k: 20,
+        top_p: 0.45,
+      },
     });
 
     await updateDatabaseWithModelTask(
@@ -315,11 +311,18 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const message = alignResponse(humanReadableResult.message.content);
 
     const userMessageTokens =
-      analysisType.promptTokens - selectAnalysisTypeSystemTokens;
+      analysisType.prompt_eval_count - selectAnalysisTypeSystemTokens;
     const toolMessageTokens =
       humanReadableResult.prompt_eval_count -
       (analyseResultsSystemTokens + userMessageTokens);
     const assistantMessageTokens = humanReadableResult.eval_count;
+
+    if (!sessions.has(userId)) {
+      const newSession = new Session();
+      await newSession.initializeSystemMessageTokens();
+      sessions.set(userId, newSession);
+    }
+    const session = sessions.get(userId)!;
 
     // Add user, tool, and assistant messages to the session all at once
     session.addMessage([
@@ -355,7 +358,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     enqueueMessage(ctx.body, async (_) => {
-      await sendMessage(provider, number, message, ctx);
+      await sendMessage(provider, userId, message, ctx);
     });
 
     await fs.unlink(localPath);
@@ -363,7 +366,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     console.error("Error handling media:", error);
     await sendMessage(
       provider,
-      number,
+      userId,
       "Sorry, there was an issue analyzing the image. Please try again later.",
       ctx
     );

@@ -6,47 +6,6 @@ export const MODEL = process.env.MODEL || "llama3.1";
 
 export const ollama = new Ollama({ host: OLLAMA_API_URL });
 
-export async function callOllamaAPI(
-  prompt: string,
-  options: {
-    system?: string;
-    temperature?: number;
-    top_k?: number;
-    top_p?: number;
-  } = {}
-): Promise<{
-  response: string;
-  promptTokens: number;
-  responseTokens: number;
-  totalPromptEvalCount: number;
-}> {
-  console.debug("Calling Ollama API with prompt:", prompt);
-  try {
-    const response = await ollama.generate({
-      model: MODEL,
-      prompt,
-      system: options.system,
-      options: {
-        temperature: options.temperature,
-        top_k: options.top_k,
-        top_p: options.top_p,
-      },
-    });
-
-    console.debug("Response Ollama API:", response);
-
-    return {
-      response: response.response,
-      promptTokens: response.prompt_eval_count,
-      responseTokens: response.eval_count,
-      totalPromptEvalCount: response.prompt_eval_count,
-    };
-  } catch (error) {
-    console.error("Error calling Ollama API:", error);
-    throw error;
-  }
-}
-
 export async function callOllamaAPIChat(
   session: Session,
   options: {
@@ -100,18 +59,4 @@ export async function getSystemPromptTokens(
     messages: [{ role: "system", content: systemPrompt }],
   });
   return response.prompt_eval_count;
-}
-
-const systemPromptTokensCache: { [key: string]: number } = {};
-
-export async function getOrCalculateSystemPromptTokens(
-  systemPrompt: string
-): Promise<number> {
-  const cacheKey = Buffer.from(systemPrompt).toString("base64");
-  if (!(cacheKey in systemPromptTokensCache)) {
-    systemPromptTokensCache[cacheKey] = await getSystemPromptTokens(
-      systemPrompt
-    );
-  }
-  return systemPromptTokensCache[cacheKey];
 }
