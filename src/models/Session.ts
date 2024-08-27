@@ -1,4 +1,4 @@
-import { callOllamaAPIChat, ollama } from "~/services/ollamaService";
+import { ollama } from "~/services/ollamaService";
 
 export class Session {
   static readonly DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:

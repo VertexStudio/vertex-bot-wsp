@@ -2,7 +2,7 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { callOllamaAPIChat } from "../services/ollamaService";
+import { MODEL, ollama } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 
@@ -28,18 +28,25 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const userMessage = `${userName}: ${body}`;
 
         // Call the API with the user's message
-        const response = await callOllamaAPIChat(
-          session,
-          {
+        const response = await ollama.chat({
+          model: MODEL,
+          messages: [
+            ...session.messages,
+            {
+              role: "user",
+              content: userMessage,
+            },
+          ],
+          options: {
             temperature: 0.3,
             top_k: 20,
             top_p: 0.45,
           },
-          userMessage
-        );
+        });
 
         // Calculate user message tokens
-        const userMessageTokens = response.promptTokens - session.totalTokens;
+        const userMessageTokens =
+          response.prompt_eval_count - session.totalTokens;
 
         // Push both user and assistant messages at the same time
         session.addMessage([
@@ -50,12 +57,12 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           },
           {
             role: "assistant",
-            content: response.content,
-            tokens: response.responseTokens,
+            content: response.message.content,
+            tokens: response.eval_count,
           },
         ]);
 
-        let messageText = response.content;
+        let messageText = response.message.content;
         let mentions: string[] = [];
 
         if (ctx.key.participant) {
