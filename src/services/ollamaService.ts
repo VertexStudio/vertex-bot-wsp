@@ -2,7 +2,7 @@ import { Ollama } from "ollama";
 import { Session } from "~/models/Session";
 
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://localhost:11434";
-const MODEL = process.env.MODEL || "llama3.1";
+export const MODEL = process.env.MODEL || "llama3.1";
 
 export const ollama = new Ollama({ host: OLLAMA_API_URL });
 
@@ -20,6 +20,7 @@ export async function callOllamaAPI(
   responseTokens: number;
   totalPromptEvalCount: number;
 }> {
+  console.debug("Calling Ollama API with prompt:", prompt);
   try {
     const response = await ollama.generate({
       model: MODEL,

@@ -8,7 +8,12 @@ import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
-import { callOllamaAPI } from "../services/ollamaService";
+import {
+  callOllamaAPI,
+  getSystemPromptTokens,
+  MODEL,
+  ollama,
+} from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
 import { getOrCalculateSystemPromptTokens } from "../services/ollamaService";
 
@@ -178,7 +183,10 @@ async function updateDatabaseWithModelTask(
 }
 
 // Prompt generation functions
-function generateImageAnalysisPrompt(caption: string): {
+function generateImageAnalysisPrompt(
+  caption: string,
+  userName: string
+): {
   system: string;
   prompt: string;
 } {
@@ -215,45 +223,30 @@ function generateImageAnalysisPrompt(caption: string): {
   5. Always interpret the request as being about the image content.
   6. Do not explain your choice or mention inability to see the image.
   7. If the query mentions both text and general image content, prioritize "OCR".
+  8. The format of the user's request is: "[user_name]: [caption]".
+  9. Pay attention only to the caption part of the request.
 
   CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
-  const prompt = `User's text request: "${caption}"`;
+  const prompt = `${userName}: ${caption}`;
 
   return { system, prompt };
 }
 
-function generateHumanReadablePrompt(
-  caption: string,
-  results: unknown
-): {
-  system: string;
-  prompt: string;
-} {
-  const system = `You are an AI assistant providing image analysis results directly to the end user via WhatsApp. Answer the user's request about the image based on the analysis results provided.
+const ANALYSE_RESULTS_SYSTEM_PROMPT = `You are an AI assistant providing image analysis results directly to the end user via WhatsApp. Answer the user's request about the image based on the analysis results provided by the tool.
 
-  1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
-  2. Use natural language and explain technical terms if necessary.
-  3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
-  4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
-  5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
-    - Use double line breaks to separate sections, subsections, and parent lists.
-    - When using bold text, use it ONLY like this: *bold text*.
-  6. Provide step-by-step instructions or detailed explanations when necessary.
-  7. If any URLs are found in the analysis results, state them as plain text.
-  8. Keep in mind the overall intent of the user's request.
-  9. Use all available information from the analysis results to answer the user's request accurately.
-  10. Do not offer further help or guidance.`;
-
-  const prompt = `User's request about an image: "${caption}"
-
-Image analysis result:
-${JSON.stringify(results, null, 2)}
-
-Provide a direct answer to the user's request based on these results.`;
-
-  return { system, prompt };
-}
+1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
+2. Use natural language and explain technical terms if necessary.
+3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
+4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
+5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
+  - Use double line breaks to separate sections, subsections, and parent lists.
+  - When using bold text, use it ONLY like this: *bold text*.
+6. Provide step-by-step instructions or detailed explanations when necessary.
+7. If any URLs are found in the analysis results, state them as plain text.
+8. Keep in mind the overall intent of the user's request.
+9. Use all available information from the analysis results to answer the user's request accurately.
+10. Do not offer further help or guidance.`;
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
@@ -282,13 +275,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     await connectToDatabase();
     const { system: analysisSystem, prompt: analysisPrompt } =
-      generateImageAnalysisPrompt(caption);
+      generateImageAnalysisPrompt(caption, userName);
 
     // Get system prompt tokens for image analysis (cached)
     const analysisSystemTokens = await getOrCalculateSystemPromptTokens(
       analysisSystem
     );
-    console.debug("Analysis system tokens:", analysisSystemTokens);
 
     const analysisType = await callOllamaAPI(analysisPrompt, {
       system: analysisSystem,
@@ -317,31 +309,32 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    const { system: humanReadableSystem, prompt: humanReadablePrompt } =
-      generateHumanReadablePrompt(caption, results);
-
     // Get system prompt tokens for human readable response (cached)
-    const humanReadableSystemTokens = await getOrCalculateSystemPromptTokens(
-      humanReadableSystem
+    const humanReadableSystemTokens = await getSystemPromptTokens(
+      ANALYSE_RESULTS_SYSTEM_PROMPT
     );
     console.debug("Human readable system tokens:", humanReadableSystemTokens);
 
-    const humanReadableResult = await callOllamaAPI(humanReadablePrompt, {
-      system: humanReadableSystem,
-      temperature: 0.1,
-      top_k: 20,
-      top_p: 0.45,
+    const humanReadableResult = await ollama.chat({
+      model: MODEL,
+      messages: [
+        { role: "system", content: ANALYSE_RESULTS_SYSTEM_PROMPT },
+        { role: "user", content: analysisPrompt },
+        { role: "tool", content: results[0] },
+      ],
+      options: {
+        temperature: 0.1,
+        top_k: 20,
+        top_p: 0.45,
+      },
     });
+    console.debug("Human readable result:", humanReadableResult);
 
-    // Calculate message sizes
     const userMessageTokens = analysisType.promptTokens - analysisSystemTokens;
     const toolMessageTokens =
-      humanReadableResult.promptTokens - humanReadableSystemTokens;
-    const assistantMessageTokens = humanReadableResult.responseTokens;
-
-    console.debug("User message tokens:", userMessageTokens);
-    console.debug("Tool message tokens:", toolMessageTokens);
-    console.debug("Assistant message tokens:", assistantMessageTokens);
+      humanReadableResult.prompt_eval_count -
+      (humanReadableSystemTokens + userMessageTokens);
+    const assistantMessageTokens = humanReadableResult.eval_count;
 
     // Add user, tool, and assistant messages to the session all at once
     session.addMessage([
@@ -357,13 +350,13 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       },
       {
         role: "assistant",
-        content: humanReadableResult.response,
+        content: humanReadableResult.message.content,
         tokens: assistantMessageTokens,
       },
     ]);
 
     // Update the last prompt eval count
-    session.updateLastPromptEvalCount(humanReadableResult.totalPromptEvalCount);
+    session.updateLastPromptEvalCount(humanReadableResult.prompt_eval_count);
 
     // Log session messages
     console.log(
@@ -375,7 +368,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     enqueueMessage(ctx.body, async (_) => {
-      await sendMessage(provider, number, humanReadableResult.response, ctx);
+      await sendMessage(
+        provider,
+        number,
+        humanReadableResult.message.content,
+        ctx
+      );
     });
 
     console.log("Image processed and stored in the database");
@@ -398,56 +396,56 @@ export const analyseImageFlow = addKeyword<Provider, Database>(
 ).addAction((ctx, { provider }) => handleMedia(ctx, provider));
 
 // Helper functions
-async function determineAnalysisType(caption: string): Promise<{
-  response: ImageAnalysisType;
-  promptTokens: number;
-  totalPromptEvalCount: number;
-}> {
-  const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const result = await callOllamaAPI(prompt, {
-    system,
-    temperature: 0,
-    top_k: 20,
-    top_p: 0.45,
-  });
-  console.log("Ollama API response (analysis type):", result.response);
+// async function determineAnalysisType(caption: string): Promise<{
+//   response: ImageAnalysisType;
+//   promptTokens: number;
+//   totalPromptEvalCount: number;
+// }> {
+//   const { system, prompt } = generateImageAnalysisPrompt(caption, userName);
+//   const result = await callOllamaAPI(prompt, {
+//     system,
+//     temperature: 0,
+//     top_k: 20,
+//     top_p: 0.45,
+//   });
+//   console.log("Ollama API response (analysis type):", result.response);
 
-  return {
-    response: IMAGE_ANALYSIS_TYPES.includes(
-      result.response as ImageAnalysisType
-    )
-      ? (result.response as ImageAnalysisType)
-      : null,
-    promptTokens: result.promptTokens,
-    totalPromptEvalCount: result.totalPromptEvalCount,
-  };
-}
+//   return {
+//     response: IMAGE_ANALYSIS_TYPES.includes(
+//       result.response as ImageAnalysisType
+//     )
+//       ? (result.response as ImageAnalysisType)
+//       : null,
+//     promptTokens: result.promptTokens,
+//     totalPromptEvalCount: result.totalPromptEvalCount,
+//   };
+// }
 
-async function generateHumanReadableResponse(
-  caption: string,
-  results: unknown
-): Promise<{
-  response: string;
-  promptTokens: number;
-  responseTokens: number;
-  totalPromptEvalCount: number;
-}> {
-  const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const result = await callOllamaAPI(prompt, {
-    system,
-    temperature: 0.1,
-    top_k: 20,
-    top_p: 0.45,
-  });
-  console.debug("Human-readable response:", result.response);
+// async function generateHumanReadableResponse(
+//   caption: string,
+//   results: unknown
+// ): Promise<{
+//   response: string;
+//   promptTokens: number;
+//   responseTokens: number;
+//   totalPromptEvalCount: number;
+// }> {
+//   const { system, prompt } = generateHumanReadablePrompt(caption, results);
+//   const result = await callOllamaAPI(prompt, {
+//     system,
+//     temperature: 0.1,
+//     top_k: 20,
+//     top_p: 0.45,
+//   });
+//   console.debug("Human-readable response:", result.response);
 
-  return {
-    response: alignResponse(result.response),
-    promptTokens: result.promptTokens,
-    responseTokens: result.responseTokens,
-    totalPromptEvalCount: result.totalPromptEvalCount,
-  };
-}
+//   return {
+//     response: alignResponse(result.response),
+//     promptTokens: result.promptTokens,
+//     responseTokens: result.responseTokens,
+//     totalPromptEvalCount: result.totalPromptEvalCount,
+//   };
+// }
 
 function alignResponse(response: string): string {
   return response
