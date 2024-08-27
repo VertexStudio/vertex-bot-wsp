@@ -32,7 +32,6 @@ export class Session {
 
   messages: Array<{ role: string; content: string; tokens?: number }>;
   totalTokens: number;
-  lastPromptEvalCount: number;
   systemMessageTokens: number;
 
   constructor() {
@@ -40,7 +39,6 @@ export class Session {
       { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
     ];
     this.totalTokens = 0;
-    this.lastPromptEvalCount = 0;
     this.systemMessageTokens = 0;
   }
 
@@ -52,7 +50,6 @@ export class Session {
       });
       this.systemMessageTokens = response.prompt_eval_count;
       this.totalTokens = this.systemMessageTokens;
-      this.lastPromptEvalCount = response.prompt_eval_count;
       this.messages[0].tokens = this.systemMessageTokens;
     }
   }
@@ -82,10 +79,6 @@ export class Session {
       const removed = this.messages.splice(1, 1)[0];
       this.totalTokens -= removed.tokens || 0;
     }
-  }
-
-  updateLastPromptEvalCount(count: number) {
-    this.lastPromptEvalCount = count;
   }
 }
 

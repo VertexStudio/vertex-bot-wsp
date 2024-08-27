@@ -55,8 +55,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           },
         ]);
 
-        console.log("Session messages: ", session.messages);
-
         let messageText = response.content;
         let mentions: string[] = [];
 

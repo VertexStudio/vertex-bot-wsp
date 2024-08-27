@@ -341,11 +341,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       },
     ]);
 
-    // Update the last prompt eval count
-    session.updateLastPromptEvalCount(
-      humanReadableResult.prompt_eval_count + assistantMessageTokens
-    );
-
     enqueueMessage(ctx.body, async (_) => {
       await sendMessage(provider, userId, message, ctx);
     });
