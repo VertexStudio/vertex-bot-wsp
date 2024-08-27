@@ -191,7 +191,6 @@ function waitForFirstResult(
     db.subscribeLive<Record<string, unknown>>(
       analysisResult,
       (action, result) => {
-        console.log("Live query update:", action, result);
         if (
           !isResolved &&
           result &&
@@ -292,7 +291,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const initialData = await waitForFirstResult(analysisResult);
     const results = initialData.results;
-    console.log("Initial analysis data:", results);
 
     const humanReadableResult = await ollama.chat({
       model: MODEL,
@@ -346,15 +344,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     // Update the last prompt eval count
     session.updateLastPromptEvalCount(
       humanReadableResult.prompt_eval_count + assistantMessageTokens
-    );
-
-    // Log session messages
-    console.log(
-      "*****************************************************************"
-    );
-    console.log("Session messages: ", session.messages);
-    console.log(
-      "*****************************************************************"
     );
 
     enqueueMessage(ctx.body, async (_) => {

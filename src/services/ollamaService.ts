@@ -35,8 +35,6 @@ export async function callOllamaAPIChat(
       },
     });
 
-    console.debug("Response Ollama API Chat:", response);
-
     const promptTokens = response.prompt_eval_count;
     const responseTokens = response.eval_count;
 

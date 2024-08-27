@@ -70,6 +70,8 @@ export class Session {
       this.totalTokens += message.tokens;
     }
     this.trimMessages();
+    console.debug("Session messages: ", this.messages);
+    console.debug("Session total tokens: ", this.totalTokens);
   }
 
   private trimMessages() {
