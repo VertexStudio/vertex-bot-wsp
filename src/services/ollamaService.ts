@@ -42,6 +42,7 @@ export async function callOllamaAPIChat(
     temperature?: number;
     top_k?: number;
     top_p?: number;
+    num_ctx?: number;
   } = {}
 ): Promise<{
   role: string;
@@ -56,6 +57,7 @@ export async function callOllamaAPIChat(
         temperature: options.temperature ?? 0.7,
         top_k: options.top_k ?? 40,
         top_p: options.top_p ?? 0.9,
+        num_ctx: options.num_ctx ?? 2048,
       },
     });
 
