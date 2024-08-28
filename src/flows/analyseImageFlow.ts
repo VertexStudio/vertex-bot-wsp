@@ -77,7 +77,10 @@ async function processImage(localPath: string): Promise<Buffer> {
   return sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
 }
 
-async function insertImageIntoDatabase(jpegBuffer: Buffer, caption: String): Promise<string> {
+async function insertImageIntoDatabase(
+  jpegBuffer: Buffer,
+  caption: String
+): Promise<string> {
   const insertQuery = `
     BEGIN TRANSACTION;
     LET $new_snap = CREATE snap SET
@@ -95,7 +98,7 @@ async function insertImageIntoDatabase(jpegBuffer: Buffer, caption: String): Pro
   const insertResult = await db.query(insertQuery, {
     data: base64String,
     format: "jpeg",
-    ...(caption.trim() !== '' ? { caption } : {}),
+    ...(caption.trim() !== "" ? { caption } : {}),
     camera: new RecordId("camera", CAMERA_ID),
   });
 
@@ -265,9 +268,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const caption = ctx.message.imageMessage.caption;
 
-    if (!caption){
+    if (!caption) {
       console.log("No caption received");
-    }else{
+    } else {
       console.log("Received caption:", caption);
     }
 
@@ -276,9 +279,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       sessions.set(number, new Session());
     }
     const session = sessions.get(number)!;
-
-    // Add user message to the session
-    session.addMessage({ role: "user", content: `${userName}: ${caption}` });
 
     await connectToDatabase();
     await updateDatabaseWithModelTask(await determineAnalysisType(caption));
@@ -299,22 +299,17 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const results = initialData.results;
     console.log("Initial analysis data:", results);
 
-    // Add tool message to the session
-    session.addMessage({
-      role: "tool",
-      content: `${results[0]}`,
-    });
-
     const humanReadableResponse = await generateHumanReadableResponse(
       caption,
       results
     );
 
-    // Add assistant message to the session
-    session.addMessage({
-      role: "assistant",
-      content: humanReadableResponse,
-    });
+    // Add all messages to the session at once
+    session.addMessages(
+      { role: "user", content: `${userName}: ${caption}` },
+      { role: "tool", content: `${results[0]}` },
+      { role: "assistant", content: humanReadableResponse }
+    );
 
     // Log session messages
     console.log(
