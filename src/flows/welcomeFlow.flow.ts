@@ -27,6 +27,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           temperature: 0.3,
           top_k: 20,
           top_p: 0.45,
+          num_ctx: 30720,
         });
 
         session.addMessages(
