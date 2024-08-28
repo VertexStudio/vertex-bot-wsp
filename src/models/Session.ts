@@ -36,8 +36,8 @@ export class Session {
     ];
   }
 
-  addMessage(message: { role: string; content: string }) {
-    this.messages.push(message);
+  addMessages(...messages: { role: string; content: string }[]) {
+    this.messages.push(...messages);
     this.trimMessages();
   }
 

@@ -23,18 +23,16 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         }
         const session = sessions.get(userId)!;
 
-        session.addMessage({
-          role: "user",
-          content: `${userName}: ${body}`,
-        });
-
-        const response = await callOllamaAPIChat(session, {
+        const response = await callOllamaAPIChat(session, body, {
           temperature: 0.3,
           top_k: 20,
           top_p: 0.45,
         });
 
-        session.addMessage(response);
+        session.addMessages(
+          { role: "user", content: `${userName}: ${body}` },
+          response
+        );
 
         console.log("Session messages: ", session.messages);
 
