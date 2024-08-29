@@ -10,6 +10,7 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
+import { getMessage } from '../services/translate';
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -254,12 +255,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const userName = ctx.pushName || "System";
   const systemName = "System";
   try {
-    await sendMessage(
-      provider,
-      number,
-      `We're analyzing your image. Please wait...`,
-      ctx
-    );
+    await sendMessage(provider, number, getMessage('analyzing_image'), ctx);
 
     const caption = ctx.message.imageMessage.caption;
     console.log("Received caption:", caption);
@@ -327,12 +323,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await fs.unlink(localPath);
   } catch (error) {
     console.error("Error handling media:", error);
-    await sendMessage(
-      provider,
-      number,
-      "Sorry, there was an issue analyzing the image. Please try again later.",
-      ctx
-    );
+    await sendMessage(provider, number, getMessage('analysis_error'), ctx);
   }
 }
 

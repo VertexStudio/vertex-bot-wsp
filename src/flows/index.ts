@@ -4,8 +4,8 @@ import { mediaFlow } from "./mediaFlow";
 import { voiceNoteFlow } from "./voiceNote.flow";
 import { groupsID } from "./groupsID.flow";
 import { alertsFlow } from "./alertsFlow.flow";
-import { resizeFlow } from "./alertsFlow.flow";
 import { analyseImageFlow } from "./analyseImageFlow";
+import { languageFlow } from './languageFlow'
 
 export const flow = createFlow([
   welcomeFlow,
@@ -13,6 +13,6 @@ export const flow = createFlow([
   voiceNoteFlow,
   groupsID,
   alertsFlow,
-  resizeFlow,
+  languageFlow,
   analyseImageFlow,
 ]);

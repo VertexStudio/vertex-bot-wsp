@@ -1,0 +1,26 @@
+{
+    "en": {
+      "analyzing_image": "We're analyzing your image. Please wait...",
+      "analysis_error": "Sorry, there was an issue analyzing the image. Please try again later.",
+      "errorWelcome": "Error in welcomeFlow:",
+      "anomaly_correct": "Image marked as correct.",
+      "anomaly_incorrect": "Image marked as incorrect.",
+      "alerts_on": "The alerts have been activated.",
+      "alerts_error": "There was an error processing the images.",
+      "selectLanguagePrompt": "Please select your language.",
+      "languageSetConfirmation": "Language has been set.",
+      "languageNotRecognized": "Language not recognized."
+    },
+    "es": {
+      "analyzing_image": "Estamos analizando tu imagen. Por favor, espera...",
+      "analysis_error": "Lo siento, hubo un problema al analizar la imagen. Por favor, intenta nuevamente más tarde.",
+      "errorWelcome": "Error en welcomeFlow:",
+      "anomaly_correct": "Imagen marcada como correcta.",
+      "anomaly_incorrect": "Imagen marcada como incorrecta.",
+      "alerts_on": "Las alertas han sido activadas.",
+      "alerts_error": "Se ha producido un error al procesar las imágenes.",
+      "selectLanguagePrompt": "Por favor, seleccione su idioma.",
+      "languageSetConfirmation": "El idioma ha sido configurado.",
+      "languageNotRecognized": "Idioma no reconocido."
+    }
+}

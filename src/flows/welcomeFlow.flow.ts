@@ -5,6 +5,7 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
+import { getMessage } from '../services/translate';
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -56,13 +57,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      await sendMessage(
-        provider,
-        ctx.key.remoteJid,
-        `Error in welcomeFlow: ${error.message}`,
-        [],
-        ctx
-      );
+      await sendMessage(provider, ctx.key.remoteJid, getMessage(`errorWelcome ${error.message}`));
     }
   }
 );

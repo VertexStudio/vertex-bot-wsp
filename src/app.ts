@@ -35,13 +35,24 @@ const main = async () => {
 		console.log(error);
 	}
 
-	adapterProvider.on("reaction", async (ctx) => {
-		console.log(ctx)
-	});
-
 	adapterProvider.on("message", async (ctx) => {
 		adapterProvider.vendor.readMessages([ctx.key]);
 	});
+
+	adapterProvider.on("groups.upsert", async (upsert) => {
+		for (const group of upsert) {
+			if (group.id) {
+				try {
+					const message = `¡Hola! El bot ha entrado al grupo "${group.subject}"`;
+
+					await adapterProvider.vendor.sendMessage(group.id, { text: message });
+					console.log(`Mensaje enviado al grupo: ${group.subject} (${group.id})`);
+				} catch (error) {
+					console.error(`Error al enviar mensaje al grupo: ${group.subject} (${group.id})`, error);
+				}
+			}
+		}
+	})
 
 	httpInject(adapterProvider.server);
 	httpServer(+PORT);
