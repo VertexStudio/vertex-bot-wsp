@@ -118,9 +118,8 @@ async function sendImage(
 ): Promise<string> {
   console.log(`[${processId}] Sending image: ${imagePath}`);
   const number = ctx.key.remoteJid;
-  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${
-    caption || path.basename(imagePath)
-  }`;
+  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)
+    }`;
   const sentMessage = await provider.vendor.sendMessage(number, {
     image: { url: imagePath },
     caption: enhancedCaption,
@@ -233,6 +232,8 @@ async function handleReaction(reactions: any[]) {
       `(SELECT * FROM anomaly WHERE id = ${analysisRecord.out})[0];`
     );
 
+    console.log("🚀 ~ handleReaction ~ anomalyRecord:", anomalyRecord)
+
     if (!anomalyRecord) {
       throw new Error();
     }
@@ -246,23 +247,25 @@ async function handleReaction(reactions: any[]) {
     //Check if the reaction is correct or incorrect and set the status
     //Send message to indicate that feedback has been received
     if (correctEmojiList.includes(emoji)) {
+
       status = true;
-      await provider.sendText(
-        reactionKey.remoteJid,
-        `Anomaly detection marked as correct.`
-      );
+
     } else if (incorrectEmojiList.includes(emoji)) {
+
       status = false;
+
+    } else {
+
       await provider.sendText(
         reactionKey.remoteJid,
-        `Anomaly detection marked as incorrect.`
+        `Invalid reaction. Please use one of the following reactions: ✅, 👍 or ❌, 👎`
       );
+      return;
     }
 
-    //Update the status of the anomaly record
-    await db.update(anomalyRecord.id, {
-      status,
-      timestamp: anomalyRecord.timestamp,
+    const insert_feedback = await db.query("fn::save_feedback($anomaly_record, $is_detection_correct)", {
+      anomaly_record: anomalyRecord.id,
+      is_detection_correct: status
     });
 
     sentImages.delete(reactionId.id);
