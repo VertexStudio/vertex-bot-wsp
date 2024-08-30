@@ -39,6 +39,11 @@ interface Anomaly {
   timestamp: Date;
 }
 
+interface AlertControl {
+  alertRecord: Record<string, string>,
+  feedback: boolean[]
+}
+
 const imageQueue: ImageMessage[] = [];
 let isProcessing = false;
 let processId = 0;
@@ -47,7 +52,7 @@ let currentCtx: any;
 const sentImages: Map<string, { path: string; id: string }> = new Map();
 const resizedImages: Set<string> = new Set();
 
-const sentAlerts = new Map<string, Record<string, string>>();
+const sentAlerts = new Map<string, AlertControl>();
 
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
@@ -86,7 +91,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
         parseImageToUrlFromUint8Array(snap.data, snap.format),
         analysis.results
       );
-      sentAlerts.set(messageId, analysis.id);
+      sentAlerts.set(messageId, { alertRecord: analysis.id, feedback: [] });
     }
   });
 
@@ -220,7 +225,7 @@ async function handleReaction(reactions: any[]) {
 
     //Get the analysis record of the alert
     const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
-      `(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.tb}:${analysisData.id})[0];`
+      `(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.alertRecord.tb}:${analysisData.alertRecord.id})[0];`
     );
 
     if (!analysisRecord) {
@@ -261,12 +266,8 @@ async function handleReaction(reactions: any[]) {
         `Invalid reaction. Please use one of the following reactions: ✅, 👍 or ❌, 👎`
       );
       return;
-    }
 
-    const insert_feedback = await db.query("fn::save_feedback($anomaly_record, $is_detection_correct)", {
-      anomaly_record: anomalyRecord.id,
-      is_detection_correct: status
-    });
+    }
 
     sentImages.delete(reactionId.id);
   } catch (error) {
