@@ -243,8 +243,6 @@ async function handleReaction(reactions: any[]) {
       throw new Error();
     }
 
-    let status = null;
-
     //Array of the valid reactions
     const correctEmojiList = ["✅", "👍"];
     const incorrectEmojiList = ["❌", "👎"];
@@ -253,11 +251,11 @@ async function handleReaction(reactions: any[]) {
     //Send message to indicate that feedback has been received
     if (correctEmojiList.includes(emoji)) {
 
-      status = true;
+      analysisData.feedback.push(true);
 
     } else if (incorrectEmojiList.includes(emoji)) {
 
-      status = false;
+      analysisData.feedback.push(false);
 
     } else {
 
@@ -269,7 +267,36 @@ async function handleReaction(reactions: any[]) {
 
     }
 
+    console.log("Analysis Data", analysisData);
+
+    if (analysisData.feedback.length == 1) {
+      console.log("Entro");
+      setTimeout(async () => {
+
+        let correct = 0, incorrect = 0;
+
+        for (let i = 0; i < analysisData.feedback.length; i++) {
+          if (analysisData.feedback[i]) {
+            correct++;
+          } else {
+            incorrect++;
+          }
+        }
+
+        const status = correct > incorrect;
+
+        await db.update(anomalyRecord.id, {
+          status,
+          timestamp: anomalyRecord.timestamp,
+        });
+
+        console.log("Anomaly Updated", analysisData.feedback);
+
+      }, 0.5 * 60 * 1000);
+    }
+
     sentImages.delete(reactionId.id);
+
   } catch (error) {
     console.error(`[${processId}] Could not recieve feedback`, error);
     await provider.sendText(
