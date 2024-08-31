@@ -123,8 +123,7 @@ async function sendImage(
 ): Promise<string> {
   console.log(`[${processId}] Sending image: ${imagePath}`);
   const number = ctx.key.remoteJid;
-  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)
-    }`;
+  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)}`;
   const sentMessage = await provider.vendor.sendMessage(number, {
     image: { url: imagePath },
     caption: enhancedCaption,
@@ -222,11 +221,11 @@ async function handleReaction(reactions: any[]) {
     const db = await initDb();
 
     //Get the analysis data of the alert by the message ID
-    const analysisData = sentAlerts.get(alertId);
+    const alertControl = sentAlerts.get(alertId);
 
     //Get the analysis record of the alert
     const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
-      `(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.alertRecord.tb}:${analysisData.alertRecord.id})[0];`
+      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertRecord.tb}:${alertControl.alertRecord.id})[0];`
     );
 
     if (!analysisRecord) {
@@ -250,11 +249,11 @@ async function handleReaction(reactions: any[]) {
     //If the emoji is invalid, send a message to the user
     if (correctEmojiList.includes(emoji)) {
 
-      analysisData.feedback.push(true);
+      alertControl.feedback.push(true);
 
     } else if (incorrectEmojiList.includes(emoji)) {
 
-      analysisData.feedback.push(false);
+      alertControl.feedback.push(false);
 
     } else {
 
@@ -269,17 +268,17 @@ async function handleReaction(reactions: any[]) {
 
     //If the alert is not waiting to process, set a timeout to process the feedback
     //
-    if (!analysisData.waiting) {
+    if (!alertControl.waiting) {
 
       //If not waiting, set the alert to waiting and set a timeout to process the feedback
-      analysisData.waiting = true;
+      alertControl.waiting = true;
 
       setTimeout(async () => {
 
         let correct = 0, incorrect = 0;
 
-        for (let i = 0; i < analysisData.feedback.length; i++) {
-          analysisData.feedback[i] ? correct++ : incorrect++;
+        for (let i = 0; i < alertControl.feedback.length; i++) {
+          alertControl.feedback[i] ? correct++ : incorrect++;
         }
 
         const status = correct > incorrect;
@@ -290,7 +289,7 @@ async function handleReaction(reactions: any[]) {
           timestamp: anomalyRecord.timestamp,
         });
 
-        analysisData.waiting = false;
+        alertControl.waiting = false;
 
       }, 5 * 60 * 1000); //Set the timeout to 5 minutes
     }
