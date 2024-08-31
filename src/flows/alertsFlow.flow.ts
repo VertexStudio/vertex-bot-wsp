@@ -41,7 +41,8 @@ interface Anomaly {
 
 interface AlertControl {
   alertRecord: Record<string, string>,
-  feedback: boolean[]
+  feedback: boolean[],
+  waiting: boolean,
 }
 
 const imageQueue: ImageMessage[] = [];
@@ -81,7 +82,6 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     //Alert will be only sent for CREATE action
     if (action != "CREATE") return;
-    console.log("Analysis", analysis);
 
     //Send image to the group
     if (currentCtx && provider) {
@@ -91,7 +91,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
         parseImageToUrlFromUint8Array(snap.data, snap.format),
         analysis.results
       );
-      sentAlerts.set(messageId, { alertRecord: analysis.id, feedback: [] });
+      sentAlerts.set(messageId, { alertRecord: analysis.id, feedback: [], waiting: false });
     }
   });
 
@@ -209,6 +209,7 @@ async function handleReaction(reactions: any[]) {
     (alertId) => alertId == reactionId.id
   );
 
+  //If no alert ID is found, log the error and return
   if (!alertId) {
     console.log(
       `No matching alerts found for reaction. Reaction ID: ${reactionId.id}`
@@ -237,8 +238,6 @@ async function handleReaction(reactions: any[]) {
       `(SELECT * FROM anomaly WHERE id = ${analysisRecord.out})[0];`
     );
 
-    console.log("🚀 ~ handleReaction ~ anomalyRecord:", anomalyRecord)
-
     if (!anomalyRecord) {
       throw new Error();
     }
@@ -247,8 +246,8 @@ async function handleReaction(reactions: any[]) {
     const correctEmojiList = ["✅", "👍"];
     const incorrectEmojiList = ["❌", "👎"];
 
-    //Check if the reaction is correct or incorrect and set the status
-    //Send message to indicate that feedback has been received
+    //Check if the reaction is correct or incorrect and add the respective status value to the feedback array of that alert
+    //If the emoji is invalid, send a message to the user
     if (correctEmojiList.includes(emoji)) {
 
       analysisData.feedback.push(true);
@@ -263,36 +262,37 @@ async function handleReaction(reactions: any[]) {
         reactionKey.remoteJid,
         `Invalid reaction. Please use one of the following reactions: ✅, 👍 or ❌, 👎`
       );
+
       return;
 
     }
 
-    console.log("Analysis Data", analysisData);
+    //If the alert is not waiting to process, set a timeout to process the feedback
+    //
+    if (!analysisData.waiting) {
 
-    if (analysisData.feedback.length == 1) {
-      console.log("Entro");
+      //If not waiting, set the alert to waiting and set a timeout to process the feedback
+      analysisData.waiting = true;
+
       setTimeout(async () => {
 
         let correct = 0, incorrect = 0;
 
         for (let i = 0; i < analysisData.feedback.length; i++) {
-          if (analysisData.feedback[i]) {
-            correct++;
-          } else {
-            incorrect++;
-          }
+          analysisData.feedback[i] ? correct++ : incorrect++;
         }
 
         const status = correct > incorrect;
 
+        //Update the status of the anomaly according to the feedback
         await db.update(anomalyRecord.id, {
           status,
           timestamp: anomalyRecord.timestamp,
         });
 
-        console.log("Anomaly Updated", analysisData.feedback);
+        analysisData.waiting = false;
 
-      }, 0.5 * 60 * 1000);
+      }, 5 * 60 * 1000); //Set the timeout to 5 minutes
     }
 
     sentImages.delete(reactionId.id);
