@@ -40,7 +40,7 @@ interface Anomaly {
 }
 
 interface AlertControl {
-  alertRecord: Record<string, string>,
+  alertAnomalie: Record<string, string>,
   feedback: boolean[],
   waiting: boolean,
 }
@@ -91,7 +91,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
         parseImageToUrlFromUint8Array(snap.data, snap.format),
         analysis.results
       );
-      sentAlerts.set(messageId, { alertRecord: analysis.id, feedback: [], waiting: false });
+      sentAlerts.set(messageId, { alertAnomalie: analysis.id, feedback: [], waiting: false });
     }
   });
 
@@ -225,7 +225,7 @@ async function handleReaction(reactions: any[]) {
 
     //Get the analysis record of the alert
     const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
-      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertRecord.tb}:${alertControl.alertRecord.id})[0];`
+      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomalie.tb}:${alertControl.alertAnomalie.id})[0];`
     );
 
     if (!analysisRecord) {
@@ -267,7 +267,6 @@ async function handleReaction(reactions: any[]) {
     }
 
     //If the alert is not waiting to process, set a timeout to process the feedback
-    //
     if (!alertControl.waiting) {
 
       //If not waiting, set the alert to waiting and set a timeout to process the feedback
@@ -291,7 +290,9 @@ async function handleReaction(reactions: any[]) {
 
         alertControl.waiting = false;
 
-      }, 5 * 60 * 1000); //Set the timeout to 5 minutes
+        console.log(`Feedback processed for alert ${alertId}. Status: ${status}`);
+
+      }, 0.5 * 60 * 1000); //Set the timeout to 5 minutes
     }
 
     sentImages.delete(reactionId.id);
