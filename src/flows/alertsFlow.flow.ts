@@ -292,7 +292,7 @@ async function handleReaction(reactions: any[]) {
 
         console.log(`Feedback processed for alert ${alertId}. Status: ${status}`);
 
-      }, 0.5 * 60 * 1000); //Set the timeout to 5 minutes
+      }, 5 * 60 * 1000); //Set the timeout to 5 minutes
     }
 
     sentImages.delete(reactionId.id);
