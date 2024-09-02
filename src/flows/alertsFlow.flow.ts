@@ -280,12 +280,18 @@ async function handleReaction(reactions: any[]) {
           alertControl.feedback[i] ? correct++ : incorrect++;
         }
 
-        const status = correct > incorrect;
+        let status: boolean = null;
+
+        if (correct > incorrect) {
+          status = true;
+        } else if (correct < incorrect) {
+          status = false;
+        }
 
         //Update the status of the anomaly according to the feedback
-        await db.update(anomalyRecord.id, {
-          status,
-          timestamp: anomalyRecord.timestamp,
+        await db.query(`UPDATE $anomaly SET status = ${status != null ? status : "None"}, timestamp = $timestamp;`, {
+          anomaly: anomalyRecord.id,
+          timestamp: anomalyRecord.timestamp
         });
 
         alertControl.waiting = false;
