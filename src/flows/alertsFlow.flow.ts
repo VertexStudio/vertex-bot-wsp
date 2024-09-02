@@ -39,6 +39,12 @@ interface Anomaly {
   timestamp: Date;
 }
 
+interface AlertControl {
+  alertAnomaly: Record<string, string>,
+  feedback: boolean[],
+  waiting: boolean,
+}
+
 const imageQueue: ImageMessage[] = [];
 let isProcessing = false;
 let processId = 0;
@@ -47,7 +53,7 @@ let currentCtx: any;
 const sentImages: Map<string, { path: string; id: string }> = new Map();
 const resizedImages: Set<string> = new Set();
 
-const sentAlerts = new Map<string, Record<string, string>>();
+const sentAlerts = new Map<string, AlertControl>();
 
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
@@ -76,7 +82,6 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     //Alert will be only sent for CREATE action
     if (action != "CREATE") return;
-    console.log("Analysis", analysis);
 
     //Send image to the group
     if (currentCtx && provider) {
@@ -86,7 +91,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
         parseImageToUrlFromUint8Array(snap.data, snap.format),
         analysis.results
       );
-      sentAlerts.set(messageId, analysis.id);
+      sentAlerts.set(messageId, { alertAnomaly: analysis.id, feedback: [], waiting: false });
     }
   });
 
@@ -118,9 +123,7 @@ async function sendImage(
 ): Promise<string> {
   console.log(`[${processId}] Sending image: ${imagePath}`);
   const number = ctx.key.remoteJid;
-  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${
-    caption || path.basename(imagePath)
-  }`;
+  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)}`;
   const sentMessage = await provider.vendor.sendMessage(number, {
     image: { url: imagePath },
     caption: enhancedCaption,
@@ -205,6 +208,7 @@ async function handleReaction(reactions: any[]) {
     (alertId) => alertId == reactionId.id
   );
 
+  //If no alert ID is found, log the error and return
   if (!alertId) {
     console.log(
       `No matching alerts found for reaction. Reaction ID: ${reactionId.id}`
@@ -217,11 +221,11 @@ async function handleReaction(reactions: any[]) {
     const db = await initDb();
 
     //Get the analysis data of the alert by the message ID
-    const analysisData = sentAlerts.get(alertId);
+    const alertControl = sentAlerts.get(alertId);
 
     //Get the analysis record of the alert
     const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
-      `(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.tb}:${analysisData.id})[0];`
+      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomaly.tb}:${alertControl.alertAnomaly.id})[0];`
     );
 
     if (!analysisRecord) {
@@ -237,35 +241,68 @@ async function handleReaction(reactions: any[]) {
       throw new Error();
     }
 
-    let status = null;
-
     //Array of the valid reactions
     const correctEmojiList = ["✅", "👍"];
     const incorrectEmojiList = ["❌", "👎"];
 
-    //Check if the reaction is correct or incorrect and set the status
-    //Send message to indicate that feedback has been received
+    //Check if the reaction is correct or incorrect and add the respective status value to the feedback array of that alert
+    //If the emoji is invalid, send a message to the user
     if (correctEmojiList.includes(emoji)) {
-      status = true;
-      await provider.sendText(
-        reactionKey.remoteJid,
-        `Anomaly detection marked as correct.`
-      );
+
+      alertControl.feedback.push(true);
+
     } else if (incorrectEmojiList.includes(emoji)) {
-      status = false;
+
+      alertControl.feedback.push(false);
+
+    } else {
+
       await provider.sendText(
         reactionKey.remoteJid,
-        `Anomaly detection marked as incorrect.`
+        `Invalid reaction. Please use one of the following reactions: ✅, 👍 or ❌, 👎`
       );
+
+      return;
+
     }
 
-    //Update the status of the anomaly record
-    await db.update(anomalyRecord.id, {
-      status,
-      timestamp: anomalyRecord.timestamp,
-    });
+    //If the alert is not waiting to process, set a timeout to process the feedback
+    if (!alertControl.waiting) {
+
+      //If not waiting, set the alert to waiting and set a timeout to process the feedback
+      alertControl.waiting = true;
+
+      setTimeout(async () => {
+
+        let correct = 0, incorrect = 0;
+
+        for (let i = 0; i < alertControl.feedback.length; i++) {
+          alertControl.feedback[i] ? correct++ : incorrect++;
+        }
+
+        let status: boolean = null;
+
+        if (correct > incorrect) {
+          status = true;
+        } else if (correct < incorrect) {
+          status = false;
+        }
+
+        //Update the status of the anomaly according to the feedback
+        await db.query(`UPDATE $anomaly SET status = ${status != null ? status : "None"}, timestamp = $timestamp;`, {
+          anomaly: anomalyRecord.id,
+          timestamp: anomalyRecord.timestamp
+        });
+
+        alertControl.waiting = false;
+
+        console.log(`Feedback processed for alert ${alertId}. Status: ${status}`);
+
+      }, 5 * 60 * 1000); //Set the timeout to 5 minutes
+    }
 
     sentImages.delete(reactionId.id);
+
   } catch (error) {
     console.error(`[${processId}] Could not recieve feedback`, error);
     await provider.sendText(
