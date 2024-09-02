@@ -40,7 +40,7 @@ interface Anomaly {
 }
 
 interface AlertControl {
-  alertAnomalie: Record<string, string>,
+  alertAnomaly: Record<string, string>,
   feedback: boolean[],
   waiting: boolean,
 }
@@ -91,7 +91,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
         parseImageToUrlFromUint8Array(snap.data, snap.format),
         analysis.results
       );
-      sentAlerts.set(messageId, { alertAnomalie: analysis.id, feedback: [], waiting: false });
+      sentAlerts.set(messageId, { alertAnomaly: analysis.id, feedback: [], waiting: false });
     }
   });
 
@@ -225,7 +225,7 @@ async function handleReaction(reactions: any[]) {
 
     //Get the analysis record of the alert
     const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
-      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomalie.tb}:${alertControl.alertAnomalie.id})[0];`
+      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomaly.tb}:${alertControl.alertAnomaly.id})[0];`
     );
 
     if (!analysisRecord) {
@@ -298,7 +298,7 @@ async function handleReaction(reactions: any[]) {
 
         console.log(`Feedback processed for alert ${alertId}. Status: ${status}`);
 
-      }, 5 * 60 * 1000); //Set the timeout to 5 minutes
+      }, 0.5 * 60 * 1000); //Set the timeout to 5 minutes
     }
 
     sentImages.delete(reactionId.id);
