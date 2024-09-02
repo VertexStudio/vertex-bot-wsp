@@ -19,7 +19,11 @@ function writeFile(logMessage): void {
     logFile.write(logMessage); 
 }
 
+let isLoggerInitialized = false;
+
 export function setupLogger(): void {
+    if (isLoggerInitialized) return;
+
     const originalDebug = console.debug;
     const originalError = console.error;
 
@@ -34,4 +38,6 @@ export function setupLogger(): void {
         const logMessage = `ERROR: ${args.map(arg => (typeof arg === 'object' ? util.inspect(arg, { depth: null, colors: true }) : arg)).join(' ')}\n`;
         writeFile(logMessage);
     };
+
+    isLoggerInitialized = true;
 }

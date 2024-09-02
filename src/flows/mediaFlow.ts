@@ -6,12 +6,9 @@ import axios from "axios";
 import fs from "fs";
 import OpenAI from "openai";
 import { typing } from "../utils/presence";
-import { setupLogger } from '../utils/logger';
 
 const openai = new OpenAI();
 const imgurClientId = process.env?.IMGUR_CLIENT_ID;
-
-setupLogger();
 
 async function uploadToImgur(localPath: string): Promise<string> {
 	const imageData = fs.readFileSync(localPath, { encoding: "base64" });
