@@ -6,9 +6,12 @@ import axios from "axios";
 import fs from "fs";
 import OpenAI from "openai";
 import { typing } from "../utils/presence";
+import { setupLogger } from '../utils/logger';
 
 const openai = new OpenAI();
 const imgurClientId = process.env?.IMGUR_CLIENT_ID;
+
+setupLogger();
 
 async function uploadToImgur(localPath: string): Promise<string> {
 	const imageData = fs.readFileSync(localPath, { encoding: "base64" });
@@ -27,7 +30,7 @@ async function deleteLocalFile(localPath: string): Promise<void> {
 				console.error("Error deleting local file:", err);
 				reject(err);
 			} else {
-				console.log("Local file successfully deleted.");
+				console.debug("Local file successfully deleted.");
 				resolve();
 			}
 		});
@@ -36,16 +39,16 @@ async function deleteLocalFile(localPath: string): Promise<void> {
 
 async function handleMedia(ctx, provider) {
 	const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
-	console.log(localPath);
+	console.debug(localPath);
 
 	const imageUrl = await uploadToImgur(localPath);
-	console.log("Image uploaded to Imgur:", imageUrl);
+	console.debug("Image uploaded to Imgur:", imageUrl);
 
 	await deleteLocalFile(localPath);
 
 	const userMessage = ctx.message.imageMessage.caption || "What's in this image?";
 
-    console.log(userMessage)
+    console.debug(userMessage)
 
 	const response = await openai.chat.completions.create({
 		model: "gpt-4o",
@@ -59,7 +62,7 @@ async function handleMedia(ctx, provider) {
 			},
 		],
 	});
-	console.log(response.choices[0].message.content);
+	console.debug(response.choices[0].message.content);
 
 	typing(ctx, provider);
 
@@ -68,7 +71,7 @@ async function handleMedia(ctx, provider) {
 		text: response.choices[0].message.content,
 	});
 
-	console.log("URL of the image stored in the MongoDB database");
+	console.debug("URL of the image stored in the MongoDB database");
 }
 
 export const mediaFlow = addKeyword<Provider, Database>(EVENTS.MEDIA)
