@@ -5,7 +5,7 @@ import * as util from 'util';
 function getFormattedDate (): string {
     const now = new Date();
     return now.toISOString().slice(0, 10) + '-' + now.getHours().toString().padStart(2, '0');
-};
+}
 
 function writeFile(logMessage): void {
     const logDir = process.argv.includes('--artifacts') ? '/var/log/vertex/bot/' : '/tmp/vertex/bot/';

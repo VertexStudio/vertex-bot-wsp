@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { RecordId, UUID } from "surrealdb.js";
 import * as os from "os";
+import { setupLogger } from '../utils/logger';
 
 const RESIZED_DIRECTORY = "./assets/resized";
 const MESSAGE_GAP_SECONDS = 3000;
@@ -49,6 +50,8 @@ const resizedImages: Set<string> = new Set();
 
 const sentAlerts = new Map<string, Record<string, string>>();
 
+setupLogger();
+
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
   //Live query to get the analysis of the new anomalie
@@ -76,7 +79,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     //Alert will be only sent for CREATE action
     if (action != "CREATE") return;
-    console.log("Analysis", analysis);
+    console.debug("Analysis", analysis);
 
     //Send image to the group
     if (currentCtx && provider) {
@@ -116,7 +119,7 @@ async function sendImage(
   imagePath: string,
   caption?: string
 ): Promise<string> {
-  console.log(`[${processId}] Sending image: ${imagePath}`);
+  console.debug(`[${processId}] Sending image: ${imagePath}`);
   const number = ctx.key.remoteJid;
   const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${
     caption || path.basename(imagePath)
@@ -126,15 +129,15 @@ async function sendImage(
     caption: enhancedCaption,
   });
 
-  console.log(sentMessage);
+  console.debug(sentMessage);
 
   if (sentMessage && sentMessage.key && sentMessage.key.id) {
     const messageId = sentMessage.key.id;
     sentImages.set(messageId, { path: imagePath, id: messageId });
-    console.log(`[${processId}] Image sent with ID: ${messageId}`);
+    console.debug(`[${processId}] Image sent with ID: ${messageId}`);
     return messageId;
   } else {
-    console.log(`[${processId}] Error: No ID found for sent message.`);
+    console.debug(`[${processId}] Error: No ID found for sent message.`);
     return "";
   }
 }
@@ -144,14 +147,14 @@ async function enqueueImage(
   provider: Provider,
   imagePath: string
 ): Promise<void> {
-  console.log(`[${processId}] Enqueuing image: ${imagePath}`);
+  console.debug(`[${processId}] Enqueuing image: ${imagePath}`);
   imageQueue.push({ imagePath, timestamp: Date.now() });
   processImageQueue(ctx, provider);
 }
 
 async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
   if (imageQueue.length === 0) {
-    console.log(`[${processId}] Image queue is empty`);
+    console.debug(`[${processId}] Image queue is empty`);
     return;
   }
 
@@ -166,7 +169,7 @@ async function resizeImage(
   width: number,
   height: number
 ): Promise<string> {
-  console.log(`[${processId}] Resizing image: ${imagePath}`);
+  console.debug(`[${processId}] Resizing image: ${imagePath}`);
   if (!fs.existsSync(RESIZED_DIRECTORY)) {
     fs.mkdirSync(RESIZED_DIRECTORY);
   }
@@ -182,7 +185,7 @@ async function resizeImage(
 async function handleReaction(reactions: any[]) {
   //Validate how many reaction are in the image
   if (reactions.length === 0) {
-    console.log(`No reactions received.`);
+    console.debug(`No reactions received.`);
     return;
   }
 
@@ -192,7 +195,7 @@ async function handleReaction(reactions: any[]) {
 
   //Validate the reaction format
   if (!reactionKey || !emoji) {
-    console.log(`Invalid reaction format`);
+    console.debug(`Invalid reaction format`);
     return;
   }
 
@@ -206,10 +209,10 @@ async function handleReaction(reactions: any[]) {
   );
 
   if (!alertId) {
-    console.log(
+    console.debug(
       `No matching alerts found for reaction. Reaction ID: ${reactionId.id}`
     );
-    console.log(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
+    console.debug(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
     return;
   }
 
@@ -279,7 +282,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
   sensitive: false,
 }).addAction(async (ctx, { provider: _provider }) => {
   if (isProcessing) {
-    console.log(`Attempt to execute while already processing. Ignoring.`);
+    console.debug(`Attempt to execute while already processing. Ignoring.`);
     return;
   }
 
