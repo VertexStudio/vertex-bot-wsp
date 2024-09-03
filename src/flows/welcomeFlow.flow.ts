@@ -23,6 +23,11 @@ type Conversation = {
   whatsapp_id: string;
 };
 
+type EmbeddingData = {
+  id: RecordId;
+  vector: number[];
+};
+
 // Initialize SurrealDB connection
 export async function handleConversation(
   groupId: string
@@ -94,19 +99,22 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const queryEmbedding = await generateEmbedding(body);
         console.debug("Query embedding:", queryEmbedding);
 
-        // // Calculate similarities and log them
-        // const similarities = latestMessages.map((msg) => ({
-        //   embedding: msg.embedding,
-        //   similarity: cosineSimilarity(queryEmbedding, msg.embedding),
-        // }));
+        // Calculate similarities and log them
+        const similarities =
+          (latestMessagesEmbeddings as EmbeddingData[]).map((msg) => ({
+            id: msg.id,
+            embedding: msg.vector,
+            similarity: cosineSimilarity(queryEmbedding, msg.vector),
+          })) || [];
 
-        // console.log("Similarities:", similarities);
+        console.log("Similarities:", similarities);
 
-        // // Log the sorted similarities
-        // const sortedSimilarities = similarities.sort(
-        //   (a, b) => b.similarity - a.similarity
-        // );
-        // console.log("Sorted similarities:", sortedSimilarities);
+        // Sort similarities and select top 3
+        const topSimilarities = similarities
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, 3);
+
+        console.log("Top 3 similarities:", topSimilarities);
 
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
@@ -145,12 +153,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           messageText,
           mentions,
           ctx
-        );
-
-        // Log latest messages (you can use this data later if needed)
-        console.log(
-          "Latest messages from SurrealDB:",
-          latestMessagesEmbeddings
         );
       });
     } catch (error) {
