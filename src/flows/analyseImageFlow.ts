@@ -10,6 +10,7 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
+import { getDb } from "~/database/surreal";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -55,7 +56,7 @@ export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
 ];
 
 // Database connection
-let db: Surreal | undefined;
+let db = getDb();
 
 async function connectToDatabase(): Promise<void> {
   db = new Surreal();
@@ -280,7 +281,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     }
     const session = sessions.get(number)!;
 
-    await connectToDatabase();
     await updateDatabaseWithModelTask(await determineAnalysisType(caption));
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
