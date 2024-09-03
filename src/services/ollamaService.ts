@@ -41,8 +41,7 @@ export async function callOllamaAPI(
 }
 
 export async function callOllamaAPIChat(
-  session: Session,
-  userMessage: string,
+  messages: { role: string; content: string }[],
   options: {
     temperature?: number;
     top_k?: number;
@@ -56,7 +55,7 @@ export async function callOllamaAPIChat(
   try {
     const response = await axios.post(OLLAMA_API_URL_CHAT, {
       model: MODEL,
-      messages: [...session.messages, { role: "user", content: userMessage }],
+      messages,
       stream: false,
       options: {
         temperature: options.temperature ?? 0.7,

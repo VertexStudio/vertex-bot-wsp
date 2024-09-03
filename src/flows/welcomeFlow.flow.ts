@@ -154,11 +154,17 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         console.debug("Related messages:", messages);
 
         const formattedMessages = messages.map((msg) => ({
-          role: msg.role.id,
+          role: String(msg.role.id),
           content: msg.message.content,
         }));
 
-        console.debug("Formatted messages:", formattedMessages);
+        const finalMessages = [
+          { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
+          ...formattedMessages,
+          { role: "user", content: body },
+        ];
+
+        console.debug("Formatted messages:", finalMessages);
 
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
@@ -168,7 +174,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         }
         const session = sessions.get(userId)!;
 
-        const response = await callOllamaAPIChat(session, body, {
+        const response = await callOllamaAPIChat(finalMessages, {
           temperature: 0.3,
           top_k: 20,
           top_p: 0.45,
