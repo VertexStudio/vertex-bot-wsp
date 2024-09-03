@@ -34,6 +34,11 @@ type Message = {
   created_at: string;
 };
 
+type MessageWithRole = {
+  message: Message;
+  role: RecordId;
+};
+
 // Initialize SurrealDB connection
 export async function handleConversation(
   groupId: string
@@ -124,16 +129,20 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         console.debug("Top similarities:", topSimilarities);
 
-        let messages: Message[] = [];
+        let [messages]: MessageWithRole[] = [];
 
         if (topSimilarities.length > 0) {
           // get the messages related to the top similarities
           const embeddingIds = topSimilarities
             .map((sim) => `embedding:${sim.id.id}`)
             .join(", ");
-          const [messages] = await db.query<Message[]>(`
-            (SELECT <-message_embedding.in.* AS message 
-            FROM ${embeddingIds}).message[0]
+          [messages] = await db.query<MessageWithRole[]>(`
+            (
+              SELECT 
+                (<-message_embedding.in.*)[0] AS message,
+                (<-message_embedding.in->message_role.out)[0] AS role 
+              FROM ${embeddingIds}
+            )
           `);
         } else {
           console.debug("No similar messages found");
