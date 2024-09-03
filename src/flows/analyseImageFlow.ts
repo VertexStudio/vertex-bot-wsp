@@ -12,6 +12,7 @@ import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { getDb } from "~/database/surreal";
+import { handleConversation } from "./welcomeFlow.flow";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -262,6 +263,13 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
   const systemName = "System";
+  const groupId = ctx.to.split("@")[0];
+
+  const result = await handleConversation(groupId);
+  const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
+    ? { latestMessagesEmbeddings: [], conversation: null }
+    : result;
+
   try {
     await sendMessage(
       provider,
@@ -309,6 +317,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     // Add all messages to the session at once
     session.addMessages(
+      conversation.id.id,
       { role: "user", content: `${userName}: ${caption}` },
       { role: "tool", content: `${results[0]}` },
       { role: "assistant", content: humanReadableResponse }

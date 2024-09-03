@@ -24,7 +24,7 @@ type Conversation = {
 };
 
 // Initialize SurrealDB connection
-async function handleConversation(
+export async function handleConversation(
   groupId: string
 ): Promise<{ latestMessagesEmbeddings: unknown; conversation: any } | []> {
   const db = getDb();
