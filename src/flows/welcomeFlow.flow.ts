@@ -12,14 +12,7 @@ const enqueueMessage = createMessageQueue(queueConfig);
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    //console.log("citado ", ctx.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage.text);
-    //console.log("citado ", ctx.message.extendedTextMessage.contextInfo.quotedMessage.conversation);
-
     console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
-
-    // Check if the message is a reply
-    const quotedMessage= "";
-
 
     try {
       await typing(ctx, provider);
