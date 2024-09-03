@@ -19,18 +19,21 @@ const enqueueMessage = createMessageQueue(queueConfig);
 setupLogger();
 
 type Conversation = {
-  id: string;
+  id: RecordId;
+  whatsapp_id: string;
 };
 
 // Initialize SurrealDB connection
-async function handleConversation(groupId: string) {
+async function handleConversation(
+  groupId: string
+): Promise<{ latestMessagesEmbeddings: unknown; conversation: any } | []> {
   const db = getDb();
 
   // Check if conversation exists
-  const result = await db.query(`
+  const [result] = await db.query<Conversation[]>(`
     SELECT * FROM conversation WHERE whatsapp_id = '${groupId}'
   `);
-  console.debug("Conversation result: ", result);
+  console.debug("Conversation result: ", result[0]);
 
   // Check if result is an array and has a non-empty first element
   const conversation =
@@ -48,14 +51,15 @@ async function handleConversation(groupId: string) {
         whatsapp_id = '${groupId}'
     `);
     console.log(`Created new conversation for group ${groupId}`);
-    return [];
+    return { latestMessagesEmbeddings: [], conversation: null };
   } else {
     // Fetch latest messages (e.g., last 10)
-    const latestMessagesEmbeddings = await db.query(`
+    const [latestMessagesEmbeddings] = await db.query(`
       SELECT * FROM (SELECT 
         ->conversation_messages->message->message_embedding->embedding AS embedding,
         ->conversation_messages->message.created_at AS created_at 
-      FROM conversation:${groupId} 
+      FROM conversation
+      WHERE whatsapp_id = '${groupId}'
       ORDER BY created_at ASC 
       LIMIT 1)[0].embedding LIMIT 10;
     `);
@@ -63,7 +67,7 @@ async function handleConversation(groupId: string) {
       `Fetched latest messages for group ${groupId}:`,
       latestMessagesEmbeddings
     );
-    return latestMessagesEmbeddings;
+    return { latestMessagesEmbeddings, conversation };
   }
 }
 
@@ -77,7 +81,10 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const groupId = ctx.to.split("@")[0];
 
       // Handle conversation in SurrealDB
-      const latestMessages = await handleConversation(groupId);
+      const result = await handleConversation(groupId);
+      const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
+        ? { latestMessagesEmbeddings: [], conversation: null }
+        : result;
 
       enqueueMessage(ctx.body, async (body) => {
         // Log the user's query
@@ -117,6 +124,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         });
 
         await session.addMessages(
+          conversation.id.id,
           { role: "user", content: `${userName}: ${body}` },
           response
         );
@@ -140,7 +148,10 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         );
 
         // Log latest messages (you can use this data later if needed)
-        console.log("Latest messages from SurrealDB:", latestMessages);
+        console.log(
+          "Latest messages from SurrealDB:",
+          latestMessagesEmbeddings
+        );
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);

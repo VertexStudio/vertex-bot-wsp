@@ -38,21 +38,23 @@ export class Session {
     ];
   }
 
-  async addMessages(...messages: { role: string; content: string }[]) {
+  async addMessages(
+    conversation: string,
+    ...messages: { role: string; content: string }[]
+  ) {
     const db = getDb();
 
-    const query = messages
-      .map(
-        (msg) =>
-          `CREATE message SET content = ${JSON.stringify(
-            msg.content
-          )}, created_at = time::now()`
-      )
-      .join("; ");
+    const createQueries = messages.map(
+      (msg) =>
+        `LET $message = CREATE message SET content = ${JSON.stringify(
+          msg.content
+        )}, created_at = time::now();
+        RELATE conversation:${conversation}->conversation_messages->$message;`
+    );
 
     await db.query(`
       BEGIN TRANSACTION;
-      ${query};
+      ${createQueries.join("; ")};
       COMMIT TRANSACTION;
     `);
 
