@@ -6,7 +6,7 @@ import {
   callOllamaAPIChat,
   generateEmbedding,
 } from "../services/ollamaService";
-import { Session, sessions } from "../models/Session";
+import { Session } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { RecordId, Surreal } from "surrealdb.js";
@@ -134,7 +134,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         let messages: MessageWithRole[] = [];
 
         if (topSimilarities.length > 0) {
-          // get the messages related to the top similarities
           const embeddingIds = topSimilarities
             .map((sim) => `embedding:${sim.id.id}`)
             .join(", ");
@@ -158,21 +157,16 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           content: msg.message.content,
         }));
 
-        const finalMessages = [
-          { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
-          ...formattedMessages,
-          { role: "user", content: body },
-        ];
-
-        console.debug("Formatted messages:", finalMessages);
-
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
 
-        if (!sessions.has(userId)) {
-          sessions.set(userId, new Session());
-        }
-        const session = sessions.get(userId)!;
+        const finalMessages = [
+          { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
+          ...formattedMessages,
+          { role: "user", content: `${userName}: ${body}` },
+        ];
+
+        console.debug("Formatted messages:", finalMessages);
 
         const response = await callOllamaAPIChat(finalMessages, {
           temperature: 0.3,
@@ -180,14 +174,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           top_p: 0.45,
           num_ctx: 30720,
         });
-
-        await session.addMessages(
-          conversation.id.id,
-          { role: "user", content: `${userName}: ${body}` },
-          response
-        );
-
-        console.debug("Session messages: ", session.messages);
 
         let messageText = response.content;
         let mentions: string[] = [];
@@ -197,13 +183,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           mentions = [ctx.key.participant];
         }
 
-        await sendMessage(
-          provider,
-          ctx.key.remoteJid,
-          messageText,
-          mentions,
-          ctx
-        );
+        await sendMessage(provider, userId, messageText, mentions, ctx);
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
