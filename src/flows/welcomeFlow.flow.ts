@@ -20,12 +20,20 @@ async function handleConversation(groupId: string) {
   const db = getDb();
 
   // Check if conversation exists
-  const [conversation] = await db.query(`
+  const result = await db.query(`
     SELECT * FROM conversation WHERE whatsapp_id = '${groupId}'
   `);
-  console.debug("Conversation: ", conversation);
+  console.debug("Conversation result: ", result);
 
-  if (!conversation) {
+  // Check if result is an array and has a non-empty first element
+  const conversation =
+    Array.isArray(result) && result.length > 0 ? result[0] : null;
+
+  if (
+    !conversation ||
+    (Array.isArray(conversation) && conversation.length === 0)
+  ) {
+    console.debug(`Creating new conversation for group ${groupId}`);
     // Create new conversation
     await db.query(`
       CREATE conversation SET 
@@ -36,14 +44,19 @@ async function handleConversation(groupId: string) {
     return [];
   } else {
     // Fetch latest messages (e.g., last 10)
-    const latestMessages = await db.query(`
-      (SELECT * FROM message WHERE (SELECT ->conversation_messages.out FROM conversation:${groupId} LIMIT 10))[0].content
+    const latestMessagesEmbeddings = await db.query(`
+      SELECT * FROM (SELECT 
+        ->conversation_messages->message->message_embedding->embedding AS embedding,
+        ->conversation_messages->message.created_at AS created_at 
+      FROM conversation:${groupId} 
+      ORDER BY created_at ASC 
+      LIMIT 1)[0].embedding LIMIT 10;
     `);
     console.log(
       `Fetched latest messages for group ${groupId}:`,
-      latestMessages
+      latestMessagesEmbeddings
     );
-    return latestMessages;
+    return latestMessagesEmbeddings;
   }
 }
 
