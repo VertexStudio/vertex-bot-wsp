@@ -109,12 +109,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         console.log("Similarities:", similarities);
 
-        // Sort similarities and select top 3
+        // Sort similarities and select based on threshold
+        const similarityThreshold = 0.7;
         const topSimilarities = similarities
           .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 3);
+          .filter((item) => item.similarity >= similarityThreshold);
 
-        console.log("Top 3 similarities:", topSimilarities);
+        console.log("Top similarities:", topSimilarities);
 
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
