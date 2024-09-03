@@ -19,7 +19,7 @@ export async function initDb(): Promise<Surreal | undefined> {
       database: VV_DB_DATABASE,
       auth: { username: VV_DB_USERNAME, password: VV_DB_PASSWORD },
     });
-    console.log("Connected SurrealDB");
+    console.info("Connected SurrealDB");
     return db;
   } catch (err) {
     console.error("Failed to connect to SurrealDB:", err);

@@ -29,11 +29,11 @@ const main = async () => {
       }
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 
   adapterProvider.on("reaction", async (ctx) => {
-    console.log(ctx);
+    console.debug(ctx);
   });
 
   adapterProvider.on("message", async (ctx) => {

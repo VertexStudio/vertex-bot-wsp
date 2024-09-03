@@ -5,11 +5,14 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
+import { setupLogger } from "../utils/logger";
 import { RecordId, Surreal } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
+
+setupLogger();
 
 type Conversation = {
   id: string;
@@ -73,7 +76,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const latestMessages = await handleConversation(groupId);
 
       enqueueMessage(ctx.body, async (body) => {
-        console.log("Processed messages:", body);
+        console.debug("Processed messages:", body);
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
 
@@ -94,7 +97,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           response
         );
 
-        console.log("Session messages: ", session.messages);
+        console.debug("Session messages: ", session.messages);
 
         let messageText = response.content;
         let mentions: string[] = [];

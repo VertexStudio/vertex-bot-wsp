@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { RecordId, UUID } from "surrealdb.js";
 import * as os from "os";
+import { setupLogger } from '../utils/logger';
 
 const RESIZED_DIRECTORY = "./assets/resized";
 const MESSAGE_GAP_SECONDS = 3000;
@@ -54,6 +55,8 @@ const sentImages: Map<string, { path: string; id: string }> = new Map();
 const resizedImages: Set<string> = new Set();
 
 const sentAlerts = new Map<string, AlertControl>();
+
+setupLogger();
 
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
@@ -121,7 +124,7 @@ async function sendImage(
   imagePath: string,
   caption?: string
 ): Promise<string> {
-  console.log(`[${processId}] Sending image: ${imagePath}`);
+  console.info(`[${processId}] Sending image: ${imagePath}`);
   const number = ctx.key.remoteJid;
   const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)}`;
   const sentMessage = await provider.vendor.sendMessage(number, {
@@ -129,15 +132,15 @@ async function sendImage(
     caption: enhancedCaption,
   });
 
-  console.log(sentMessage);
+  console.debug(sentMessage);
 
   if (sentMessage && sentMessage.key && sentMessage.key.id) {
     const messageId = sentMessage.key.id;
     sentImages.set(messageId, { path: imagePath, id: messageId });
-    console.log(`[${processId}] Image sent with ID: ${messageId}`);
+    console.info(`[${processId}] Image sent with ID: ${messageId}`);
     return messageId;
   } else {
-    console.log(`[${processId}] Error: No ID found for sent message.`);
+    console.info(`[${processId}] Error: No ID found for sent message.`);
     return "";
   }
 }
@@ -147,14 +150,14 @@ async function enqueueImage(
   provider: Provider,
   imagePath: string
 ): Promise<void> {
-  console.log(`[${processId}] Enqueuing image: ${imagePath}`);
+  console.info(`[${processId}] Enqueuing image: ${imagePath}`);
   imageQueue.push({ imagePath, timestamp: Date.now() });
   processImageQueue(ctx, provider);
 }
 
 async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
   if (imageQueue.length === 0) {
-    console.log(`[${processId}] Image queue is empty`);
+    console.info(`[${processId}] Image queue is empty`);
     return;
   }
 
@@ -169,7 +172,7 @@ async function resizeImage(
   width: number,
   height: number
 ): Promise<string> {
-  console.log(`[${processId}] Resizing image: ${imagePath}`);
+  console.info(`[${processId}] Resizing image: ${imagePath}`);
   if (!fs.existsSync(RESIZED_DIRECTORY)) {
     fs.mkdirSync(RESIZED_DIRECTORY);
   }
@@ -185,7 +188,7 @@ async function resizeImage(
 async function handleReaction(reactions: any[]) {
   //Validate how many reaction are in the image
   if (reactions.length === 0) {
-    console.log(`No reactions received.`);
+    console.info(`No reactions received.`);
     return;
   }
 
@@ -195,7 +198,7 @@ async function handleReaction(reactions: any[]) {
 
   //Validate the reaction format
   if (!reactionKey || !emoji) {
-    console.log(`Invalid reaction format`);
+    console.info(`Invalid reaction format`);
     return;
   }
 
@@ -210,10 +213,10 @@ async function handleReaction(reactions: any[]) {
 
   //If no alert ID is found, log the error and return
   if (!alertId) {
-    console.log(
+    console.info(
       `No matching alerts found for reaction. Reaction ID: ${reactionId.id}`
     );
-    console.log(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
+    console.info(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
     return;
   }
 
@@ -296,7 +299,7 @@ async function handleReaction(reactions: any[]) {
 
         alertControl.waiting = false;
 
-        console.log(`Feedback processed for alert ${alertId}. Status: ${status}`);
+        console.info(`Feedback processed for alert ${alertId}. Status: ${status}`);
 
       }, 5 * 60 * 1000); //Set the timeout to 5 minutes
     }
@@ -316,7 +319,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
   sensitive: false,
 }).addAction(async (ctx, { provider: _provider }) => {
   if (isProcessing) {
-    console.log(`Attempt to execute while already processing. Ignoring.`);
+    console.debug(`Attempt to execute while already processing. Ignoring.`);
     return;
   }
 
