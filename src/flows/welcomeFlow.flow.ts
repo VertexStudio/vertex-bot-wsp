@@ -129,14 +129,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         console.debug("Top similarities:", topSimilarities);
 
-        let [messages]: MessageWithRole[] = [];
+        let messages: MessageWithRole[] = [];
 
         if (topSimilarities.length > 0) {
           // get the messages related to the top similarities
           const embeddingIds = topSimilarities
             .map((sim) => `embedding:${sim.id.id}`)
             .join(", ");
-          [messages] = await db.query<MessageWithRole[]>(`
+          const [result] = await db.query<[MessageWithRole[]]>(`
             (
               SELECT 
                 (<-message_embedding.in.*)[0] AS message,
@@ -144,11 +144,19 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
               FROM ${embeddingIds}
             )
           `);
+          messages = Array.isArray(result) ? result : [];
         } else {
           console.debug("No similar messages found");
         }
 
         console.debug("Related messages:", messages);
+
+        const formattedMessages = messages.map((msg) => ({
+          role: msg.role.id,
+          content: msg.message.content,
+        }));
+
+        console.debug("Formatted messages:", formattedMessages);
 
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
