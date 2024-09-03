@@ -40,12 +40,12 @@ let isLoggerInitialized = false;
 export function setupLogger(): void {
     if (isLoggerInitialized) return;
 
-    const originalDebug = console.debug;
+    const originalInfo = console.debug;
     const originalError = console.error;
 
-    console.debug = (...args: any[]): void => {
-        originalDebug(...args);
-        const logMessage = `DEBUG: ${args.map(arg => (typeof arg === 'object' ? util.inspect(arg, { depth: null, colors: true }) : arg)).join(' ')}\n`;
+    console.info = (...args: any[]): void => {
+        originalInfo(...args);
+        const logMessage = `INFO: ${args.map(arg => (typeof arg === 'object' ? util.inspect(arg, { depth: null, colors: true }) : arg)).join(' ')}\n`;
         writeFile(logMessage);
     };
 
