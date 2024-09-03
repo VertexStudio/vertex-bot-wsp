@@ -10,6 +10,7 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
+import { setupLogger } from '../utils/logger';
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -38,6 +39,8 @@ const {
   VV_DB_PASSWORD,
   CAMERA_ID,
 } = process.env;
+
+setupLogger();
 
 export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
@@ -126,7 +129,7 @@ function waitForFirstResult(
     db.subscribeLive<Record<string, unknown>>(
       analysisResult,
       (action, result) => {
-        console.log("Live query update:", action, result);
+        console.debug("Live query update:", action, result);
         if (
           !isResolved &&
           result &&
@@ -173,7 +176,7 @@ async function updateDatabaseWithModelTask(
     camera: new RecordId("camera", CAMERA_ID),
   });
 
-  console.log("Query result:", query);
+  console.debug("Query result:", query);
 }
 
 // Prompt generation functions
@@ -269,9 +272,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
 
     if (!caption) {
-      console.log("No caption received");
+      console.info("No caption received");
     } else {
-      console.log("Received caption:", caption);
+      console.info("Received caption:", caption);
     }
 
     // Get or create a session for this user
@@ -284,20 +287,20 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await updateDatabaseWithModelTask(await determineAnalysisType(caption));
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
-    console.log("File saved at:", localPath);
+    console.info("File saved at:", localPath);
 
     const jpegBuffer = await processImage(localPath);
     const newSnapId = await insertImageIntoDatabase(jpegBuffer, caption);
-    console.log("New snap ID:", newSnapId);
+    console.info("New snap ID:", newSnapId);
 
     const analysisResult = await setUpLiveQuery(newSnapId);
-    console.log("Analysis query UUID:", analysisResult);
+    console.debug("Analysis query UUID:", analysisResult);
 
     typing(ctx, provider);
 
     const initialData = await waitForFirstResult(analysisResult);
     const results = initialData.results;
-    console.log("Initial analysis data:", results);
+    console.debug("Initial analysis data:", results);
 
     const humanReadableResponse = await generateHumanReadableResponse(
       caption,
@@ -312,11 +315,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     );
 
     // Log session messages
-    console.log(
+    console.debug(
       "*****************************************************************"
     );
-    console.log("Session messages: ", session.messages);
-    console.log(
+    console.debug("Session messages: ", session.messages);
+    console.debug(
       "*****************************************************************"
     );
 
@@ -324,7 +327,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       await sendMessage(provider, number, humanReadableResponse, ctx);
     });
 
-    console.log("Image processed and stored in the database");
+    console.info("Image processed and stored in the database");
 
     await fs.unlink(localPath);
   } catch (error) {
@@ -354,7 +357,7 @@ async function determineAnalysisType(
     top_k: 20,
     top_p: 0.45,
   });
-  console.log("Ollama API response (analysis type):", analysisType);
+  console.debug("Ollama API response (analysis type):", analysisType);
 
   return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
     ? (analysisType as ImageAnalysisType)
@@ -372,7 +375,7 @@ async function generateHumanReadableResponse(
     top_k: 20,
     top_p: 0.45,
   });
-  console.debug("Human-readable response:", response);
+  console.info("Human-readable response:", response);
 
   return alignResponse(response);
 }

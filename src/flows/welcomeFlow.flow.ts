@@ -5,16 +5,19 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
+import { setupLogger } from '../utils/logger';
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
+
+setupLogger();
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
     try {
       await typing(ctx, provider);
       enqueueMessage(ctx.body, async (body) => {
-        console.log("Processed messages:", body);
+        console.debug("Processed messages:", body);
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
 
@@ -35,7 +38,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           response
         );
 
-        console.log("Session messages: ", session.messages);
+        console.debug("Session messages: ", session.messages);
 
         let messageText = response.content;
         let mentions: string[] = [];
