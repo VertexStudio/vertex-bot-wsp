@@ -299,7 +299,7 @@ async function handleReaction(reactions: any[]) {
 
         alertControl.waiting = false;
 
-        console.log(`Feedback processed for alert ${alertId}. Status: ${status}`);
+        console.debug(`Feedback processed for alert ${alertId}. Status: ${status}`);
 
       }, 5 * 60 * 1000); //Set the timeout to 5 minutes
     }
