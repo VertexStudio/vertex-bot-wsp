@@ -124,7 +124,7 @@ async function sendImage(
   imagePath: string,
   caption?: string
 ): Promise<string> {
-  console.debug(`[${processId}] Sending image: ${imagePath}`);
+  console.info(`[${processId}] Sending image: ${imagePath}`);
   const number = ctx.key.remoteJid;
   const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)}`;
   const sentMessage = await provider.vendor.sendMessage(number, {
@@ -137,10 +137,10 @@ async function sendImage(
   if (sentMessage && sentMessage.key && sentMessage.key.id) {
     const messageId = sentMessage.key.id;
     sentImages.set(messageId, { path: imagePath, id: messageId });
-    console.debug(`[${processId}] Image sent with ID: ${messageId}`);
+    console.info(`[${processId}] Image sent with ID: ${messageId}`);
     return messageId;
   } else {
-    console.debug(`[${processId}] Error: No ID found for sent message.`);
+    console.info(`[${processId}] Error: No ID found for sent message.`);
     return "";
   }
 }
@@ -150,14 +150,14 @@ async function enqueueImage(
   provider: Provider,
   imagePath: string
 ): Promise<void> {
-  console.debug(`[${processId}] Enqueuing image: ${imagePath}`);
+  console.info(`[${processId}] Enqueuing image: ${imagePath}`);
   imageQueue.push({ imagePath, timestamp: Date.now() });
   processImageQueue(ctx, provider);
 }
 
 async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
   if (imageQueue.length === 0) {
-    console.debug(`[${processId}] Image queue is empty`);
+    console.info(`[${processId}] Image queue is empty`);
     return;
   }
 
@@ -172,7 +172,7 @@ async function resizeImage(
   width: number,
   height: number
 ): Promise<string> {
-  console.debug(`[${processId}] Resizing image: ${imagePath}`);
+  console.info(`[${processId}] Resizing image: ${imagePath}`);
   if (!fs.existsSync(RESIZED_DIRECTORY)) {
     fs.mkdirSync(RESIZED_DIRECTORY);
   }
@@ -188,7 +188,7 @@ async function resizeImage(
 async function handleReaction(reactions: any[]) {
   //Validate how many reaction are in the image
   if (reactions.length === 0) {
-    console.debug(`No reactions received.`);
+    console.info(`No reactions received.`);
     return;
   }
 
@@ -198,7 +198,7 @@ async function handleReaction(reactions: any[]) {
 
   //Validate the reaction format
   if (!reactionKey || !emoji) {
-    console.debug(`Invalid reaction format`);
+    console.info(`Invalid reaction format`);
     return;
   }
 
@@ -213,10 +213,10 @@ async function handleReaction(reactions: any[]) {
 
   //If no alert ID is found, log the error and return
   if (!alertId) {
-    console.debug(
+    console.info(
       `No matching alerts found for reaction. Reaction ID: ${reactionId.id}`
     );
-    console.debug(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
+    console.info(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
     return;
   }
 
@@ -299,7 +299,7 @@ async function handleReaction(reactions: any[]) {
 
         alertControl.waiting = false;
 
-        console.debug(`Feedback processed for alert ${alertId}. Status: ${status}`);
+        console.info(`Feedback processed for alert ${alertId}. Status: ${status}`);
 
       }, 5 * 60 * 1000); //Set the timeout to 5 minutes
     }

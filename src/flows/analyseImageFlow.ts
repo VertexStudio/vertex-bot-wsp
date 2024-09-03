@@ -272,9 +272,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const caption = ctx.message.imageMessage.caption;
 
     if (!caption) {
-      console.debug("No caption received");
+      console.info("No caption received");
     } else {
-      console.debug("Received caption:", caption);
+      console.info("Received caption:", caption);
     }
 
     // Get or create a session for this user
@@ -287,11 +287,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await updateDatabaseWithModelTask(await determineAnalysisType(caption));
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
-    console.debug("File saved at:", localPath);
+    console.info("File saved at:", localPath);
 
     const jpegBuffer = await processImage(localPath);
     const newSnapId = await insertImageIntoDatabase(jpegBuffer, caption);
-    console.debug("New snap ID:", newSnapId);
+    console.info("New snap ID:", newSnapId);
 
     const analysisResult = await setUpLiveQuery(newSnapId);
     console.debug("Analysis query UUID:", analysisResult);
@@ -327,7 +327,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       await sendMessage(provider, number, humanReadableResponse, ctx);
     });
 
-    console.debug("Image processed and stored in the database");
+    console.info("Image processed and stored in the database");
 
     await fs.unlink(localPath);
   } catch (error) {
@@ -375,7 +375,7 @@ async function generateHumanReadableResponse(
     top_k: 20,
     top_p: 0.45,
   });
-  console.debug("Human-readable response:", response);
+  console.info("Human-readable response:", response);
 
   return alignResponse(response);
 }

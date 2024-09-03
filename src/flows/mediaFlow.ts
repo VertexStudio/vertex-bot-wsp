@@ -36,10 +36,10 @@ async function deleteLocalFile(localPath: string): Promise<void> {
 
 async function handleMedia(ctx, provider) {
 	const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
-	console.debug(localPath);
+	console.info(localPath);
 
 	const imageUrl = await uploadToImgur(localPath);
-	console.debug("Image uploaded to Imgur:", imageUrl);
+	console.info("Image uploaded to Imgur:", imageUrl);
 
 	await deleteLocalFile(localPath);
 
@@ -68,7 +68,7 @@ async function handleMedia(ctx, provider) {
 		text: response.choices[0].message.content,
 	});
 
-	console.debug("URL of the image stored in the MongoDB database");
+	console.info("URL of the image stored in the MongoDB database");
 }
 
 export const mediaFlow = addKeyword<Provider, Database>(EVENTS.MEDIA)
