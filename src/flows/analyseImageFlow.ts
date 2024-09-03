@@ -308,7 +308,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const initialData = await waitForFirstResult(analysisResult);
     const results = initialData.results;
-    console.debug("Initial analysis data:", results);
 
     const humanReadableResponse = await generateHumanReadableResponse(
       caption,
@@ -321,15 +320,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       { role: "user", content: `${userName}: ${caption}` },
       { role: "tool", content: `${results[0]}` },
       { role: "assistant", content: humanReadableResponse }
-    );
-
-    // Log session messages
-    console.debug(
-      "*****************************************************************"
-    );
-    console.debug("Session messages: ", session.messages);
-    console.debug(
-      "*****************************************************************"
     );
 
     enqueueMessage(ctx.body, async (_) => {

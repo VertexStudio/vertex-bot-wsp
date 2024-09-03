@@ -49,9 +49,6 @@ export async function handleConversation(
   const [result] = await db.query<Conversation[]>(`
     SELECT * FROM conversation WHERE whatsapp_id = '${groupId}'
   `);
-  console.debug("Conversation result: ", result[0]);
-
-  // Check if result is an array and has a non-empty first element
   let conversation: Conversation | null =
     Array.isArray(result) && result.length > 0 ? result[0] : null;
 
@@ -59,16 +56,12 @@ export async function handleConversation(
     !conversation ||
     (Array.isArray(conversation) && conversation.length === 0)
   ) {
-    console.debug(`Creating new conversation for group ${groupId}`);
-    // Create new conversation
     const [result] = await db.query<Conversation[]>(`
       CREATE conversation SET 
         id = crypto::sha256("whatsapp//${groupId}"),
         whatsapp_id = '${groupId}'
     `);
     conversation = result[0];
-    console.debug("Conversation result: ", conversation);
-    console.log(`Created new conversation for group ${groupId}`);
     return { latestMessagesEmbeddings: [], conversation };
   } else {
     // Fetch latest messages (e.g., last 10)
@@ -81,10 +74,6 @@ export async function handleConversation(
       ORDER BY created_at ASC 
       LIMIT 1)[0].embedding LIMIT 10;
     `);
-    console.log(
-      `Fetched latest messages for group ${groupId}:`,
-      latestMessagesEmbeddings
-    );
     return { latestMessagesEmbeddings, conversation };
   }
 }
@@ -106,14 +95,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         : result;
 
       enqueueMessage(ctx.body, async (body) => {
-        // Log the user's query
-        console.debug("User query:", body);
-
-        // Generate embedding for the user query
         const queryEmbedding = await generateEmbedding(body);
-        console.debug("Query embedding:", queryEmbedding);
 
-        // Calculate similarities and log them
         const similarities =
           (latestMessagesEmbeddings as EmbeddingData[]).map((msg) => ({
             id: msg.id,
@@ -121,15 +104,10 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             similarity: cosineSimilarity(queryEmbedding, msg.vector),
           })) || [];
 
-        console.debug("Similarities:", similarities);
-
-        // Sort similarities and select based on threshold
         const similarityThreshold = 0.5;
         const topSimilarities = similarities
           .sort((a, b) => b.similarity - a.similarity)
           .filter((item) => item.similarity >= similarityThreshold);
-
-        console.debug("Top similarities:", topSimilarities);
 
         let messages: MessageWithRole[] = [];
 
@@ -146,11 +124,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             )
           `);
           messages = Array.isArray(result) ? result : [];
-        } else {
-          console.debug("No similar messages found");
         }
-
-        console.debug("Related messages:", messages);
 
         const formattedMessages = messages.map((msg) => ({
           role: String(msg.role.id),
@@ -166,14 +140,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           { role: "user", content: `${userName}: ${body}` },
         ];
 
-        console.debug("Formatted messages:", finalMessages);
-
         const response = await callOllamaAPIChat(finalMessages, {
           temperature: 0.3,
           top_k: 20,
           top_p: 0.45,
           num_ctx: 30720,
         });
+
+        console.debug("Final messages:", { finalMessages, response });
 
         let messageText = response.content;
         let mentions: string[] = [];

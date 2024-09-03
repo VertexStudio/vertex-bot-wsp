@@ -65,8 +65,6 @@ export async function callOllamaAPIChat(
       },
     });
 
-    console.debug("Response Ollama API Chat:", response.data);
-
     return response.data.message;
   } catch (error) {
     console.error("Error calling Ollama API:", error);
