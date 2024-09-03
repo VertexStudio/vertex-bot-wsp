@@ -28,6 +28,12 @@ type EmbeddingData = {
   vector: number[];
 };
 
+type Message = {
+  id: RecordId;
+  content: string;
+  created_at: string;
+};
+
 // Initialize SurrealDB connection
 export async function handleConversation(
   groupId: string
@@ -78,6 +84,7 @@ export async function handleConversation(
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
+    const db = getDb();
     console.debug("Context: ", ctx);
     try {
       await typing(ctx, provider);
@@ -107,15 +114,26 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             similarity: cosineSimilarity(queryEmbedding, msg.vector),
           })) || [];
 
-        console.log("Similarities:", similarities);
+        console.debug("Similarities:", similarities);
 
         // Sort similarities and select based on threshold
-        const similarityThreshold = 0.7;
+        const similarityThreshold = 0.6;
         const topSimilarities = similarities
           .sort((a, b) => b.similarity - a.similarity)
           .filter((item) => item.similarity >= similarityThreshold);
 
-        console.log("Top similarities:", topSimilarities);
+        console.debug("Top similarities:", topSimilarities);
+
+        // get the messages related to the top similarities
+        const embeddingIds = topSimilarities
+          .map((sim) => `embedding:${sim.id.id}`)
+          .join(", ");
+        const [messages] = await db.query<Message[]>(`
+          (SELECT <-message_embedding.in.* AS message 
+          FROM ${embeddingIds}).message[0]
+        `);
+
+        console.debug("Related messages:", messages);
 
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
