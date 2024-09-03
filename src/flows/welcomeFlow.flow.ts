@@ -52,7 +52,7 @@ export async function handleConversation(
   console.debug("Conversation result: ", result[0]);
 
   // Check if result is an array and has a non-empty first element
-  const conversation =
+  let conversation: Conversation | null =
     Array.isArray(result) && result.length > 0 ? result[0] : null;
 
   if (
@@ -61,13 +61,15 @@ export async function handleConversation(
   ) {
     console.debug(`Creating new conversation for group ${groupId}`);
     // Create new conversation
-    await db.query(`
+    const [result] = await db.query<Conversation[]>(`
       CREATE conversation SET 
         id = crypto::sha256("whatsapp//${groupId}"),
         whatsapp_id = '${groupId}'
     `);
+    conversation = result[0];
+    console.debug("Conversation result: ", conversation);
     console.log(`Created new conversation for group ${groupId}`);
-    return { latestMessagesEmbeddings: [], conversation: null };
+    return { latestMessagesEmbeddings: [], conversation };
   } else {
     // Fetch latest messages (e.g., last 10)
     const [latestMessagesEmbeddings] = await db.query(`
@@ -122,7 +124,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         console.debug("Similarities:", similarities);
 
         // Sort similarities and select based on threshold
-        const similarityThreshold = 0.6;
+        const similarityThreshold = 0.5;
         const topSimilarities = similarities
           .sort((a, b) => b.similarity - a.similarity)
           .filter((item) => item.similarity >= similarityThreshold);

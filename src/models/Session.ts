@@ -49,7 +49,8 @@ export class Session {
         `LET $message = CREATE message SET content = ${JSON.stringify(
           msg.content
         )}, created_at = time::now();
-        RELATE conversation:${conversation}->conversation_messages->$message;`
+        RELATE conversation:${conversation}->conversation_messages->$message;
+        RELATE $message->message_role->role:${msg.role};`
     );
 
     await db.query(`
