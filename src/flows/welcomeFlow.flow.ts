@@ -116,7 +116,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           num_ctx: 30720,
         });
 
-        session.addMessages(
+        await session.addMessages(
           { role: "user", content: `${userName}: ${body}` },
           response
         );

@@ -1,3 +1,5 @@
+import { getDb } from "~/database/surreal";
+
 export class Session {
   static readonly DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:
   
@@ -36,7 +38,24 @@ export class Session {
     ];
   }
 
-  addMessages(...messages: { role: string; content: string }[]) {
+  async addMessages(...messages: { role: string; content: string }[]) {
+    const db = getDb();
+
+    const query = messages
+      .map(
+        (msg) =>
+          `CREATE message SET content = ${JSON.stringify(
+            msg.content
+          )}, created_at = time::now()`
+      )
+      .join("; ");
+
+    await db.query(`
+      BEGIN TRANSACTION;
+      ${query};
+      COMMIT TRANSACTION;
+    `);
+
     this.messages.push(...messages);
     this.trimMessages();
   }
