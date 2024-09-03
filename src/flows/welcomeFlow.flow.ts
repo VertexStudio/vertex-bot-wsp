@@ -124,14 +124,20 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         console.debug("Top similarities:", topSimilarities);
 
-        // get the messages related to the top similarities
-        const embeddingIds = topSimilarities
-          .map((sim) => `embedding:${sim.id.id}`)
-          .join(", ");
-        const [messages] = await db.query<Message[]>(`
-          (SELECT <-message_embedding.in.* AS message 
-          FROM ${embeddingIds}).message[0]
-        `);
+        let messages: Message[] = [];
+
+        if (topSimilarities.length > 0) {
+          // get the messages related to the top similarities
+          const embeddingIds = topSimilarities
+            .map((sim) => `embedding:${sim.id.id}`)
+            .join(", ");
+          const [messages] = await db.query<Message[]>(`
+            (SELECT <-message_embedding.in.* AS message 
+            FROM ${embeddingIds}).message[0]
+          `);
+        } else {
+          console.debug("No similar messages found");
+        }
 
         console.debug("Related messages:", messages);
 
