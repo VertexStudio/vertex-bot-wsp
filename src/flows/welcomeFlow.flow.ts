@@ -5,23 +5,56 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
+import { debug } from "console";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
+    //console.log("citado ", ctx.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage.text);
+    //console.log("citado ", ctx.message.extendedTextMessage.contextInfo.quotedMessage.conversation);
+
+    console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
+
+    // Check if the message is a reply
+    const quotedMessage= "";
+
+
     try {
       await typing(ctx, provider);
       enqueueMessage(ctx.body, async (body) => {
         console.log("Processed messages:", body);
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
-
+        const userNumber = ctx.key.participant;
+        
         if (!sessions.has(userId)) {
           sessions.set(userId, new Session());
         }
+
         const session = sessions.get(userId)!;
+        
+        session.addParticipant(userNumber, userName);
+
+
+        if (ctx.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+          console.log('Quoted message: ', JSON.stringify(ctx.message.extendedTextMessage.contextInfo.quotedMessage, null, 2));
+          const quotedMessage = ctx.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage?.text
+            || ctx.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
+
+            if (quotedMessage) {
+              const quotedParticipantNumber = ctx.message.extendedTextMessage.contextInfo.participant
+                || ctx.message.extendedTextMessage.contextInfo.mentionedJid[0];
+    
+              const quotedParticipantName = session.getParticipantName(quotedParticipantNumber);
+    
+              body = `Quote: '${quotedParticipantName}: ${quotedMessage}' ${ctx.body}`;
+            }
+        }
+
+
+
 
         const response = await callOllamaAPIChat(session, body, {
           temperature: 0.3,
@@ -36,6 +69,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         );
 
         console.log("Session messages: ", session.messages);
+        console.log("Session participants: ", session.participants);
 
         let messageText = response.content;
         let mentions: string[] = [];

@@ -27,19 +27,40 @@ export class Session {
   Remember, your role is to assist and interact as VeoVeo Bot.`;
 
   private static readonly MAX_CHAR_LIMIT = 512000;
+  private static readonly ID_START_NUMBER = 1;
 
-  messages: Array<{ role: string; content: string }>;
+  private messageIdCounter: number;
+
+  messages: Array<{ id: number; role: string; content: string }>;
+
+  participants: Array<{ id: string; name: string }>;
 
   constructor() {
     this.messages = [
-      { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
+      { id: Session.ID_START_NUMBER, role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
     ];
+    this.messageIdCounter = Session.ID_START_NUMBER;
+    this.participants = [];
   }
 
   addMessages(...messages: { role: string; content: string }[]) {
-    this.messages.push(...messages);
+    messages.forEach((msg) => {
+      this.messages.push({ id: ++this.messageIdCounter, ...msg });
+    });
     this.trimMessages();
   }
+
+  addParticipant(id: string, name: string ) {
+    if (!this.participants.find((p) => p.id === id)) {
+      this.participants.push({ id, name });
+    }
+  }
+
+  getParticipantName(id: string) {
+    const participant = this.participants.find((p) => p.id === id);
+    return participant ? participant.name : "assistant";
+  }
+
 
   private trimMessages() {
     let totalChars = this.messages.reduce(
