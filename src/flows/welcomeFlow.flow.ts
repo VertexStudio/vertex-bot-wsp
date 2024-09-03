@@ -2,12 +2,16 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { callOllamaAPIChat } from "../services/ollamaService";
+import {
+  callOllamaAPIChat,
+  generateEmbedding,
+} from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { RecordId, Surreal } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
+import { cosineSimilarity } from "../utils/vectorUtils";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -76,7 +80,27 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const latestMessages = await handleConversation(groupId);
 
       enqueueMessage(ctx.body, async (body) => {
-        console.debug("Processed messages:", body);
+        // Log the user's query
+        console.debug("User query:", body);
+
+        // Generate embedding for the user query
+        const queryEmbedding = await generateEmbedding(body);
+        console.debug("Query embedding:", queryEmbedding);
+
+        // // Calculate similarities and log them
+        // const similarities = latestMessages.map((msg) => ({
+        //   embedding: msg.embedding,
+        //   similarity: cosineSimilarity(queryEmbedding, msg.embedding),
+        // }));
+
+        // console.log("Similarities:", similarities);
+
+        // // Log the sorted similarities
+        // const sortedSimilarities = similarities.sort(
+        //   (a, b) => b.similarity - a.similarity
+        // );
+        // console.log("Sorted similarities:", sortedSimilarities);
+
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
 
