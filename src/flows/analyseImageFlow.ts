@@ -271,6 +271,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const caption: string | null = ctx.message.imageMessage?.caption;
 
+    // Validate if the media is a sticker
+    if (Object.keys(ctx.message)[0] === 'stickerMessage') {
+      throw { message: "Sorry, the sticker format is not supported for analysis", code: "STICKER_ERROR" };
+    }
+
     if (!caption) {
       console.info("No caption received");
     } else {
@@ -332,10 +337,13 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await fs.unlink(localPath);
   } catch (error) {
     console.error("Error handling media:", error);
+    const errorMessage = error.code !== (null || undefined)
+    ? error.message
+    : "Sorry, there was an issue analyzing the image. Please try again later.";
     await sendMessage(
       provider,
       number,
-      "Sorry, there was an issue analyzing the image. Please try again later.",
+      errorMessage,
       ctx
     );
   }
