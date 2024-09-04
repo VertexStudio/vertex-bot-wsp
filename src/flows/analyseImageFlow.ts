@@ -316,7 +316,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     // Add all messages to the session at once
     session.addMessages(
-      conversation.id.id,
+      String(conversation.id.id),
       { role: "user", content: `${userName}: ${caption}` },
       { role: "tool", content: `${results[0]}` },
       { role: "assistant", content: humanReadableResponse }
