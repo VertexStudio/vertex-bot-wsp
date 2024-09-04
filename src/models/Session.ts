@@ -83,7 +83,7 @@ export class Session {
   getQuotesByUser(userNumber: string) {
     let quotes = '';
     this.quotesByUser[userNumber].forEach(quote => {
-      quotes += `'${quote}'\n`;
+      quotes += `'${quote}' \n`;
     });
     return quotes;
   }
