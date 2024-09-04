@@ -116,7 +116,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           embedding: msg.embedding.vector,
           similarity: cosineSimilarity(queryEmbedding, msg.embedding.vector),
           content: msg.content,
-          role: msg.role,
+          role: msg.role.id,
         }));
 
         const similarityThreshold = 0.5;
@@ -124,19 +124,29 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           .sort((a, b) => b.similarity - a.similarity)
           .filter((item) => item.similarity >= similarityThreshold);
 
+        console.debug(
+          "Top similarities roles:",
+          topSimilarities.map((s) => s.role)
+        );
+
         const formattedMessages = [
           ...topSimilarities.map((msg) => ({
             role: String(msg.role),
             content: msg.content,
           })),
           ...latestMessages.map((msg) => ({
-            role: String(msg.role),
+            role: String(msg.role.id),
             content: msg.content,
           })),
         ];
 
+        const systemPrompt = {
+          role: "system",
+          content: Session.DEFAULT_SYSTEM_MESSAGE,
+        };
+
         const promptMessages = [
-          { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
+          systemPrompt,
           ...formattedMessages,
           { role: "user", content: `${userName}: ${body}` },
         ];
@@ -148,14 +158,20 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           num_ctx: 30720,
         });
 
-        const finalMessages = [
-          ...promptMessages,
-          { role: "assistant", content: response.content },
+        const responseMessage = {
+          role: "assistant",
+          content: response.content,
+        };
+
+        // Exclude the system message when saving to the database
+        const messagesToSave = [
+          { role: "user", content: `${userName}: ${body}` },
+          responseMessage,
         ];
 
-        session.addMessages(String(conversation.id.id), ...finalMessages);
+        session.addMessages(String(conversation.id.id), ...messagesToSave);
 
-        console.debug("Final messages:", { finalMessages });
+        console.debug("Messages: ", { ...promptMessages, responseMessage });
 
         let messageText = response.content;
         let mentions: string[] = [];

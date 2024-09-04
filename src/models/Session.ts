@@ -42,6 +42,9 @@ export class Session {
     conversation: string,
     ...messages: { role: string; content: string }[]
   ) {
+    messages.map((msg) => {
+      console.debug("Adding message:", msg);
+    });
     const db = getDb();
 
     const createQueries = messages.map(
