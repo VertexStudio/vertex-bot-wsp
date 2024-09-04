@@ -269,7 +269,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       ctx
     );
 
-    const caption = ctx.message.imageMessage.caption;
+    const caption: string | null = ctx.message.imageMessage?.caption;
 
     if (!caption) {
       console.info("No caption received");
