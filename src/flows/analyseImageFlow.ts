@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Surreal, RecordId, UUID } from "surrealdb.js";
+import { Surreal, RecordId, Uuid as UUID } from "surrealdb.js";
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
