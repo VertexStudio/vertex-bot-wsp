@@ -6,7 +6,7 @@ import {
   callOllamaAPIChat,
   generateEmbedding,
 } from "../services/ollamaService";
-import { Session } from "../models/Session";
+import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { RecordId, Surreal } from "surrealdb.js";
@@ -29,20 +29,19 @@ type EmbeddingData = {
 };
 
 type Message = {
-  id: RecordId;
   content: string;
   created_at: string;
-};
-
-type MessageWithRole = {
-  message: Message;
+  embedding: EmbeddingData;
+  id: RecordId;
   role: RecordId;
 };
 
 // Initialize SurrealDB connection
 export async function handleConversation(
   groupId: string
-): Promise<{ latestMessagesEmbeddings: unknown; conversation: any } | []> {
+): Promise<
+  { latestMessagesEmbeddings: unknown; conversation: Conversation } | []
+> {
   const db = getDb();
 
   // Check if conversation exists
@@ -64,15 +63,18 @@ export async function handleConversation(
     conversation = result[0];
     return { latestMessagesEmbeddings: [], conversation };
   } else {
-    // Fetch latest messages (e.g., last 10)
-    const [latestMessagesEmbeddings] = await db.query(`
-      SELECT * FROM (SELECT 
-        ->conversation_messages->message->message_embedding->embedding AS embedding,
-        ->conversation_messages->message.created_at AS created_at 
-      FROM conversation
-      WHERE whatsapp_id = '${groupId}'
-      ORDER BY created_at ASC 
-      LIMIT 1)[0].embedding LIMIT 10;
+    const [latestMessagesEmbeddings] = await db.query<Message[]>(`
+      SELECT 
+          *,
+          (->message_embedding->embedding)[0].* AS embedding,
+          (->message_role->role)[0] AS role
+      FROM (
+          SELECT ->conversation_messages->message AS message 
+          FROM conversation 
+          WHERE whatsapp_id = '${groupId}'
+      )[0].message 
+      ORDER BY created_at 
+      LIMIT 30;
     `);
     return { latestMessagesEmbeddings, conversation };
   }
@@ -80,15 +82,19 @@ export async function handleConversation(
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    const db = getDb();
     console.debug("Context: ", ctx);
     try {
       await typing(ctx, provider);
 
-      // Extract group ID
       const groupId = ctx.to.split("@")[0];
+      const userId = ctx.key.remoteJid;
+      const userName = ctx.pushName || "User";
 
-      // Handle conversation in SurrealDB
+      if (!sessions.has(userId)) {
+        sessions.set(userId, new Session());
+      }
+      const session = sessions.get(userId)!;
+
       const result = await handleConversation(groupId);
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
@@ -97,57 +103,59 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       enqueueMessage(ctx.body, async (body) => {
         const queryEmbedding = await generateEmbedding(body);
 
-        const similarities =
-          (latestMessagesEmbeddings as EmbeddingData[]).map((msg) => ({
-            id: msg.id,
-            embedding: msg.vector,
-            similarity: cosineSimilarity(queryEmbedding, msg.vector),
-          })) || [];
+        const latestMessages = (latestMessagesEmbeddings as Message[]).slice(
+          -10
+        );
+        const olderMessages = (latestMessagesEmbeddings as Message[]).slice(
+          0,
+          -10
+        );
+
+        const similarities = olderMessages.map((msg) => ({
+          id: msg.id,
+          embedding: msg.embedding.vector,
+          similarity: cosineSimilarity(queryEmbedding, msg.embedding.vector),
+          content: msg.content,
+          role: msg.role,
+        }));
 
         const similarityThreshold = 0.5;
         const topSimilarities = similarities
           .sort((a, b) => b.similarity - a.similarity)
           .filter((item) => item.similarity >= similarityThreshold);
 
-        let messages: MessageWithRole[] = [];
+        const formattedMessages = [
+          ...topSimilarities.map((msg) => ({
+            role: String(msg.role),
+            content: msg.content,
+          })),
+          ...latestMessages.map((msg) => ({
+            role: String(msg.role),
+            content: msg.content,
+          })),
+        ];
 
-        if (topSimilarities.length > 0) {
-          const embeddingIds = topSimilarities
-            .map((sim) => `embedding:${sim.id.id}`)
-            .join(", ");
-          const [result] = await db.query<[MessageWithRole[]]>(`
-            (
-              SELECT 
-                (<-message_embedding.in.*)[0] AS message,
-                (<-message_embedding.in->message_role.out)[0] AS role 
-              FROM ${embeddingIds}
-            )
-          `);
-          messages = Array.isArray(result) ? result : [];
-        }
-
-        const formattedMessages = messages.map((msg) => ({
-          role: String(msg.role.id),
-          content: msg.message.content,
-        }));
-
-        const userId = ctx.key.remoteJid;
-        const userName = ctx.pushName || "User";
-
-        const finalMessages = [
+        const promptMessages = [
           { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
           ...formattedMessages,
           { role: "user", content: `${userName}: ${body}` },
         ];
 
-        const response = await callOllamaAPIChat(finalMessages, {
+        const response = await callOllamaAPIChat(promptMessages, {
           temperature: 0.3,
           top_k: 20,
           top_p: 0.45,
           num_ctx: 30720,
         });
 
-        console.debug("Final messages:", { finalMessages, response });
+        const finalMessages = [
+          ...promptMessages,
+          { role: "assistant", content: response.content },
+        ];
+
+        session.addMessages(String(conversation.id.id), ...finalMessages);
+
+        console.debug("Final messages:", { finalMessages });
 
         let messageText = response.content;
         let mentions: string[] = [];
