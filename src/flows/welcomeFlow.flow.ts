@@ -12,7 +12,7 @@ const enqueueMessage = createMessageQueue(queueConfig);
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
+    //console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
 
     try {
       await typing(ctx, provider);
@@ -30,24 +30,38 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         
         session.addParticipant(userNumber, userName);
 
-
         if (ctx.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
-          console.log('Quoted message: ', JSON.stringify(ctx.message.extendedTextMessage.contextInfo.quotedMessage, null, 2));
+          
+          //console.log('Quoted message: ', JSON.stringify(ctx.message.extendedTextMessage.contextInfo.quotedMessage, null, 2));
           const quotedMessage = ctx.message.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage?.text
             || ctx.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
 
-            if (quotedMessage) {
-              const quotedParticipantNumber = ctx.message.extendedTextMessage.contextInfo.participant
-                || ctx.message.extendedTextMessage.contextInfo.mentionedJid[0];
-    
-              const quotedParticipantName = session.getParticipantName(quotedParticipantNumber);
-    
-              body = `Quote: '${quotedParticipantName}: ${quotedMessage}' ${ctx.body}`;
+          if (quotedMessage) {
+            // Get the participant number of the quoted message
+            const quotedParticipantNumber = ctx.message.extendedTextMessage.contextInfo.participant
+              || ctx.message.extendedTextMessage.contextInfo.mentionedJid[0];
+
+            // Get the participant name of the quoted message
+            const quotedParticipantName = session.getParticipantName(quotedParticipantNumber);
+
+            // Create set for user if it doesn't exist
+            if(!session.quotesByUser[userNumber]) {
+              session.createQuotesByUser(userNumber);
             }
+            
+            // Add the quote to the user's set
+            session.addQuoteByUser(userNumber, `${quotedParticipantName}: ${quotedMessage}`);
+
+            // Get all quotes for the user
+            const quotes = session.getQuotesByUser(userNumber);
+
+            //console.log('Quotes: ', quotes);
+            
+            body = `quotes: ${quotes} \n User ${userName} prompt: ${ctx.body}`;
+            
+            console.log('Body: ', body);
+          }
         }
-
-
-
 
         const response = await callOllamaAPIChat(session, body, {
           temperature: 0.3,
@@ -57,7 +71,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         });
 
         session.addMessages(
-          { role: "user", content: `${userName}: ${body}` },
+          { role: "user", content: `${userName} ${body}` },
           response
         );
 

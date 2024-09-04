@@ -35,6 +35,8 @@ export class Session {
 
   participants: Array<{ id: string; name: string }>;
 
+  quotesByUser = {};
+
   constructor() {
     this.messages = [
       { id: Session.ID_START_NUMBER, role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
@@ -61,6 +63,23 @@ export class Session {
     return participant ? participant.name : "assistant";
   }
 
+  createQuotesByUser(userNumber: string) {
+      if (!this.quotesByUser[userNumber]) {
+        this.quotesByUser[userNumber] = new Set();
+    }
+  }
+
+  addQuoteByUser(userNumber: string, newQuote: string) {
+    this.quotesByUser[userNumber].add(newQuote);
+  }
+
+  getQuotesByUser(userNumber: string) {
+    let quotes = '';
+    this.quotesByUser[userNumber].forEach(quote => {
+      quotes += `'${quote}'\n`;
+    });
+    return quotes;
+  }
 
   private trimMessages() {
     let totalChars = this.messages.reduce(
