@@ -23,6 +23,8 @@ export class Session {
   7. Context Awareness:
      - Pay attention to the flow of conversation.
      - Query tool results when the user asks about the image.
+     - Only consider previously cited quotes if they are directly relevant to the user's current query. Ignore quotes that are unrelated to the current user prompt.
+
   
   Remember, your role is to assist and interact as VeoVeo Bot.`;
 
