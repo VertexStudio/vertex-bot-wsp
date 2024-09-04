@@ -20,7 +20,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         console.log("Processed messages:", body);
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
-        const userNumber = ctx.key.participant;
+        const userNumber = ctx.key.participant || ctx.key.remoteJid; //if ctx comes from a group, uses key.participant, otherwise uses key.remoteJid
         
         if (!sessions.has(userId)) {
           sessions.set(userId, new Session());
