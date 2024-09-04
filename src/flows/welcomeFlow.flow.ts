@@ -90,20 +90,50 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const groupId = ctx.to.split("@")[0];
       const userId = ctx.key.remoteJid;
       const userName = ctx.pushName || "User";
+      const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
       if (!sessions.has(userId)) {
         sessions.set(userId, new Session());
       }
       const session = sessions.get(userId)!;
 
-      // TODO: Get conversation only once.
+      session.addParticipant(userNumber, userName);
+
       const result = await handleConversation(groupId);
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
         : result;
 
       enqueueMessage(ctx.body, async (body) => {
-        // TODO: Figure out how to do embeddings only once. No need to do it twice (here and in VV DB).
+        // Handle quoted messages
+        if (ctx.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+          const quotedMessage =
+            ctx.message.extendedTextMessage.contextInfo.quotedMessage
+              .extendedTextMessage?.text ||
+            ctx.message.extendedTextMessage.contextInfo.quotedMessage
+              .conversation;
+
+          if (quotedMessage) {
+            const quotedParticipantNumber =
+              ctx.message.extendedTextMessage.contextInfo.participant ||
+              ctx.message.extendedTextMessage.contextInfo.mentionedJid[0];
+            const quotedParticipantName = session.getParticipantName(
+              quotedParticipantNumber
+            );
+
+            if (!session.quotesByUser[userNumber]) {
+              session.createQuotesByUser(userNumber);
+            }
+
+            session.addQuoteByUser(
+              userNumber,
+              `${quotedParticipantName}: ${quotedMessage}`
+            );
+            const quotes = session.getQuotesByUser(userNumber);
+            body = `quotes: ${quotes} User ${userName} prompt: ${ctx.body}`;
+          }
+        }
+
         const queryEmbedding = await generateEmbedding(body);
 
         // Convert latestMessagesEmbeddings to an array if it's not already
@@ -183,7 +213,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           content: response.content,
         };
 
-        // Exclude the system message when saving to the database
         const messagesToSave = [
           { role: "user", content: `${userName}: ${body}` },
           responseMessage,
@@ -192,6 +221,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         session.addMessages(String(conversation.id.id), ...messagesToSave);
 
         console.debug("Messages: ", { ...promptMessages, responseMessage });
+        console.log("Session participants: ", session.participants);
 
         let messageText = response.content;
         let mentions: string[] = [];
