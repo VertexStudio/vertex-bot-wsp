@@ -99,6 +99,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
       session.addParticipant(userNumber, userName);
 
+      // TODO: Get conversation only once.
       const result = await handleConversation(groupId);
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
@@ -134,6 +135,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           }
         }
 
+        // TODO: Figure out how to do embeddings only once. No need to do it twice (here and in VV DB).
         const queryEmbedding = await generateEmbedding(body);
 
         // Convert latestMessagesEmbeddings to an array if it's not already
