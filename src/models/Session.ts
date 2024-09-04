@@ -28,6 +28,7 @@ export class Session {
 
   private static readonly MAX_CHAR_LIMIT = 512000;
   private static readonly ID_START_NUMBER = 1;
+  private static readonly MAX_QUOTES = 10;
 
   private messageIdCounter: number;
 
@@ -70,6 +71,10 @@ export class Session {
   }
 
   addQuoteByUser(userNumber: string, newQuote: string) {
+    // Limit the number of quotes per user
+    if (this.quotesByUser[userNumber].size >= Session.MAX_QUOTES) {
+      this.quotesByUser[userNumber].delete(this.quotesByUser[userNumber].values().next().value);
+    }
     this.quotesByUser[userNumber].add(newQuote);
   }
 

@@ -12,7 +12,7 @@ const enqueueMessage = createMessageQueue(queueConfig);
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    //console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
+    console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
 
     try {
       await typing(ctx, provider);
@@ -57,7 +57,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
             //console.log('Quotes: ', quotes);
             
-            body = `quotes: ${quotes} \n User ${userName} prompt: ${ctx.body}`;
+            body = `quotes: ${quotes} User ${userName} prompt: ${ctx.body}`;
             
             console.log('Body: ', body);
           }
