@@ -103,13 +103,19 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       enqueueMessage(ctx.body, async (body) => {
         const queryEmbedding = await generateEmbedding(body);
 
-        const latestMessages = (latestMessagesEmbeddings as Message[]).slice(
-          -10
+        // Convert latestMessagesEmbeddings to an array if it's not already
+        const allMessages = Array.isArray(latestMessagesEmbeddings)
+          ? latestMessagesEmbeddings
+          : [latestMessagesEmbeddings];
+
+        // Sort messages by creation date, oldest first
+        allMessages.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
-        const olderMessages = (latestMessagesEmbeddings as Message[]).slice(
-          0,
-          -10
-        );
+
+        const latestMessages = allMessages.slice(-10);
+        const olderMessages = allMessages.slice(0, -10);
 
         const similarities = olderMessages.map((msg) => ({
           id: msg.id,
@@ -117,17 +123,17 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           similarity: cosineSimilarity(queryEmbedding, msg.embedding.vector),
           content: msg.content,
           role: msg.role.id,
+          created_at: msg.created_at,
         }));
 
         const similarityThreshold = 0.5;
         const topSimilarities = similarities
-          .sort((a, b) => b.similarity - a.similarity)
-          .filter((item) => item.similarity >= similarityThreshold);
-
-        console.debug(
-          "Top similarities roles:",
-          topSimilarities.map((s) => s.role)
-        );
+          .filter((item) => item.similarity >= similarityThreshold)
+          .sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
+          );
 
         const formattedMessages = [
           ...topSimilarities.map((msg) => ({
