@@ -126,14 +126,25 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           created_at: msg.created_at,
         }));
 
+        // Log all similarity scores and content
+        console.debug("All similarity scores and content:");
+        similarities.forEach((item) => {
+          console.debug(`Score: ${item.similarity}, Content: ${item.content}`);
+        });
+
         const similarityThreshold = 0.5;
         const topSimilarities = similarities
           .filter((item) => item.similarity >= similarityThreshold)
-          .sort(
-            (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
-          );
+          .sort((a, b) => b.similarity - a.similarity);
+
+        // Log the top similarity score and content
+        if (topSimilarities.length > 0) {
+          const topSimilarity = topSimilarities[0];
+          console.debug(`Top similarity score: ${topSimilarity.similarity}`);
+          console.debug(`Top similarity content: ${topSimilarity.content}`);
+        } else {
+          console.debug("No messages above similarity threshold");
+        }
 
         const formattedMessages = [
           ...topSimilarities.map((msg) => ({
