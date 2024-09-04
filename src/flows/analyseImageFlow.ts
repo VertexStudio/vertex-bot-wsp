@@ -269,12 +269,12 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       ctx
     );
 
-    const caption: string | null = ctx.message.imageMessage?.caption;
-
     // Validate if the media is a sticker
     if (Object.keys(ctx.message)[0] === 'stickerMessage') {
       throw { message: "Sorry, the sticker format is not supported for analysis", code: "STICKER_ERROR" };
     }
+
+    const caption: string | null = ctx.message.imageMessage?.caption;
 
     if (!caption) {
       console.info("No caption received");
