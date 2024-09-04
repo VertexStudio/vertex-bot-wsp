@@ -126,10 +126,11 @@ function waitForFirstResult(
     db.subscribeLive<Record<string, unknown>>(
       analysisResult,
       (action, result) => {
-        console.log("Live query update:", action, result);
+        console.log("Live query update:", action, result, typeof result);
         if (
           !isResolved &&
           result &&
+          typeof result === 'object' &&
           "results" in result &&
           Array.isArray(result.results) &&
           result.results.length > 0
