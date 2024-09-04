@@ -51,6 +51,8 @@ export class Session {
     ];
     this.messageIdCounter = Session.ID_START_NUMBER;
     this.participants = [];
+    this.messageIdCounter = Session.ID_START_NUMBER;
+    this.participants = [];
   }
 
   async addMessages(
