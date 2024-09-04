@@ -63,6 +63,7 @@ export async function handleConversation(
     conversation = result[0];
     return { latestMessagesEmbeddings: [], conversation };
   } else {
+    // TODO: See a way to not hardcode the limit.
     const [latestMessagesEmbeddings] = await db.query<Message[]>(`
       SELECT 
           *,
@@ -95,12 +96,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       }
       const session = sessions.get(userId)!;
 
+      // TODO: Get conversation only once.
       const result = await handleConversation(groupId);
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
         : result;
 
       enqueueMessage(ctx.body, async (body) => {
+        // TODO: Figure out how to do embeddings only once. No need to do it twice (here and in VV DB).
         const queryEmbedding = await generateEmbedding(body);
 
         // Convert latestMessagesEmbeddings to an array if it's not already
