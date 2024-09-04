@@ -27,7 +27,7 @@
     "openai-whisper": "^1.0.2",
     "path": "^0.12.7",
     "sharp": "^0.33.4",
-    "surrealdb.js": "1.0.0-beta.9",
+    "surrealdb.js": "1.0.0-beta.18",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
