@@ -12,8 +12,7 @@ const enqueueMessage = createMessageQueue(queueConfig);
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
-
+    //console.log('welcomeFlow ctx: ', JSON.stringify(ctx, null, 2));
     try {
       await typing(ctx, provider);
       enqueueMessage(ctx.body, async (body) => {
@@ -56,10 +55,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             const quotes = session.getQuotesByUser(userNumber);
 
             //console.log('Quotes: ', quotes);
-            
             body = `quotes: ${quotes} User ${userName} prompt: ${ctx.body}`;
-            
-            console.log('Body: ', body);
+            //console.log('Body: ', body);
           }
         }
 
