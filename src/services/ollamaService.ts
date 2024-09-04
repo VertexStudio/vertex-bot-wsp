@@ -1,10 +1,13 @@
 import axios from "axios";
 import { Session } from "../models/Session";
+import { setupLogger } from '../utils/logger';
 
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://localhost:11434";
 const OLLAMA_API_URL_GENERATE = `${OLLAMA_API_URL}/api/generate`;
 const OLLAMA_API_URL_CHAT = `${OLLAMA_API_URL}/api/chat`;
 const MODEL = process.env.MODEL || "llama3.1";
+
+setupLogger();
 
 export async function callOllamaAPI(
   prompt: string,

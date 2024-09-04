@@ -5,10 +5,12 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
-import { debug } from "console";
+import { setupLogger } from '../utils/logger';
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
+
+setupLogger();
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
@@ -16,7 +18,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
     try {
       await typing(ctx, provider);
       enqueueMessage(ctx.body, async (body) => {
-        console.log("Processed messages:", body);
+        console.debug("Processed messages:", body);
         const userId = ctx.key.remoteJid;
         const userName = ctx.pushName || "User";
         const userNumber = ctx.key.participant || ctx.key.remoteJid; //if ctx comes from a group, uses key.participant, otherwise uses key.remoteJid

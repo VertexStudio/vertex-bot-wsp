@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { RecordId, UUID } from "surrealdb.js";
 import * as os from "os";
+import { setupLogger } from '../utils/logger';
 
 const RESIZED_DIRECTORY = "./assets/resized";
 const MESSAGE_GAP_SECONDS = 3000;
@@ -39,6 +40,12 @@ interface Anomaly {
   timestamp: Date;
 }
 
+interface AlertControl {
+  alertAnomaly: Record<string, string>,
+  feedback: boolean[],
+  waiting: boolean,
+}
+
 const imageQueue: ImageMessage[] = [];
 let isProcessing = false;
 let processId = 0;
@@ -47,7 +54,9 @@ let currentCtx: any;
 const sentImages: Map<string, { path: string; id: string }> = new Map();
 const resizedImages: Set<string> = new Set();
 
-const sentAlerts = new Map<string, Record<string, string>>();
+const sentAlerts = new Map<string, AlertControl>();
+
+setupLogger();
 
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
@@ -76,7 +85,6 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     //Alert will be only sent for CREATE action
     if (action != "CREATE") return;
-    console.log("Analysis", analysis);
 
     //Send image to the group
     if (currentCtx && provider) {
@@ -86,7 +94,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
         parseImageToUrlFromUint8Array(snap.data, snap.format),
         analysis.results
       );
-      sentAlerts.set(messageId, analysis.id);
+      sentAlerts.set(messageId, { alertAnomaly: analysis.id, feedback: [], waiting: false });
     }
   });
 
@@ -116,25 +124,23 @@ async function sendImage(
   imagePath: string,
   caption?: string
 ): Promise<string> {
-  console.log(`[${processId}] Sending image: ${imagePath}`);
+  console.info(`[${processId}] Sending image: ${imagePath}`);
   const number = ctx.key.remoteJid;
-  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${
-    caption || path.basename(imagePath)
-  }`;
+  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)}`;
   const sentMessage = await provider.vendor.sendMessage(number, {
     image: { url: imagePath },
     caption: enhancedCaption,
   });
 
-  console.log(sentMessage);
+  console.debug(sentMessage);
 
   if (sentMessage && sentMessage.key && sentMessage.key.id) {
     const messageId = sentMessage.key.id;
     sentImages.set(messageId, { path: imagePath, id: messageId });
-    console.log(`[${processId}] Image sent with ID: ${messageId}`);
+    console.info(`[${processId}] Image sent with ID: ${messageId}`);
     return messageId;
   } else {
-    console.log(`[${processId}] Error: No ID found for sent message.`);
+    console.info(`[${processId}] Error: No ID found for sent message.`);
     return "";
   }
 }
@@ -144,14 +150,14 @@ async function enqueueImage(
   provider: Provider,
   imagePath: string
 ): Promise<void> {
-  console.log(`[${processId}] Enqueuing image: ${imagePath}`);
+  console.info(`[${processId}] Enqueuing image: ${imagePath}`);
   imageQueue.push({ imagePath, timestamp: Date.now() });
   processImageQueue(ctx, provider);
 }
 
 async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
   if (imageQueue.length === 0) {
-    console.log(`[${processId}] Image queue is empty`);
+    console.info(`[${processId}] Image queue is empty`);
     return;
   }
 
@@ -166,7 +172,7 @@ async function resizeImage(
   width: number,
   height: number
 ): Promise<string> {
-  console.log(`[${processId}] Resizing image: ${imagePath}`);
+  console.info(`[${processId}] Resizing image: ${imagePath}`);
   if (!fs.existsSync(RESIZED_DIRECTORY)) {
     fs.mkdirSync(RESIZED_DIRECTORY);
   }
@@ -182,7 +188,7 @@ async function resizeImage(
 async function handleReaction(reactions: any[]) {
   //Validate how many reaction are in the image
   if (reactions.length === 0) {
-    console.log(`No reactions received.`);
+    console.info(`No reactions received.`);
     return;
   }
 
@@ -192,7 +198,7 @@ async function handleReaction(reactions: any[]) {
 
   //Validate the reaction format
   if (!reactionKey || !emoji) {
-    console.log(`Invalid reaction format`);
+    console.info(`Invalid reaction format`);
     return;
   }
 
@@ -205,11 +211,12 @@ async function handleReaction(reactions: any[]) {
     (alertId) => alertId == reactionId.id
   );
 
+  //If no alert ID is found, log the error and return
   if (!alertId) {
-    console.log(
+    console.info(
       `No matching alerts found for reaction. Reaction ID: ${reactionId.id}`
     );
-    console.log(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
+    console.info(`Sent alerts IDs:`, Array.from(sentAlerts.keys()));
     return;
   }
 
@@ -217,11 +224,11 @@ async function handleReaction(reactions: any[]) {
     const db = await initDb();
 
     //Get the analysis data of the alert by the message ID
-    const analysisData = sentAlerts.get(alertId);
+    const alertControl = sentAlerts.get(alertId);
 
     //Get the analysis record of the alert
     const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
-      `(SELECT * FROM analysis_anomalies WHERE in = ${analysisData.tb}:${analysisData.id})[0];`
+      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomaly.tb}:${alertControl.alertAnomaly.id})[0];`
     );
 
     if (!analysisRecord) {
@@ -237,35 +244,68 @@ async function handleReaction(reactions: any[]) {
       throw new Error();
     }
 
-    let status = null;
-
     //Array of the valid reactions
     const correctEmojiList = ["✅", "👍"];
     const incorrectEmojiList = ["❌", "👎"];
 
-    //Check if the reaction is correct or incorrect and set the status
-    //Send message to indicate that feedback has been received
+    //Check if the reaction is correct or incorrect and add the respective status value to the feedback array of that alert
+    //If the emoji is invalid, send a message to the user
     if (correctEmojiList.includes(emoji)) {
-      status = true;
-      await provider.sendText(
-        reactionKey.remoteJid,
-        `Anomaly detection marked as correct.`
-      );
+
+      alertControl.feedback.push(true);
+
     } else if (incorrectEmojiList.includes(emoji)) {
-      status = false;
+
+      alertControl.feedback.push(false);
+
+    } else {
+
       await provider.sendText(
         reactionKey.remoteJid,
-        `Anomaly detection marked as incorrect.`
+        `Invalid reaction. Please use one of the following reactions: ✅, 👍 or ❌, 👎`
       );
+
+      return;
+
     }
 
-    //Update the status of the anomaly record
-    await db.update(anomalyRecord.id, {
-      status,
-      timestamp: anomalyRecord.timestamp,
-    });
+    //If the alert is not waiting to process, set a timeout to process the feedback
+    if (!alertControl.waiting) {
+
+      //If not waiting, set the alert to waiting and set a timeout to process the feedback
+      alertControl.waiting = true;
+
+      setTimeout(async () => {
+
+        let correct = 0, incorrect = 0;
+
+        for (let i = 0; i < alertControl.feedback.length; i++) {
+          alertControl.feedback[i] ? correct++ : incorrect++;
+        }
+
+        let status: boolean = null;
+
+        if (correct > incorrect) {
+          status = true;
+        } else if (correct < incorrect) {
+          status = false;
+        }
+
+        //Update the status of the anomaly according to the feedback
+        await db.query(`UPDATE $anomaly SET status = ${status != null ? status : "None"}, timestamp = $timestamp;`, {
+          anomaly: anomalyRecord.id,
+          timestamp: anomalyRecord.timestamp
+        });
+
+        alertControl.waiting = false;
+
+        console.info(`Feedback processed for alert ${alertId}. Status: ${status}`);
+
+      }, 5 * 60 * 1000); //Set the timeout to 5 minutes
+    }
 
     sentImages.delete(reactionId.id);
+
   } catch (error) {
     console.error(`[${processId}] Could not recieve feedback`, error);
     await provider.sendText(
@@ -279,7 +319,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
   sensitive: false,
 }).addAction(async (ctx, { provider: _provider }) => {
   if (isProcessing) {
-    console.log(`Attempt to execute while already processing. Ignoring.`);
+    console.debug(`Attempt to execute while already processing. Ignoring.`);
     return;
   }
 

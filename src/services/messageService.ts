@@ -16,7 +16,7 @@ export async function sendMessage(
     );
   } catch (error) {
     if (error.message === "rate-overlimit" && retryCount < 3) {
-      console.log(
+      console.debug(
         `Rate limit exceeded. Retrying in 5 seconds... (Attempt ${
           retryCount + 1
         })`

@@ -8,6 +8,7 @@
     "start": "node ./dist/app.js",
     "lint": "eslint . --no-ignore",
     "dev": "npm run lint && nodemon ./src/app.ts",
+    "dev-artifacts": "npm run lint && nodemon ./src/app.ts --artifacts",
     "build": "npx rollup -c"
   },
   "keywords": [],
