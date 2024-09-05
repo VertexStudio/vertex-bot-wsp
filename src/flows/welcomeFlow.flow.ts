@@ -5,7 +5,6 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import {
   callOllamaAPIChat,
   generateEmbedding,
-  llm,
 } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
