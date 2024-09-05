@@ -275,7 +275,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await sendMessage(
       provider,
       number,
-      `We're analyzing your image. Please wait...`,
+      getMessage('analyzing_image'),
       ctx
     );
 
@@ -339,7 +339,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     console.error("Error handling media:", error);
     const errorMessage = error.code !== (null || undefined)
     ? error.message
-    : "Sorry, there was an issue analyzing the image. Please try again later.";
+    : getMessage('analysis_error');
     await sendMessage(
       provider,
       number,
