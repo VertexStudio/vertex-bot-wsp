@@ -35,7 +35,7 @@ function resetTimer(state: QueueState): QueueState {
 
 function processQueue(state: QueueState): [string, QueueState] {
     const result = state.queue.map(message => message.text).join(" ");
-    console.log('Accumulated messages:', result);
+    console.debug('Accumulated messages:', result);
 
     const newState = {
         ...state,
@@ -50,7 +50,7 @@ function createMessageQueue(config: QueueConfig) {
     let state = createInitialState();
 
     return function enqueueMessage(messageText: string, callback: (body: string) => void): void {
-        console.log('Enqueueing:', messageText);
+        console.debug('Enqueueing:', messageText);
 
         state = resetTimer(state);
         state.queue.push({ text: messageText, timestamp: Date.now() });
