@@ -18,6 +18,8 @@ import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import {
   ChatPromptTemplate,
   MessagesPlaceholder,
+  SystemMessagePromptTemplate,
+  HumanMessagePromptTemplate,
 } from "@langchain/core/prompts";
 import {
   RunnablePassthrough,
@@ -29,6 +31,7 @@ import {
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
+import { formatDocumentsAsString } from "langchain/util/document";
 import { facts } from "~/app";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
@@ -101,7 +104,7 @@ export async function handleConversation(
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    console.debug("Context: ", ctx);
+    console.debug("Starting welcomeFlow");
     try {
       await typing(ctx, provider);
 
@@ -110,22 +113,29 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const userName = ctx.pushName || "User";
       const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
+      console.debug(`User info: ${userName} (${userNumber})`);
+
       if (!sessions.has(userId)) {
         sessions.set(userId, new Session());
+        console.debug(`Created new session for ${userId}`);
       }
       const session = sessions.get(userId)!;
 
       session.addParticipant(userNumber, userName);
 
-      // TODO: Get conversation only once.
       const result = await handleConversation(groupId);
+      console.debug("handleConversation result:", result);
+
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
         : result;
 
       enqueueMessage(ctx.body, async (body) => {
+        console.debug(`Processing message: ${body}`);
+
         // Handle quoted messages
         if (ctx.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+          console.debug("Handling quoted message");
           const quotedMessage =
             ctx.message.extendedTextMessage.contextInfo.quotedMessage
               .extendedTextMessage?.text ||
@@ -153,15 +163,15 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           }
         }
 
-        const humanMessage = `${userName}: ${body}`;
-
-        // TODO: Figure out how to do embeddings only once. No need to do it twice (here and in VV DB).
-        const queryEmbedding = await generateEmbedding(humanMessage);
+        const queryEmbedding = await generateEmbedding(body);
+        console.debug("Generated query embedding");
 
         // Convert latestMessagesEmbeddings to an array if it's not already
         const allMessages = Array.isArray(latestMessagesEmbeddings)
           ? latestMessagesEmbeddings
           : [latestMessagesEmbeddings];
+
+        console.debug(`Total messages: ${allMessages.length}`);
 
         // Sort messages by creation date, oldest first
         allMessages.sort(
@@ -172,6 +182,10 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const latestMessages = allMessages.slice(-10);
         const olderMessages = allMessages.slice(0, -10);
 
+        console.debug(
+          `Latest messages: ${latestMessages.length}, Older messages: ${olderMessages.length}`
+        );
+
         const similarities = olderMessages.map((msg) => ({
           id: msg.id,
           embedding: msg.embedding.vector,
@@ -181,25 +195,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           created_at: msg.created_at,
         }));
 
-        // Log all similarity scores and content
-        console.debug("All similarity scores and content:");
-        similarities.forEach((item) => {
-          console.debug(`Score: ${item.similarity}, Content: ${item.content}`);
-        });
+        console.debug("Calculated similarities for older messages");
 
         const similarityThreshold = 0.5;
         const topSimilarities = similarities
           .filter((item) => item.similarity >= similarityThreshold)
           .sort((a, b) => b.similarity - a.similarity);
 
-        // Log the top similarity score and content
-        if (topSimilarities.length > 0) {
-          const topSimilarity = topSimilarities[0];
-          console.debug(`Top similarity score: ${topSimilarity.similarity}`);
-          console.debug(`Top similarity content: ${topSimilarity.content}`);
-        } else {
-          console.debug("No messages above similarity threshold");
-        }
+        console.debug(`Top similarities: ${topSimilarities.length}`);
 
         const formattedMessages = [
           ...topSimilarities.map((msg) => ({
@@ -212,7 +215,11 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           })),
         ];
 
-        const systemPrompt = new SystemMessage(Session.DEFAULT_SYSTEM_MESSAGE);
+        console.debug(`Total formatted messages: ${formattedMessages.length}`);
+
+        const systemPrompt = SystemMessagePromptTemplate.fromTemplate(
+          Session.DEFAULT_SYSTEM_MESSAGE
+        );
 
         // Convert formattedMessages to LangChain message format
         const chatHistory = formattedMessages.map((msg) =>
@@ -221,15 +228,27 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             : new AIMessage(msg.content)
         );
 
-        console.debug("Chat History: ", chatHistory);
-
-        console.debug("Human Message: ", humanMessage);
+        const userPrompt = new HumanMessage(`${userName}: ${body}`);
 
         // Create the QA prompt
         const qaPrompt = ChatPromptTemplate.fromMessages([
           systemPrompt,
           new MessagesPlaceholder("chat_history"),
+          SystemMessagePromptTemplate.fromTemplate(
+            "Context information is below.\n--------------------\n{context}\n--------------------\nGiven this information, please answer the human's question."
+          ),
+          HumanMessagePromptTemplate.fromTemplate("{question}"),
         ]);
+
+        console.debug("Facts: ", facts);
+
+        // Create a document from facts
+        const factsDocument = new Document({
+          pageContent: facts.map((fact) => fact.fact_value).join("\n"),
+          metadata: { source: "facts" },
+        });
+
+        console.debug("Created facts document");
 
         // Create the RAG chain
         const ragChain = RunnableSequence.from([
@@ -256,25 +275,27 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
               const topSimilarities = similarities
                 .filter((item) => item.similarity >= similarityThreshold)
                 .sort((a, b) => b.similarity - a.similarity)
-                .map((s) => s.content)
-                .join("\n");
+                .map((s) => new Document({ pageContent: s.content }));
 
-              return topSimilarities;
+              // Combine retrieved documents with facts
+              const contextDocs = [...topSimilarities, factsDocument];
+              return formatDocumentsAsString(contextDocs);
             },
+            question: (input: Record<string, unknown>) => input.question,
           }),
           qaPrompt,
           llm,
           new StringOutputParser(),
         ]);
 
-        console.debug("RAG Chain: ", ragChain);
+        console.debug("Created RAG chain");
 
         // Invoke the RAG chain
         const response = await ragChain.invoke({
-          question: humanMessage,
+          question: body,
         });
 
-        console.debug("Response: ", response);
+        console.debug("RAG chain response:", response);
 
         const responseMessage = {
           role: "assistant",
@@ -285,7 +306,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         if (conversation) {
           session.addMessages(
             String(conversation.id.id),
-            { role: "user", content: humanMessage },
+            { role: "user", content: body },
             responseMessage
           );
         }
