@@ -5,6 +5,7 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import {
   callOllamaAPIChat,
   generateEmbedding,
+  llm,
 } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
@@ -12,6 +13,10 @@ import { setupLogger } from "../utils/logger";
 import { RecordId, Surreal } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
+import { Document } from "@langchain/core/documents";
+import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
+import { ChatPromptTemplate, PromptTemplate } from "@langchain/core/prompts";
+import { facts } from "~/app";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -202,6 +207,19 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           ...formattedMessages,
           { role: "user", content: `${userName}: ${body}` },
         ];
+
+        // Create the chain that combines the prompt with the documents
+        const prompt = ChatPromptTemplate.fromMessages(promptMessages);
+
+        const factsDocument = new Document({
+          pageContent: facts.map((fact) => fact.fact_value).join("\n"),
+          metadata: { source: "facts" },
+        });
+
+        const chain = await createStuffDocumentsChain({
+          llm: llm,
+          prompt,
+        });
 
         const response = await callOllamaAPIChat(promptMessages, {
           temperature: 0.3,
