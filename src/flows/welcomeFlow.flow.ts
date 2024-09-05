@@ -153,8 +153,10 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           }
         }
 
+        const humanMessage = `${userName}: ${body}`;
+
         // TODO: Figure out how to do embeddings only once. No need to do it twice (here and in VV DB).
-        const queryEmbedding = await generateEmbedding(body);
+        const queryEmbedding = await generateEmbedding(humanMessage);
 
         // Convert latestMessagesEmbeddings to an array if it's not already
         const allMessages = Array.isArray(latestMessagesEmbeddings)
@@ -219,13 +221,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             : new AIMessage(msg.content)
         );
 
-        const userPrompt = new HumanMessage(`${userName}: ${body}`);
+        console.debug("Chat History: ", chatHistory);
+
+        console.debug("Human Message: ", humanMessage);
 
         // Create the QA prompt
         const qaPrompt = ChatPromptTemplate.fromMessages([
           systemPrompt,
           new MessagesPlaceholder("chat_history"),
-          userPrompt,
         ]);
 
         // Create the RAG chain
@@ -264,9 +267,11 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           new StringOutputParser(),
         ]);
 
+        console.debug("RAG Chain: ", ragChain);
+
         // Invoke the RAG chain
         const response = await ragChain.invoke({
-          question: body,
+          question: humanMessage,
         });
 
         console.debug("Response: ", response);
@@ -280,7 +285,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         if (conversation) {
           session.addMessages(
             String(conversation.id.id),
-            { role: "user", content: body },
+            { role: "user", content: humanMessage },
             responseMessage
           );
         }
