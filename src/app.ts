@@ -5,16 +5,28 @@ import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
 import { initDb, getDb } from "./database/surreal";
+import { Fact, getFacts, setupFactsLiveQuery } from "./models/Session";
 
 const PORT = process.env?.PORT ?? 3008;
 
 let contacts = {};
+
+export let facts: Fact[] = [];
 
 const main = async () => {
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });
   const adapterDB = new Database();
 
   await initDb();
+
+  // Initial fetch of facts
+  facts = await getFacts();
+
+  // Setup live query to update facts when changes occur
+  await setupFactsLiveQuery((updatedFacts) => {
+    facts = updatedFacts;
+    console.log("Facts updated:", facts);
+  });
 
   const { httpServer, handleCtx } = await createBot({
     flow: flow,
@@ -74,4 +86,4 @@ const main = async () => {
   );
 };
 
-main();
+main().catch(console.error);
