@@ -197,9 +197,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           })),
         ];
 
+        const relevantFactsText = facts
+          .flat()
+          .map((fact) => fact.fact_value)
+          .join("\n");
+
         const systemPrompt = {
           role: "system",
-          content: Session.DEFAULT_SYSTEM_MESSAGE,
+          content: `${Session.DEFAULT_SYSTEM_MESSAGE}\n\nRelevant facts:\n\n${relevantFactsText}`,
         };
 
         const promptMessages = [
@@ -207,19 +212,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           ...formattedMessages,
           { role: "user", content: `${userName}: ${body}` },
         ];
-
-        // Create the chain that combines the prompt with the documents
-        const prompt = ChatPromptTemplate.fromMessages(promptMessages);
-
-        const factsDocument = new Document({
-          pageContent: facts.map((fact) => fact.fact_value).join("\n"),
-          metadata: { source: "facts" },
-        });
-
-        const chain = await createStuffDocumentsChain({
-          llm: llm,
-          prompt,
-        });
 
         const response = await callOllamaAPIChat(promptMessages, {
           temperature: 0.3,

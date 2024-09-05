@@ -2,9 +2,6 @@ import { getDb } from "~/database/surreal";
 
 export type Fact = {
   fact_value: string;
-  embedding: {
-    vector: number[];
-  };
 };
 
 export class Session {
