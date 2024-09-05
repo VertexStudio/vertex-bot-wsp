@@ -15,7 +15,20 @@ import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
 import { Document } from "@langchain/core/documents";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
-import { ChatPromptTemplate, PromptTemplate } from "@langchain/core/prompts";
+import {
+  ChatPromptTemplate,
+  MessagesPlaceholder,
+} from "@langchain/core/prompts";
+import {
+  RunnablePassthrough,
+  RunnableSequence,
+} from "@langchain/core/runnables";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import {
+  AIMessage,
+  HumanMessage,
+  SystemMessage,
+} from "@langchain/core/messages";
 import { facts } from "~/app";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
@@ -197,53 +210,82 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           })),
         ];
 
-        const systemPrompt = {
-          role: "system",
-          content: Session.DEFAULT_SYSTEM_MESSAGE,
-        };
+        const systemPrompt = new SystemMessage(Session.DEFAULT_SYSTEM_MESSAGE);
 
-        const promptMessages = [
+        // Convert formattedMessages to LangChain message format
+        const chatHistory = formattedMessages.map((msg) =>
+          msg.role === "user"
+            ? new HumanMessage(msg.content)
+            : new AIMessage(msg.content)
+        );
+
+        const userPrompt = new HumanMessage(`${userName}: ${body}`);
+
+        // Create the QA prompt
+        const qaPrompt = ChatPromptTemplate.fromMessages([
           systemPrompt,
-          ...formattedMessages,
-          { role: "user", content: `${userName}: ${body}` },
-        ];
+          new MessagesPlaceholder("chat_history"),
+          userPrompt,
+        ]);
 
-        // Create the chain that combines the prompt with the documents
-        const prompt = ChatPromptTemplate.fromMessages(promptMessages);
+        // Create the RAG chain
+        const ragChain = RunnableSequence.from([
+          RunnablePassthrough.assign({
+            chat_history: () => chatHistory,
+            context: async (input: Record<string, unknown>) => {
+              const queryEmbedding = await generateEmbedding(
+                input.question as string
+              );
 
-        const factsDocument = new Document({
-          pageContent: facts.map((fact) => fact.fact_value).join("\n"),
-          metadata: { source: "facts" },
+              // Use your existing similarity search logic
+              const similarities = olderMessages.map((msg) => ({
+                id: msg.id,
+                embedding: msg.embedding.vector,
+                similarity: cosineSimilarity(
+                  queryEmbedding,
+                  msg.embedding.vector
+                ),
+                content: msg.content,
+                role: msg.role.id,
+                created_at: msg.created_at,
+              }));
+
+              const topSimilarities = similarities
+                .filter((item) => item.similarity >= similarityThreshold)
+                .sort((a, b) => b.similarity - a.similarity)
+                .map((s) => s.content)
+                .join("\n");
+
+              return topSimilarities;
+            },
+          }),
+          qaPrompt,
+          llm,
+          new StringOutputParser(),
+        ]);
+
+        // Invoke the RAG chain
+        const response = await ragChain.invoke({
+          question: body,
         });
 
-        const chain = await createStuffDocumentsChain({
-          llm: llm,
-          prompt,
-        });
-
-        const response = await callOllamaAPIChat(promptMessages, {
-          temperature: 0.3,
-          top_k: 20,
-          top_p: 0.45,
-          num_ctx: 30720,
-        });
+        console.debug("Response: ", response);
 
         const responseMessage = {
           role: "assistant",
-          content: response.content,
+          content: response,
         };
 
-        const messagesToSave = [
-          { role: "user", content: `${userName}: ${body}` },
-          responseMessage,
-        ];
+        // Update conversation with new messages
+        if (conversation) {
+          session.addMessages(
+            String(conversation.id.id),
+            { role: "user", content: body },
+            responseMessage
+          );
+        }
 
-        session.addMessages(String(conversation.id.id), ...messagesToSave);
-
-        console.debug("Messages: ", { ...promptMessages, responseMessage });
-        console.log("Session participants: ", session.participants);
-
-        let messageText = response.content;
+        let messageText = response;
         let mentions: string[] = [];
 
         if (ctx.key.participant) {
