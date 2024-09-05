@@ -1,7 +1,11 @@
 import { getDb } from "~/database/surreal";
 
+export type Fact = {
+  fact_value: string;
+};
+
 export class Session {
-  static readonly DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:
+  static readonly DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat of a company. Follow these guidelines:
   
   1. Role: You are a helpful, friendly assistant named VeoVeo Bot. You do NOT impersonate or speak for any human users.
   
@@ -27,7 +31,7 @@ export class Session {
      - Query tool results when the user asks about the image.
      - Only consider previously cited quotes if they are directly relevant to the user's current query. Ignore quotes that are unrelated to the current user prompt.
   
-  Remember, your role is to assist and interact as VeoVeo Bot.`;
+  Remember, your role is to assist and interact as VeoVeo Bot and answer all queries.`;
 
   private static readonly MAX_CHAR_LIMIT = 512000;
   private static readonly ID_START_NUMBER = 1;
@@ -132,3 +136,23 @@ export class Session {
 }
 
 export const sessions = new Map<string, Session>();
+
+export async function getFacts() {
+  const db = getDb();
+  const facts = await db.query<Fact[]>("SELECT * FROM fact");
+  return facts;
+}
+
+export async function setupFactsLiveQuery(callback: (facts: Fact[]) => void) {
+  const db = getDb();
+
+  try {
+    const liveQuery = await db.live<Fact>("fact", (data) => {
+      getFacts().then(callback);
+    });
+
+    return liveQuery;
+  } catch (error) {
+    console.error("Error setting up live query:", error);
+  }
+}
