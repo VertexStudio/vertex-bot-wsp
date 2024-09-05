@@ -204,7 +204,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         const systemPrompt = {
           role: "system",
-          content: `${Session.DEFAULT_SYSTEM_MESSAGE}\n\nRelevant facts:\n\n${relevantFactsText}`,
+          content: `${Session.DEFAULT_SYSTEM_MESSAGE}\n\nRelevant facts (your RAG info):\n\n${relevantFactsText}`,
         };
 
         const promptMessages = [

@@ -25,7 +25,6 @@ const main = async () => {
   // Setup live query to update facts when changes occur
   await setupFactsLiveQuery((updatedFacts) => {
     facts = updatedFacts;
-    console.log("Facts updated:", facts);
   });
 
   const { httpServer, handleCtx } = await createBot({
