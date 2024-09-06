@@ -12,6 +12,7 @@ import { setupLogger } from "../utils/logger";
 import { RecordId } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
+import { getMessage } from '../services/translate';
 import { facts } from "~/app";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
@@ -243,13 +244,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      await sendMessage(
-        provider,
-        ctx.key.remoteJid,
-        `Error in welcomeFlow: ${error.message}`,
-        [],
-        ctx
-      );
+      await sendMessage(provider, ctx.key.remoteJid, getMessage(`errorWelcome ${error.message}`));
     }
   }
 );

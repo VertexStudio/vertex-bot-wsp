@@ -10,8 +10,8 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { RecordId, UUID } from "surrealdb.js";
 import * as os from "os";
 import { setupLogger } from '../utils/logger';
+import { getMessage } from '../services/translate';
 
-const RESIZED_DIRECTORY = "./assets/resized";
 const MESSAGE_GAP_SECONDS = 3000;
 
 const queueConfig: QueueConfig = { gapSeconds: MESSAGE_GAP_SECONDS };
@@ -167,23 +167,6 @@ async function processImageQueue(ctx: any, provider: Provider): Promise<void> {
   });
 }
 
-async function resizeImage(
-  imagePath: string,
-  width: number,
-  height: number
-): Promise<string> {
-  console.info(`[${processId}] Resizing image: ${imagePath}`);
-  if (!fs.existsSync(RESIZED_DIRECTORY)) {
-    fs.mkdirSync(RESIZED_DIRECTORY);
-  }
-  const outputPath = path.join(RESIZED_DIRECTORY, path.basename(imagePath));
-
-  await sharp(imagePath).resize(width, height).toFile(outputPath);
-
-  resizedImages.add(outputPath);
-  return outputPath;
-}
-
 //Handle reaction to the alert
 async function handleReaction(reactions: any[]) {
   //Validate how many reaction are in the image
@@ -262,7 +245,7 @@ async function handleReaction(reactions: any[]) {
 
       await provider.sendText(
         reactionKey.remoteJid,
-        `Invalid reaction. Please use one of the following reactions: ✅, 👍 or ❌, 👎`
+        getMessage("invalid_reaction")
       );
 
       return;
@@ -334,7 +317,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
 
     await provider.sendText(
       ctx.key.remoteJid,
-      "Alerts are now active. You will receive alerts for new anomalies."
+      getMessage("alerts_on")
     );
 
     provider.on("reaction", handleReaction);
@@ -342,35 +325,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
     console.error(`[${processId}] Error while activating alerts.`, error);
     await provider.sendText(
       ctx.key.remoteJid,
-      "Sorry, an error occurred while activating alerts."
+      getMessage("alerts_error")
     );
   }
 });
-
-export const resizeFlow = addKeyword<Provider, Database>("resize").addAction(
-  async (ctx, { provider: _provider }) => {
-    const text = ctx.body.toLowerCase();
-    const match = text.match(/resize (\d+)/);
-    if (match) {
-      const index = parseInt(match[1], 10) - 1;
-      if (index >= 0 && index < sentImages.size) {
-        const imagePath = Array.from(sentImages.values())[index].path;
-        const resizedPath = path.join(
-          RESIZED_DIRECTORY,
-          path.basename(imagePath)
-        );
-        if (!resizedImages.has(resizedPath)) {
-          await resizeImage(imagePath, 1920, 1080);
-        }
-        await enqueueImage(ctx, _provider, resizedPath);
-      } else {
-        await _provider.sendText(ctx.key.remoteJid, "Invalid image number.");
-      }
-    } else {
-      await _provider.sendText(
-        ctx.key.remoteJid,
-        "Invalid command format. Use 'resize X' where X is the image number."
-      );
-    }
-  }
-);
