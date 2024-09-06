@@ -16,3 +16,5 @@ tmp/*
 history.txt
 
 assets/vv_db
+
+external/bioma_js/output
