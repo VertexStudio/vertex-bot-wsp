@@ -85,7 +85,6 @@ export async function handleConversation(
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    console.debug("Context: ", ctx);
     try {
       await typing(ctx, provider);
 
@@ -163,8 +162,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           created_at: msg.created_at,
         }));
 
-        // Log all similarity scores and content
-        console.debug("All similarity scores and content:");
         similarities.forEach((item) => {
           console.debug(`Score: ${item.similarity}, Content: ${item.content}`);
         });
@@ -196,8 +193,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         let rerankedMessages: string[] = [];
         if (facts.length > 0) {
-          console.debug("Facts:", facts);
-          // Extract fact values and flatten the array
           const factValues = facts
             .flatMap((fact) =>
               Array.isArray(fact)
@@ -208,7 +203,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
           // Rerank the messages
           const rerankedResult = await rerankTexts(body, factValues);
-          console.debug("Reranked result:", rerankedResult);
 
           if (rerankedResult && Array.isArray(rerankedResult.msg)) {
             // Sort the reranked messages by score in descending order
@@ -221,8 +215,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           } else {
             console.warn("Unexpected rerankedResult format:", rerankedResult);
           }
-
-          console.debug("Processed reranked messages:", rerankedMessages);
         }
 
         const relevantFactsText =
