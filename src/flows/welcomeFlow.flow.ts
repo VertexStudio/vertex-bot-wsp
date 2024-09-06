@@ -207,15 +207,26 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             .filter(Boolean);
 
           // Rerank the messages
-          rerankedMessages = await rerankTexts(body, factValues);
+          const rerankedResult = await rerankTexts(body, factValues);
+          console.debug("Reranked result:", rerankedResult);
 
-          console.debug("Reranked messages:", rerankedMessages);
+          if (rerankedResult && Array.isArray(rerankedResult.msg)) {
+            // Sort the reranked messages by score in descending order
+            const sortedRerankedMessages = rerankedResult.msg
+              .sort((a, b) => b.score - a.score)
+              .map((item) => factValues[item.index]);
+
+            // Take the top 5 reranked messages or all if less than 5
+            rerankedMessages = sortedRerankedMessages.slice(0, 5);
+          } else {
+            console.warn("Unexpected rerankedResult format:", rerankedResult);
+          }
+
+          console.debug("Processed reranked messages:", rerankedMessages);
         }
 
-        const relevantFactsText = facts
-          .flat()
-          .map((fact) => fact.fact_value)
-          .join("\n");
+        const relevantFactsText =
+          rerankedMessages.length > 0 ? rerankedMessages.join("\n") : "";
 
         const systemPrompt = {
           role: "system",

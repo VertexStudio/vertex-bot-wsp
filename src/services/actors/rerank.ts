@@ -1,8 +1,26 @@
 import { BiomaInterface } from "external/bioma_js/bioma.js";
+import { RecordId } from "surrealdb.js";
 
 const bioma = new BiomaInterface();
 
-async function rerankTexts(query: string, texts: string[]): Promise<string[]> {
+type RankedItem = {
+  index: number;
+  score: number;
+};
+
+type RerankedResult = {
+  err: undefined | string;
+  id: RecordId;
+  msg: RankedItem[];
+  name: string;
+  rx: RecordId;
+  tx: RecordId;
+};
+
+async function rerankTexts(
+  query: string,
+  texts: string[]
+): Promise<RerankedResult> {
   try {
     await bioma.connect();
 
@@ -29,9 +47,7 @@ async function rerankTexts(query: string, texts: string[]): Promise<string[]> {
 
     const reply = await bioma.waitForReply(messageId, 10000);
 
-    await bioma.close();
-
-    return reply;
+    return reply as RerankedResult;
   } catch (error) {
     console.error("Error in rerankTexts:", error);
     throw error;
