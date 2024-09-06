@@ -1,4 +1,5 @@
 import { Surreal, RecordId } from "surrealdb";
+import { ulid } from "ulid";
 
 export class BiomaInterface {
   db: Surreal;
@@ -24,7 +25,7 @@ export class BiomaInterface {
     rx: RecordId,
     name: string,
     message: any
-  ): Promise<string>;
+  ): Promise<ulid>;
 
-  waitForReply(actorId: RecordId): Promise<any>;
+  waitForReply(actorId: ulid): Promise<any>;
 }

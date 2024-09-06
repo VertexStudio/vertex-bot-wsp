@@ -68,6 +68,7 @@ class BiomaInterface {
   }
 
   async waitForReply(messageId, maxWaitTime = 10000) {
+    console.debug(`Waiting for reply for messageId: ${messageId}`);
     const recordId = new RecordId("reply", messageId);
     let waitTime = 0;
     let sleepTime = 100; // Start with a 100ms sleep
@@ -78,6 +79,7 @@ class BiomaInterface {
       sleepTime = Math.min(sleepTime * 2, 1000); // Cap at 1 second
       try {
         const reply = await this.db.select(recordId);
+        console.debug(`Reply: ${reply}`);
         if (reply) {
           return reply;
         }

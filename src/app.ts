@@ -6,15 +6,14 @@ import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
 import { initDb, getDb } from "./database/surreal";
 import { Fact, getFacts, setupFactsLiveQuery } from "./models/Session";
-import { createRerankService, RerankService } from "./services/actors/rerank";
+import { BiomaInterface } from "../external/bioma_js/bioma";
+import { Rerank } from "./actors/rerank";
 
 const PORT = process.env?.PORT ?? 3008;
 
 let contacts = {};
 
 export let facts: Fact[] = [];
-
-export let rerankService: RerankService;
 
 const main = async () => {
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });
@@ -25,7 +24,31 @@ const main = async () => {
   // Initial fetch of facts
   facts = await getFacts();
 
-  rerankService = await createRerankService("http://localhost:9124/rerank");
+  const bioma = new BiomaInterface();
+  await bioma.connect();
+
+  const rerank = new Rerank(bioma);
+  await rerank.start();
+
+  const texts = [
+    "Hello, how are you?",
+    "What is the weather in Tokyo?",
+    "Can you recommend a good book?",
+  ];
+  const query = "What is the weather in Tokyo?";
+
+  try {
+    const rankedTexts = await rerank.handle({
+      query,
+      texts,
+      raw_scores: false,
+    });
+    console.log("Ranked texts:", rankedTexts);
+  } catch (error) {
+    console.error("Error:", error);
+  } finally {
+    await bioma.close();
+  }
 
   // Setup live query to update facts when changes occur
   await setupFactsLiveQuery((updatedFacts) => {
