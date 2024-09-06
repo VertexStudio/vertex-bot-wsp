@@ -1,40 +1,41 @@
-// import { Rerank, RankTexts, RankedText } from "../../actors/rerank";
+import { BiomaInterface } from "external/bioma_js/bioma.js";
 
-// export class RerankService {
-//   private reranker: Rerank;
+const bioma = new BiomaInterface();
 
-//   constructor(rerankerUrl: string) {
-//     this.reranker = new Rerank(rerankerUrl);
-//   }
+async function rerankTexts(query: string, texts: string[]): Promise<string[]> {
+  try {
+    await bioma.connect();
 
-//   async initialize(): Promise<void> {
-//     await this.reranker.connect();
-//     await this.reranker.start();
-//     // Wait a bit to ensure the reranker is ready
-//     await new Promise((resolve) => setTimeout(resolve, 1000));
-//   }
+    const bridgeId = bioma.createActorId("/bridge", "BridgeActor");
+    const bridgeActor = await bioma.createActor(bridgeId);
 
-//   async rankTexts(query: string, texts: string[]): Promise<RankedText[]> {
-//     const rankTextsRequest: RankTexts = {
-//       query,
-//       texts,
-//       raw_scores: false,
-//     };
+    const rerankId = bioma.createActorId(
+      "/rerank",
+      "bioma_rerank::rerank::Rerank"
+    );
 
-//     return await this.reranker.handleRankTexts(rankTextsRequest);
-//   }
+    const rankTextsMessage = {
+      query: query,
+      texts: texts,
+      raw_scores: false,
+    };
 
-//   async stop(): Promise<void> {
-//     // Assuming you've implemented a stop method in the Rerank class
-//     await this.reranker.stop();
-//   }
-// }
+    const messageId = await bioma.sendMessage(
+      bridgeId,
+      rerankId,
+      "bioma_rerank::rerank::RankTexts",
+      rankTextsMessage
+    );
 
-// // Export a function to create and initialize the service
-// export async function createRerankService(
-//   rerankerUrl: string
-// ): Promise<RerankService> {
-//   const service = new RerankService(rerankerUrl);
-//   await service.initialize();
-//   return service;
-// }
+    const reply = await bioma.waitForReply(messageId);
+
+    await bioma.close();
+
+    return reply;
+  } catch (error) {
+    console.error("Error in rerankTexts:", error);
+    throw error;
+  }
+}
+
+export default rerankTexts;

@@ -21,8 +21,8 @@ export class BiomaInterface {
   createActor(id: { id: RecordId; kind: string }): Promise<any>;
 
   sendMessage(
-    tx: { id: RecordId },
-    rx: RecordId,
+    tx: { id: RecordId; kind: string },
+    rx: { id: RecordId; kind: string },
     name: string,
     message: any
   ): Promise<ulid>;
