@@ -9,10 +9,11 @@ import {
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
-import { RecordId, Surreal } from "surrealdb.js";
+import { RecordId } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
 import { getMessage } from '../services/translate';
+import { facts } from "~/app";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -193,9 +194,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           })),
         ];
 
+        const relevantFactsText = facts
+          .flat()
+          .map((fact) => fact.fact_value)
+          .join("\n");
+
         const systemPrompt = {
           role: "system",
-          content: Session.DEFAULT_SYSTEM_MESSAGE,
+          content: `${Session.DEFAULT_SYSTEM_MESSAGE}\n\nRelevant facts (your RAG info):\n\n${relevantFactsText}`,
         };
 
         const promptMessages = [
