@@ -24,7 +24,10 @@ class Rerank {
 
   constructor(bioma: BiomaInterface) {
     this.bioma = bioma;
-    this.rerankActorId = this.bioma.createActorId("/rerank", "rerank::Rerank");
+    this.rerankActorId = this.bioma.createActorId(
+      "/rerank",
+      "bioma_llm::rerank::Rerank"
+    );
   }
 
   async start() {
@@ -34,12 +37,12 @@ class Rerank {
 
   async handle(rankTexts: RankTexts): Promise<RankedText[]> {
     try {
-      const dummyId = this.bioma.createActorId("/dummy", "dummy::Dummy");
+      const bridgeId = this.bioma.createActorId("/bridge", "BridgeActor");
 
       const messageId = await this.bioma.sendMessage(
-        dummyId,
+        bridgeId,
         this.rerankActorId,
-        "rerank::RankTexts",
+        "bioma_llm::rerank::RankTexts",
         rankTexts
       );
 
