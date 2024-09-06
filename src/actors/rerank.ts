@@ -49,7 +49,7 @@ class Rerank {
     }
   }
 
-  private async handleRankTexts(rankTexts: RankTexts): Promise<RankedText[]> {
+  public async handleRankTexts(rankTexts: RankTexts): Promise<RankedText[]> {
     try {
       const response = await axios.post(this.url, rankTexts);
       if (response.status !== 200) {
@@ -61,10 +61,10 @@ class Rerank {
       throw error;
     }
   }
-}
 
-// Usage
-const reranker = new Rerank("http://your-rerank-service-url");
-reranker.connect().then(() => reranker.start());
+  public async stop() {
+    // Implement logic to stop the actor
+  }
+}
 
 export { Rerank, RankTexts, RankedText };
