@@ -1,26 +1,30 @@
 // Test the Bioma interface
 
-const BiomaInterface = require('./bioma');
+import { BiomaInterface } from "./bioma";
 
 const bioma = new BiomaInterface();
 
 async function main() {
+  await bioma.connect();
 
-    await bioma.connect();
+  const dummyId = bioma.createActorId("/dummy", "dummy::Dummy");
+  const dummyActor = await bioma.createActor(dummyId);
 
-    const dummyId = bioma.createActorId('/dummy', 'dummy::Dummy');
-    const dummyActor = await bioma.createActor(dummyId);
+  const echoActorId = bioma.createActorId("/echo", "echo::Echo");
+  const echoMessage = { text: "Hello, world!" };
 
-    const echoActorId = bioma.createActorId('/echo', 'echo::Echo');
-    const echoMessage = { text: 'Hello, world!' };
+  let messageId = await bioma.sendMessage(
+    dummyId,
+    echoActorId,
+    "echo::EchoText",
+    echoMessage
+  );
 
-    let messageId = await bioma.sendMessage(dummyId, echoActorId, 'echo::EchoText', echoMessage);
+  let reply = await bioma.waitForReply(messageId);
 
-    let reply = await bioma.waitForReply(messageId);
+  console.log("Reply:", reply);
 
-    console.log('Reply:', reply);
-
-    await bioma.close();
+  await bioma.close();
 }
 
 main();

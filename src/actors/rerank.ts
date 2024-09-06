@@ -1,4 +1,4 @@
-import { BiomaInterface } from "../../external/bioma_js/bioma";
+import BiomaInterface from "../../external/bioma_js/bioma";
 import axios from "axios";
 
 interface RankTexts {
@@ -15,6 +15,7 @@ interface RankedText {
 class Rerank {
   private bioma: BiomaInterface;
   private url: string;
+  private isRunning: boolean = false;
 
   constructor(url: string) {
     this.bioma = new BiomaInterface();
@@ -30,8 +31,9 @@ class Rerank {
     await this.bioma.createActor(actorId);
 
     console.log(`${actorId.id} Started`);
+    this.isRunning = true;
 
-    while (true) {
+    while (this.isRunning) {
       try {
         const message = await this.bioma.waitForReply(actorId.id);
         if (message && message.name === "RankTexts") {
@@ -63,6 +65,7 @@ class Rerank {
   }
 
   public async stop() {
+    this.isRunning = false;
     // Implement logic to stop the actor
   }
 }
