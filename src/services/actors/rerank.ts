@@ -27,7 +27,7 @@ async function rerankTexts(query: string, texts: string[]): Promise<string[]> {
       rankTextsMessage
     );
 
-    const reply = await bioma.waitForReply(messageId);
+    const reply = await bioma.waitForReply(messageId, 10000);
 
     await bioma.close();
 

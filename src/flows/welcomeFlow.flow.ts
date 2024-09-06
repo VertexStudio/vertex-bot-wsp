@@ -13,6 +13,7 @@ import { RecordId } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
 import { facts } from "~/app";
+import rerankTexts from "~/services/actors/rerank";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -192,6 +193,24 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             content: msg.content,
           })),
         ];
+
+        let rerankedMessages: string[] = [];
+        if (facts.length > 0) {
+          console.debug("Facts:", facts);
+          // Extract fact values and flatten the array
+          const factValues = facts
+            .flatMap((fact) =>
+              Array.isArray(fact)
+                ? fact.map((f) => f.fact_value)
+                : [fact.fact_value]
+            )
+            .filter(Boolean);
+
+          // Rerank the messages
+          rerankedMessages = await rerankTexts(body, factValues);
+
+          console.debug("Reranked messages:", rerankedMessages);
+        }
 
         const relevantFactsText = facts
           .flat()

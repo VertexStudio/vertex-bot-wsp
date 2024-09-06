@@ -6,9 +6,6 @@ import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
 import { initDb, getDb } from "./database/surreal";
 import { Fact, getFacts, setupFactsLiveQuery } from "./models/Session";
-import { BiomaInterface } from "../external/bioma_js/bioma";
-// import { Rerank } from "./actors/rerank";
-import rerankTexts from "./services/actors/rerank";
 
 const PORT = process.env?.PORT ?? 3008;
 
@@ -24,13 +21,6 @@ const main = async () => {
 
   // Initial fetch of facts
   facts = await getFacts();
-
-  const rerankedTexts = await rerankTexts("What is the weather in Tokyo?", [
-    "What is the weather in Tokyo?",
-    "What is the weather in Tokyo?",
-  ]);
-
-  console.debug(rerankedTexts);
 
   // Setup live query to update facts when changes occur
   await setupFactsLiveQuery((updatedFacts) => {

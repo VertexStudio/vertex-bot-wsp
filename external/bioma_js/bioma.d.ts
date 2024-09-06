@@ -27,5 +27,5 @@ export class BiomaInterface {
     message: any
   ): Promise<ulid>;
 
-  waitForReply(actorId: ulid): Promise<any>;
+  waitForReply(actorId: ulid, maxWaitTime?: number): Promise<any>;
 }
