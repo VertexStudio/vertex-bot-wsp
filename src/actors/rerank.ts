@@ -1,4 +1,4 @@
-import BiomaInterface from "../../external/bioma_js/bioma";
+import { BiomaInterface } from "../../external/bioma_js/bioma";
 import axios from "axios";
 
 interface RankTexts {
@@ -27,7 +27,7 @@ class Rerank {
   }
 
   async start() {
-    const actorId = this.bioma.createActorId("rerank", "rerank");
+    const actorId = this.bioma.createActorId("/rerank", "rerank::Rerank");
     await this.bioma.createActor(actorId);
 
     console.log(`${actorId.id} Started`);

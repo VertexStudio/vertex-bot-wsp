@@ -1,6 +1,6 @@
 import { Surreal, RecordId } from "surrealdb";
 
-export default class BiomaInterface {
+export class BiomaInterface {
   db: Surreal;
 
   constructor();

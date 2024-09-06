@@ -90,4 +90,4 @@ class BiomaInterface {
   }
 }
 
-export default BiomaInterface;
+export { BiomaInterface };
