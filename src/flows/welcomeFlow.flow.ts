@@ -12,7 +12,7 @@ import { setupLogger } from "../utils/logger";
 import { RecordId } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
-import { getMessage } from '../services/translate';
+import { getMessage } from "../services/translate";
 import { facts } from "~/app";
 import rerankTexts from "~/services/actors/rerank";
 
@@ -187,21 +187,23 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             content: msg.content,
           })),
           ...latestMessages.map((msg) => ({
-            role: String(msg.role.id),
+            role: String(msg.role),
             content: msg.content,
           })),
         ];
 
         let rerankedMessages: string[] = [];
-        if (facts.length > 0) {
-          const factValues = facts
-            .flatMap((fact) =>
-              Array.isArray(fact)
-                ? fact.map((f) => f.fact_value)
-                : [fact.fact_value]
-            )
-            .filter(Boolean);
+        console.debug("facts: ", facts);
 
+        const factValues = facts
+          .flatMap((fact) =>
+            Array.isArray(fact)
+              ? fact.map((f) => f.fact_value)
+              : [fact.fact_value]
+          )
+          .filter(Boolean);
+
+        if (factValues.length > 0) {
           // Rerank the messages
           const rerankedResult = await rerankTexts(body, factValues);
 
@@ -266,7 +268,11 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      await sendMessage(provider, ctx.key.remoteJid, getMessage(`errorWelcome ${error.message}`));
+      await sendMessage(
+        provider,
+        ctx.key.remoteJid,
+        getMessage(`errorWelcome ${error.message}`)
+      );
     }
   }
 );
