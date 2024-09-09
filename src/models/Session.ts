@@ -64,40 +64,50 @@ export class Session {
     conversation: string,
     ...messages: { role: string; content: string }[]
   ) {
-    messages.map((msg) => {
-      console.debug("Adding message:", msg);
-    });
     const db = getDb();
 
     const createQueries = await Promise.all(
-      messages.map(async (msg) => {
-        const embeddingResult = await createEmbeddings(msg.content);
-        return `
-        LET $message = CREATE message SET content = ${JSON.stringify(
-          msg.content
-        )}, created_at = time::now();
-        LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
-          embeddingResult.msg.embeddings
-        )};
-        RELATE conversation:${conversation}->conversation_messages->$message;
-        RELATE $message->message_role->role:${msg.role};
-        RELATE $message->message_embedding->$embedding;
-      `
-          .replace(/\n/g, " ")
-          .trim();
+      messages.map(async (msg, index) => {
+        try {
+          const embeddingResult = await createEmbeddings(msg.content);
+
+          const query = `
+            LET $message = CREATE message SET content = ${JSON.stringify(
+              msg.content
+            )}, created_at = time::now();
+            LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
+              embeddingResult.msg.embeddings
+            )};
+            RELATE conversation:${conversation}->conversation_messages->$message;
+            RELATE $message->message_role->role:${msg.role};
+            RELATE $message->message_embedding->$embedding;
+          `
+            .replace(/\n/g, " ")
+            .trim();
+          return query;
+        } catch (error) {
+          console.error(`Error processing message ${index + 1}:`, error);
+          throw error;
+        }
       })
     );
 
-    await db.query(`
-      BEGIN TRANSACTION;
-      ${createQueries.join(";\n")};
-      COMMIT TRANSACTION;
-    `);
+    try {
+      const transactionQuery = `
+        BEGIN TRANSACTION;
+        ${createQueries.join(";\n")};
+        COMMIT TRANSACTION;
+      `;
+      const result = await db.query(transactionQuery);
 
-    messages.forEach((msg) => {
-      this.messages.push({ id: ++this.messageIdCounter, ...msg });
-    });
-    this.trimMessages();
+      messages.forEach((msg) => {
+        this.messages.push({ id: ++this.messageIdCounter, ...msg });
+      });
+      this.trimMessages();
+    } catch (error) {
+      console.error("Error executing database query:", error);
+      throw error;
+    }
   }
 
   addParticipant(id: string, name: string) {

@@ -10,6 +10,14 @@ const SURREALDB_BETA_PASSWORD = process.env.SURREALDB_BETA_PASSWORD;
 
 const bioma = new BiomaInterface();
 
+await bioma.connect(
+  SURREALDB_BETA_URL || "ws://127.0.0.1:9123",
+  SURREALDB_BETA_NAMESPACE || "dev",
+  SURREALDB_BETA_DATABASE || "bioma",
+  SURREALDB_BETA_USER || "root",
+  SURREALDB_BETA_PASSWORD || "root"
+);
+
 type EmbeddingResult = {
   err: undefined | string;
   id: RecordId;
@@ -23,14 +31,6 @@ type EmbeddingResult = {
 
 async function createEmbeddings(text: string): Promise<EmbeddingResult> {
   try {
-    await bioma.connect(
-      SURREALDB_BETA_URL || "ws://127.0.0.1:9123",
-      SURREALDB_BETA_NAMESPACE || "dev",
-      SURREALDB_BETA_DATABASE || "bioma",
-      SURREALDB_BETA_USER || "root",
-      SURREALDB_BETA_PASSWORD || "root"
-    );
-
     const bridgeId = bioma.createActorId("/bridge", "BridgeActor");
     const bridgeActor = await bioma.createActor(bridgeId);
 
@@ -51,6 +51,8 @@ async function createEmbeddings(text: string): Promise<EmbeddingResult> {
     );
 
     const reply = await bioma.waitForReply(messageId, 10000);
+
+    console.debug("Reply for text: ", text, reply);
 
     return reply as EmbeddingResult;
   } catch (error) {

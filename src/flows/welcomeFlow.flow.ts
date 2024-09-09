@@ -187,7 +187,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             content: msg.content,
           })),
           ...latestMessages.map((msg) => ({
-            role: String(msg.role),
+            role: String(msg.role?.id || msg.role),
             content: msg.content,
           })),
         ];
