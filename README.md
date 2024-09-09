@@ -34,3 +34,4 @@ This is a project that uses the BuilderBot SDK to create a chatbot with Baileys.
 3. vv_db running.
 4. Ollama running.
 5. Reranker service running.
+6. Embeddings service running.

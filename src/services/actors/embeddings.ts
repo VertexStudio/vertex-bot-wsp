@@ -10,58 +10,53 @@ const SURREALDB_BETA_PASSWORD = process.env.SURREALDB_BETA_PASSWORD;
 
 const bioma = new BiomaInterface();
 
-type RankedItem = {
-  index: number;
-  score: number;
-};
+await bioma.connect(
+  SURREALDB_BETA_URL || "ws://127.0.0.1:9123",
+  SURREALDB_BETA_NAMESPACE || "dev",
+  SURREALDB_BETA_DATABASE || "bioma",
+  SURREALDB_BETA_USER || "root",
+  SURREALDB_BETA_PASSWORD || "root"
+);
 
-type RerankedResult = {
+type EmbeddingResult = {
   err: undefined | string;
   id: RecordId;
-  msg: RankedItem[];
+  msg: {
+    embeddings: number[];
+  };
   name: string;
   rx: RecordId;
   tx: RecordId;
 };
 
-async function rerankTexts(
-  query: string,
-  texts: string[]
-): Promise<RerankedResult> {
+async function createEmbeddings(text: string): Promise<EmbeddingResult> {
   try {
-    await bioma.connect(
-      SURREALDB_BETA_URL || "ws://127.0.0.1:9123",
-      SURREALDB_BETA_NAMESPACE || "dev",
-      SURREALDB_BETA_DATABASE || "bioma",
-      SURREALDB_BETA_USER || "root",
-      SURREALDB_BETA_PASSWORD || "root"
-    );
-
     const bridgeId = bioma.createActorId("/bridge", "BridgeActor");
     const bridgeActor = await bioma.createActor(bridgeId);
 
-    const rerankId = bioma.createActorId("/rerank", "rerank::rerank::Rerank");
+    const embeddingsId = bioma.createActorId(
+      "/embeddings",
+      "embeddings::embeddings::Embeddings"
+    );
 
-    const rankTextsMessage = {
-      query: query,
-      texts: texts,
-      raw_scores: false,
+    const createEmbeddingsMessage = {
+      text: text,
     };
 
     const messageId = await bioma.sendMessage(
       bridgeId,
-      rerankId,
-      "rerank::rerank::RankTexts",
-      rankTextsMessage
+      embeddingsId,
+      "embeddings::embeddings::GenerateEmbeddings",
+      createEmbeddingsMessage
     );
 
     const reply = await bioma.waitForReply(messageId, 10000);
 
-    return reply as RerankedResult;
+    return reply as EmbeddingResult;
   } catch (error) {
-    console.error("Error in rerankTexts:", error);
+    console.error("Error in createEmbeddings:", error);
     throw error;
   }
 }
 
-export default rerankTexts;
+export default createEmbeddings;
