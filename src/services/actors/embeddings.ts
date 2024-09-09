@@ -31,8 +31,11 @@ type EmbeddingResult = {
 
 async function createEmbeddings(text: string): Promise<EmbeddingResult> {
   try {
-    const bridgeId = bioma.createActorId("/bridge", "BridgeActor");
-    const bridgeActor = await bioma.createActor(bridgeId);
+    const vertexBotWspId = bioma.createActorId(
+      "/vertex-bot-wsp",
+      "vertex::VertexBotWSP"
+    );
+    const vertexBotWsp = await bioma.createActor(vertexBotWspId);
 
     const embeddingsId = bioma.createActorId(
       "/embeddings",
@@ -44,7 +47,7 @@ async function createEmbeddings(text: string): Promise<EmbeddingResult> {
     };
 
     const messageId = await bioma.sendMessage(
-      bridgeId,
+      vertexBotWspId,
       embeddingsId,
       "embeddings::embeddings::GenerateEmbeddings",
       createEmbeddingsMessage
