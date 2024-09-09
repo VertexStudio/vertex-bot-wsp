@@ -44,7 +44,7 @@ async function createEmbeddings(text: string): Promise<EmbeddingResult> {
     const messageId = await bioma.sendMessage(
       bridgeId,
       embeddingsId,
-      "embeddings::embeddings::CreateEmbeddings",
+      "embeddings::embeddings::Embeddings",
       createEmbeddingsMessage
     );
 

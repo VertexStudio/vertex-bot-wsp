@@ -6,6 +6,7 @@ import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
 import { initDb, getDb } from "./database/surreal";
 import { Fact, getFacts, setupFactsLiveQuery } from "./models/Session";
+import createEmbeddings from "./services/actors/embeddings";
 
 const PORT = process.env?.PORT ?? 3008;
 
@@ -17,12 +18,14 @@ const main = async () => {
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });
   const adapterDB = new Database();
 
+  // DEBUG
+  // const embedding = await createEmbeddings("Hello, world!");
+  // console.debug("embedding: ", embedding);
+
   await initDb();
 
-  // Initial fetch of facts
   facts = await getFacts();
 
-  // Setup live query to update facts when changes occur
   await setupFactsLiveQuery((updatedFacts) => {
     facts = updatedFacts;
   });
