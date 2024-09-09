@@ -37,8 +37,11 @@ async function rerankTexts(
       SURREALDB_BETA_PASSWORD || "root"
     );
 
-    const bridgeId = bioma.createActorId("/bridge", "BridgeActor");
-    const bridgeActor = await bioma.createActor(bridgeId);
+    const vertexBotWspId = bioma.createActorId(
+      "/vertex-bot-wsp",
+      "vertex::VertexBotWSP"
+    );
+    const vertexBotWsp = await bioma.createActor(vertexBotWspId);
 
     const rerankId = bioma.createActorId("/rerank", "rerank::rerank::Rerank");
 
@@ -49,7 +52,7 @@ async function rerankTexts(
     };
 
     const messageId = await bioma.sendMessage(
-      bridgeId,
+      vertexBotWspId,
       rerankId,
       "rerank::rerank::RankTexts",
       rankTextsMessage
