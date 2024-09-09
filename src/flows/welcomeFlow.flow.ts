@@ -14,6 +14,7 @@ import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
 import { getMessage } from '../services/translate';
 import { facts } from "~/app";
+import rerankTexts from "~/services/actors/rerank";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -85,7 +86,6 @@ export async function handleConversation(
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
-    console.debug("Context: ", ctx);
     try {
       await typing(ctx, provider);
 
@@ -163,8 +163,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           created_at: msg.created_at,
         }));
 
-        // Log all similarity scores and content
-        console.debug("All similarity scores and content:");
         similarities.forEach((item) => {
           console.debug(`Score: ${item.similarity}, Content: ${item.content}`);
         });
@@ -194,10 +192,34 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           })),
         ];
 
-        const relevantFactsText = facts
-          .flat()
-          .map((fact) => fact.fact_value)
-          .join("\n");
+        let rerankedMessages: string[] = [];
+        if (facts.length > 0) {
+          const factValues = facts
+            .flatMap((fact) =>
+              Array.isArray(fact)
+                ? fact.map((f) => f.fact_value)
+                : [fact.fact_value]
+            )
+            .filter(Boolean);
+
+          // Rerank the messages
+          const rerankedResult = await rerankTexts(body, factValues);
+
+          if (rerankedResult && Array.isArray(rerankedResult.msg)) {
+            // Sort the reranked messages by score in descending order
+            const sortedRerankedMessages = rerankedResult.msg
+              .sort((a, b) => b.score - a.score)
+              .map((item) => factValues[item.index]);
+
+            // Take the top 5 reranked messages or all if less than 5
+            rerankedMessages = sortedRerankedMessages.slice(0, 5);
+          } else {
+            console.warn("Unexpected rerankedResult format:", rerankedResult);
+          }
+        }
+
+        const relevantFactsText =
+          rerankedMessages.length > 0 ? rerankedMessages.join("\n") : "";
 
         const systemPrompt = {
           role: "system",
