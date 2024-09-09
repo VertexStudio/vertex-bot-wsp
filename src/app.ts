@@ -18,10 +18,6 @@ const main = async () => {
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });
   const adapterDB = new Database();
 
-  // DEBUG
-  // const embedding = await createEmbeddings("Hello, world!");
-  // console.debug("embedding: ", embedding);
-
   await initDb();
 
   facts = await getFacts();

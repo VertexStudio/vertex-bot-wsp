@@ -13,7 +13,9 @@ const bioma = new BiomaInterface();
 type EmbeddingResult = {
   err: undefined | string;
   id: RecordId;
-  msg: number[][];
+  msg: {
+    embeddings: number[];
+  };
   name: string;
   rx: RecordId;
   tx: RecordId;
@@ -44,13 +46,13 @@ async function createEmbeddings(text: string): Promise<EmbeddingResult> {
     const messageId = await bioma.sendMessage(
       bridgeId,
       embeddingsId,
-      "embeddings::embeddings::Embeddings",
+      "embeddings::embeddings::GenerateEmbeddings",
       createEmbeddingsMessage
     );
 
     const reply = await bioma.waitForReply(messageId, 10000);
 
-    console.debug("reply: ", reply);
+    console.debug("reply: ", reply as EmbeddingResult);
 
     return reply as EmbeddingResult;
   } catch (error) {
