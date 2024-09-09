@@ -19,7 +19,7 @@ type EmbeddingResult = {
   tx: RecordId;
 };
 
-async function createEmbeddings(texts: string[]): Promise<EmbeddingResult> {
+async function createEmbeddings(text: string): Promise<EmbeddingResult> {
   try {
     await bioma.connect(
       SURREALDB_BETA_URL || "ws://127.0.0.1:9123",
@@ -34,21 +34,23 @@ async function createEmbeddings(texts: string[]): Promise<EmbeddingResult> {
 
     const embeddingsId = bioma.createActorId(
       "/embeddings",
-      "bioma_embeddings::embeddings::Embeddings"
+      "embeddings::embeddings::Embeddings"
     );
 
     const createEmbeddingsMessage = {
-      texts: texts,
+      text: text,
     };
 
     const messageId = await bioma.sendMessage(
       bridgeId,
       embeddingsId,
-      "bioma_embeddings::embeddings::CreateEmbeddings",
+      "embeddings::embeddings::CreateEmbeddings",
       createEmbeddingsMessage
     );
 
     const reply = await bioma.waitForReply(messageId, 10000);
+
+    console.debug("reply: ", reply);
 
     return reply as EmbeddingResult;
   } catch (error) {
