@@ -193,7 +193,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         ];
 
         let rerankedMessages: string[] = [];
-        console.debug("facts: ", facts);
 
         const factValues = facts
           .flatMap((fact) =>
@@ -251,7 +250,10 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           responseMessage,
         ];
 
-        session.addMessages(String(conversation.id.id), ...messagesToSave);
+        await session.addMessages(
+          String(conversation.id.id),
+          ...messagesToSave
+        );
 
         console.debug("Messages: ", { ...promptMessages, responseMessage });
         console.log("Session participants: ", session.participants);

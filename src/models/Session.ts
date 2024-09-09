@@ -1,4 +1,5 @@
 import { getDb } from "~/database/surreal";
+import createEmbeddings from "~/services/actors/embeddings";
 
 export type Fact = {
   fact_value: string;
@@ -68,18 +69,28 @@ export class Session {
     });
     const db = getDb();
 
-    const createQueries = messages.map(
-      (msg) =>
-        `LET $message = CREATE message SET content = ${JSON.stringify(
+    const createQueries = await Promise.all(
+      messages.map(async (msg) => {
+        const embeddingResult = await createEmbeddings(msg.content);
+        return `
+        LET $message = CREATE message SET content = ${JSON.stringify(
           msg.content
         )}, created_at = time::now();
+        LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
+          embeddingResult.msg.embeddings
+        )};
         RELATE conversation:${conversation}->conversation_messages->$message;
-        RELATE $message->message_role->role:${msg.role};`
+        RELATE $message->message_role->role:${msg.role};
+        RELATE $message->message_embedding->$embedding;
+      `
+          .replace(/\n/g, " ")
+          .trim();
+      })
     );
 
     await db.query(`
       BEGIN TRANSACTION;
-      ${createQueries.join("; ")};
+      ${createQueries.join(";\n")};
       COMMIT TRANSACTION;
     `);
 
