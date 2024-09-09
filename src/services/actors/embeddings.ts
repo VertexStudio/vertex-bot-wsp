@@ -52,8 +52,6 @@ async function createEmbeddings(text: string): Promise<EmbeddingResult> {
 
     const reply = await bioma.waitForReply(messageId, 10000);
 
-    console.debug("Reply for text: ", text, reply);
-
     return reply as EmbeddingResult;
   } catch (error) {
     console.error("Error in createEmbeddings:", error);
