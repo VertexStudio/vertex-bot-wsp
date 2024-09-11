@@ -30,7 +30,7 @@ async function rerankTexts(
 ): Promise<RerankedResult> {
   try {
     await bioma.connect(
-      SURREALDB_BETA_URL || "ws://127.0.0.1:9123",
+      SURREALDB_BETA_URL || "ws://127.0.0.1:8000",
       SURREALDB_BETA_NAMESPACE || "dev",
       SURREALDB_BETA_DATABASE || "bioma",
       SURREALDB_BETA_USER || "root",

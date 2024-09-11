@@ -7,7 +7,7 @@ class BiomaInterface {
   }
 
   async connect(
-    url = "ws://127.0.0.1:9123",
+    url = "ws://127.0.0.1:8000",
     namespace = "dev",
     database = "bioma",
     user = "root",

@@ -7,7 +7,7 @@ import * as path from "path";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { RecordId, UUID } from "surrealdb.js";
+import { RecordId, Uuid as UUID } from "surrealdb.js";
 import * as os from "os";
 import { setupLogger } from '../utils/logger';
 import { getMessage } from '../services/translate';
