@@ -68,7 +68,7 @@ let db = getDb();
 async function connectToDatabase(): Promise<void> {
   db = new Surreal();
   try {
-    await db.connect(`${VV_DB_PROTOCOL}://${VV_DB_HOST}:${VV_DB_PORT}`, {
+    await db.connect(`${VV_DB_PROTOCOL}://${VV_DB_HOST}:${VV_DB_PORT}/rpc`, {
       namespace: VV_DB_NAMESPACE,
       database: VV_DB_DATABASE,
       auth: { username: VV_DB_USERNAME, password: VV_DB_PASSWORD },
