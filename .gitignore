@@ -12,3 +12,9 @@ tmp/*
 *qr.png
 
 /assets/media
+
+history.txt
+
+assets/vv_db
+
+external/bioma_js/output

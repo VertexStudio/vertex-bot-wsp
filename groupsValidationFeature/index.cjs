@@ -30137,20 +30137,13 @@ class BaileysProvider extends bot.ProviderClass {
                             `You can also check a log that has been created baileys.log`,
                             `Need help: https://link.codigoencasa.com/DISCORD`,
                         ]);
-                    }
+                    }									
                 }
 				sock.ev.on('messages.reaction', async (reaction) => {
-					console.log('got reactions', reaction)
 					this.emit('reaction', reaction)
 				})
 				sock.ev.on('groups.upsert', async (upsert) => {
-					console.log('got upserts', upsert);
-					this.emit('groups.upsert', upsert)
-					for (const group of upsert) {
-						if (group.id) {
-							await sock.sendMessage(group.id, { text: '¡Hola! El bot ha entrado al grupo.' });
-						}
-					}
+					this.emit('groups.upsert', upsert);
 				});
                 sock.ev.on('connection.update', async (update) => {
                     const { connection, lastDisconnect, qr } = update;

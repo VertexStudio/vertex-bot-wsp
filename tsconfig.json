@@ -6,10 +6,12 @@
     "declarationMap": false,
     "moduleResolution": "node",
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    "allowJs": true,
     "sourceMap": false,
     "outDir": "./dist",
     "baseUrl": "./",
@@ -17,7 +19,8 @@
     "incremental": true,
     "skipLibCheck": true,
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["./src/*"],
+      "bioma": ["external/*"]
     }
   },
   "include": [

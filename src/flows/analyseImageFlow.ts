@@ -10,6 +10,10 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
+import { setupLogger } from "../utils/logger";
+import { getDb } from "~/database/surreal";
+import { handleConversation } from "./welcomeFlow.flow";
+import { getMessage } from '../services/translate';
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -39,6 +43,8 @@ const {
   CAMERA_ID,
 } = process.env;
 
+setupLogger();
+
 export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "more detailed caption",
   // "object detection",
@@ -55,7 +61,7 @@ export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
 ];
 
 // Database connection
-let db: Surreal | undefined;
+let db = getDb();
 
 async function connectToDatabase(): Promise<void> {
   db = new Surreal();
@@ -126,7 +132,7 @@ function waitForFirstResult(
     db.subscribeLive<Record<string, unknown>>(
       analysisResult,
       (action, result) => {
-        console.log("Live query update:", action, result);
+        console.debug("Live query update:", action, result);
         if (
           !isResolved &&
           result &&
@@ -174,7 +180,7 @@ async function updateDatabaseWithModelTask(
     camera: new RecordId("camera", CAMERA_ID),
   });
 
-  console.log("Query result:", query);
+  console.debug("Query result:", query);
 }
 
 // Prompt generation functions
@@ -259,20 +265,32 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
   const systemName = "System";
+  const groupId = ctx.to.split("@")[0];
+
+  const result = await handleConversation(groupId);
+  const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
+    ? { latestMessagesEmbeddings: [], conversation: null }
+    : result;
+
   try {
     await sendMessage(
       provider,
       number,
-      `We're analyzing your image. Please wait...`,
+      getMessage('analyzing_image'),
       ctx
     );
 
-    const caption = ctx.message.imageMessage.caption;
+    // Validate if the media is a sticker
+    if (Object.keys(ctx.message)[0] === 'stickerMessage') {
+      throw { message: "Sorry, the sticker format is not supported for analysis", code: "STICKER_ERROR" };
+    }
+
+    const caption: string | null = ctx.message.imageMessage?.caption;
 
     if (!caption) {
-      console.log("No caption received");
+      console.info("No caption received");
     } else {
-      console.log("Received caption:", caption);
+      console.info("Received caption:", caption);
     }
 
     // Get or create a session for this user
@@ -281,24 +299,22 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     }
     const session = sessions.get(number)!;
 
-    await connectToDatabase();
     await updateDatabaseWithModelTask(await determineAnalysisType(caption));
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
-    console.log("File saved at:", localPath);
+    console.info("File saved at:", localPath);
 
     const jpegBuffer = await processImage(localPath);
     const newSnapId = await insertImageIntoDatabase(jpegBuffer, caption);
-    console.log("New snap ID:", newSnapId);
+    console.info("New snap ID:", newSnapId);
 
     const analysisResult = await setUpLiveQuery(newSnapId);
-    console.log("Analysis query UUID:", analysisResult);
+    console.debug("Analysis query UUID:", analysisResult);
 
     typing(ctx, provider);
 
     const initialData = await waitForFirstResult(analysisResult);
     const results = initialData.results;
-    console.log("Initial analysis data:", results);
 
     const humanReadableResponse = await generateHumanReadableResponse(
       caption,
@@ -307,33 +323,28 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     // Add all messages to the session at once
     session.addMessages(
+      String(conversation.id.id),
       { role: "user", content: `${userName}: ${caption}` },
       { role: "tool", content: `${results[0]}` },
       { role: "assistant", content: humanReadableResponse }
-    );
-
-    // Log session messages
-    console.log(
-      "*****************************************************************"
-    );
-    console.log("Session messages: ", session.messages);
-    console.log(
-      "*****************************************************************"
     );
 
     enqueueMessage(ctx.body, async (_) => {
       await sendMessage(provider, number, humanReadableResponse, ctx);
     });
 
-    console.log("Image processed and stored in the database");
+    console.info("Image processed and stored in the database");
 
     await fs.unlink(localPath);
   } catch (error) {
     console.error("Error handling media:", error);
+    const errorMessage = error.code !== (null || undefined)
+    ? error.message
+    : getMessage('analysis_error');
     await sendMessage(
       provider,
       number,
-      "Sorry, there was an issue analyzing the image. Please try again later.",
+      errorMessage,
       ctx
     );
   }
@@ -355,7 +366,7 @@ async function determineAnalysisType(
     top_k: 20,
     top_p: 0.45,
   });
-  console.log("Ollama API response (analysis type):", analysisType);
+  console.debug("Ollama API response (analysis type):", analysisType);
 
   return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
     ? (analysisType as ImageAnalysisType)
@@ -373,7 +384,7 @@ async function generateHumanReadableResponse(
     top_k: 20,
     top_p: 0.45,
   });
-  console.debug("Human-readable response:", response);
+  console.info("Human-readable response:", response);
 
   return alignResponse(response);
 }
