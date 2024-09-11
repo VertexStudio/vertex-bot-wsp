@@ -66,31 +66,25 @@ export class Session {
   ) {
     const db = getDb();
 
-    const createQueries = await Promise.all(
-      messages.map(async (msg, index) => {
-        try {
-          const embeddingResult = await createEmbeddings(msg.content);
+    const messageContents = messages.map((msg) => msg.content);
+    const embeddingResult = await createEmbeddings(messageContents);
 
-          const query = `
-            LET $message = CREATE message SET content = ${JSON.stringify(
-              msg.content
-            )}, created_at = time::now();
-            LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
-              embeddingResult.msg.embeddings
-            )};
-            RELATE conversation:${conversation}->conversation_messages->$message;
-            RELATE $message->message_role->role:${msg.role};
-            RELATE $message->message_embedding->$embedding;
-          `
-            .replace(/\n/g, " ")
-            .trim();
-          return query;
-        } catch (error) {
-          console.error(`Error processing message ${index + 1}:`, error);
-          throw error;
-        }
-      })
-    );
+    const createQueries = messages.map((msg, index) => {
+      const query = `
+        LET $message = CREATE message SET content = ${JSON.stringify(
+          msg.content
+        )}, created_at = time::now();
+        LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
+          embeddingResult.msg.embeddings[index]
+        )};
+        RELATE conversation:${conversation}->conversation_messages->$message;
+        RELATE $message->message_role->role:${msg.role};
+        RELATE $message->message_embedding->$embedding;
+      `
+        .replace(/\n/g, " ")
+        .trim();
+      return query;
+    });
 
     try {
       const transactionQuery = `
