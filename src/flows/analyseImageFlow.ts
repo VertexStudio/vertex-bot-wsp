@@ -13,7 +13,7 @@ import { sendMessage as sendMessageService } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { getDb } from "~/database/surreal";
 import { handleConversation } from "./welcomeFlow.flow";
-import { getMessage } from '../services/translate';
+import { getMessage } from "../services/translate";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -35,7 +35,9 @@ type ImageAnalysisType =
 
 // Constants
 const {
-  VV_DB_ENDPOINT,
+  VV_DB_HOST,
+  VV_DB_PORT,
+  VV_DB_PROTOCOL,
   VV_DB_NAMESPACE,
   VV_DB_DATABASE,
   VV_DB_USERNAME,
@@ -66,7 +68,7 @@ let db = getDb();
 async function connectToDatabase(): Promise<void> {
   db = new Surreal();
   try {
-    await db.connect(VV_DB_ENDPOINT, {
+    await db.connect(`${VV_DB_PROTOCOL}://${VV_DB_HOST}:${VV_DB_PORT}/rpc`, {
       namespace: VV_DB_NAMESPACE,
       database: VV_DB_DATABASE,
       auth: { username: VV_DB_USERNAME, password: VV_DB_PASSWORD },
@@ -136,7 +138,7 @@ function waitForFirstResult(
         if (
           !isResolved &&
           result &&
-          typeof result === 'object' &&
+          typeof result === "object" &&
           "results" in result &&
           Array.isArray(result.results) &&
           result.results.length > 0
@@ -273,16 +275,14 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     : result;
 
   try {
-    await sendMessage(
-      provider,
-      number,
-      getMessage('analyzing_image'),
-      ctx
-    );
+    await sendMessage(provider, number, getMessage("analyzing_image"), ctx);
 
     // Validate if the media is a sticker
-    if (Object.keys(ctx.message)[0] === 'stickerMessage') {
-      throw { message: "Sorry, the sticker format is not supported for analysis", code: "STICKER_ERROR" };
+    if (Object.keys(ctx.message)[0] === "stickerMessage") {
+      throw {
+        message: "Sorry, the sticker format is not supported for analysis",
+        code: "STICKER_ERROR",
+      };
     }
 
     const caption: string | null = ctx.message.imageMessage?.caption;
@@ -338,15 +338,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     await fs.unlink(localPath);
   } catch (error) {
     console.error("Error handling media:", error);
-    const errorMessage = error.code !== (null || undefined)
-    ? error.message
-    : getMessage('analysis_error');
-    await sendMessage(
-      provider,
-      number,
-      errorMessage,
-      ctx
-    );
+    const errorMessage =
+      error.code !== (null || undefined)
+        ? error.message
+        : getMessage("analysis_error");
+    await sendMessage(provider, number, errorMessage, ctx);
   }
 }
 

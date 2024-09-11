@@ -4,11 +4,10 @@ import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
-import { initDb, getDb } from "./database/surreal";
+import { initDb } from "./database/surreal";
 import { Fact, getFacts, setupFactsLiveQuery } from "./models/Session";
-import createEmbeddings from "./services/actors/embeddings";
 
-const PORT = process.env?.PORT ?? 3008;
+const VERTEX_BOT_PORT = process.env?.VERTEX_BOT_PORT ?? 3008;
 
 let contacts = {};
 
@@ -51,7 +50,7 @@ const main = async () => {
   });
 
   httpInject(adapterProvider.server);
-  httpServer(+PORT);
+  httpServer(+VERTEX_BOT_PORT);
 
   adapterProvider.server.post(
     "/v1/messages",
