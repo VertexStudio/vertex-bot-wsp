@@ -86,6 +86,7 @@ export class Session {
         RELATE conversation:${conversation}->conversation_messages->$message;
         RELATE $message->message_role->role:${msg.role};
         RELATE $message->message_embedding->$embedding;
+        RELATE $embedding->embedding_embedding_model->embedding_model:\`${EMBEDDING_MODEL}\`;
       `
         .replace(/\n/g, " ")
         .trim();
