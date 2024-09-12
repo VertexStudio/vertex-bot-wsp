@@ -29,7 +29,10 @@ type EmbeddingResult = {
   tx: RecordId;
 };
 
-async function createEmbeddings(texts: string[]): Promise<EmbeddingResult> {
+async function createEmbeddings(
+  texts: string[],
+  model: string
+): Promise<EmbeddingResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
       "/vertex-bot-wsp",
@@ -44,6 +47,7 @@ async function createEmbeddings(texts: string[]): Promise<EmbeddingResult> {
 
     const createEmbeddingsMessage = {
       texts: texts,
+      model_name: model,
     };
 
     const messageId = await bioma.sendMessage(

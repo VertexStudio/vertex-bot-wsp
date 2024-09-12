@@ -1,5 +1,8 @@
 import { getDb } from "~/database/surreal";
+import "dotenv/config";
 import createEmbeddings from "~/services/actors/embeddings";
+
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
 
 export type Fact = {
   fact_value: string;
@@ -67,7 +70,10 @@ export class Session {
     const db = getDb();
 
     const messageContents = messages.map((msg) => msg.content);
-    const embeddingResult = await createEmbeddings(messageContents);
+    const embeddingResult = await createEmbeddings(
+      messageContents,
+      EMBEDDING_MODEL
+    );
 
     const createQueries = messages.map((msg, index) => {
       const query = `
@@ -80,6 +86,7 @@ export class Session {
         RELATE conversation:${conversation}->conversation_messages->$message;
         RELATE $message->message_role->role:${msg.role};
         RELATE $message->message_embedding->$embedding;
+        RELATE $embedding->embedding_embedding_model->embedding_model:\`${EMBEDDING_MODEL}\`;
       `
         .replace(/\n/g, " ")
         .trim();
