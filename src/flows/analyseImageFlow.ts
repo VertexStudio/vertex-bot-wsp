@@ -295,7 +295,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     // Get or create a session for this user
     if (!sessions.has(number)) {
-      sessions.set(number, new Session());
+      sessions.set(number, new Session(conversation.system_prompt));
     }
     const session = sessions.get(number)!;
 

@@ -46,12 +46,12 @@ export class Session {
 
   quotesByUser = {};
 
-  constructor() {
+  constructor(systemPrompt: string) {
     this.messages = [
       {
         id: Session.ID_START_NUMBER,
         role: "system",
-        content: Session.DEFAULT_SYSTEM_MESSAGE,
+        content: systemPrompt,
       },
     ];
     this.messageIdCounter = Session.ID_START_NUMBER;
