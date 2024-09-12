@@ -47,7 +47,7 @@ async function createEmbeddings(
 
     const createEmbeddingsMessage = {
       texts: texts,
-      model: model,
+      model_name: model,
     };
 
     const messageId = await bioma.sendMessage(
