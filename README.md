@@ -95,3 +95,45 @@ Ensure the following services are running:
 4. Ollama
 5. Reranker service
 6. Embeddings service
+
+## Architecture
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant W as WhatsApp
+    participant VB as Vertex Bot
+    participant DB as VV DB (SurrealDB)
+    participant O as Ollama
+    participant RA as Rerank Actor
+
+    U->>W: Send message
+    W->>VB: Forward message
+    VB->>DB: Fetch conversation
+    alt Conversation exists
+        DB->>VB: Return conversation
+    else Conversation doesn't exist
+        VB->>DB: Create new conversation
+        DB->>VB: Return new conversation
+    end
+    VB->>O: Generate embeddings for user query
+    O->>VB: Return embeddings
+
+    alt More than 10 messages in conversation
+        VB->>VB: Rerank older messages using cosine similarity
+    end
+
+    alt Company facts exist
+        VB->>RA: Rerank facts based on user query
+        RA->>VB: Return relevant facts
+    end
+
+    VB->>VB: Build prompt with relevant facts
+    VB->>O: Send built prompt
+    O->>VB: Generate response
+    VB->>O: Create embeddings for new messages
+    O->>VB: Return new embeddings
+    VB->>DB: Save messages, embeddings, and relationships
+    VB->>W: Send response
+    W->>U: Deliver response
+```
