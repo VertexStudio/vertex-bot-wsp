@@ -24,6 +24,7 @@ setupLogger();
 type Conversation = {
   id: RecordId;
   whatsapp_id: string;
+  system_prompt: string;
 };
 
 type EmbeddingData = {
@@ -58,11 +59,17 @@ export async function handleConversation(
     !conversation ||
     (Array.isArray(conversation) && conversation.length === 0)
   ) {
-    const [result] = await db.query<Conversation[]>(`
+    const [result] = await db.query<Conversation[]>(
+      `
       CREATE conversation SET 
         id = crypto::sha256("whatsapp//${groupId}"),
-        whatsapp_id = '${groupId}'
-    `);
+        whatsapp_id = '${groupId}',
+        system_prompt = $system_prompt
+    `,
+      {
+        system_prompt: Session.DEFAULT_SYSTEM_MESSAGE,
+      }
+    );
     conversation = result[0];
     return { latestMessagesEmbeddings: [], conversation };
   } else {
@@ -94,18 +101,18 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const userName = ctx.pushName || "User";
       const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
-      if (!sessions.has(userId)) {
-        sessions.set(userId, new Session());
-      }
-      const session = sessions.get(userId)!;
-
-      session.addParticipant(userNumber, userName);
-
       // TODO: Get conversation only once.
       const result = await handleConversation(groupId);
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
         : result;
+
+      if (!sessions.has(userId)) {
+        sessions.set(userId, new Session(conversation.system_prompt));
+      }
+      const session = sessions.get(userId)!;
+
+      session.addParticipant(userNumber, userName);
 
       enqueueMessage(ctx.body, async (body) => {
         // Handle quoted messages
@@ -224,7 +231,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         const systemPrompt = {
           role: "system",
-          content: `${Session.DEFAULT_SYSTEM_MESSAGE}\n\nRelevant facts (your RAG info):\n\n${relevantFactsText}`,
+          content: `${conversation.system_prompt}\n\nRelevant facts (your RAG info):\n\n${relevantFactsText}`,
         };
 
         const promptMessages = [
