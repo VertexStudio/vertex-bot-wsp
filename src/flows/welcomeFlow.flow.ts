@@ -33,7 +33,7 @@ type EmbeddingData = {
 };
 
 type Message = {
-  content: string;
+  msg: string;
   created_at: string;
   embedding: EmbeddingData;
   id: RecordId;
@@ -165,13 +165,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           id: msg.id,
           embedding: msg.embedding.vector,
           similarity: cosineSimilarity(queryEmbedding, msg.embedding.vector),
-          content: msg.content,
+          msg: msg.msg,
           role: msg.role.id,
           created_at: msg.created_at,
         }));
 
         similarities.forEach((item) => {
-          console.debug(`Score: ${item.similarity}, Content: ${item.content}`);
+          console.debug(`Score: ${item.similarity}, Content: ${item.msg}`);
         });
 
         const similarityThreshold = 0.5;
@@ -183,7 +183,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         if (topSimilarities.length > 0) {
           const topSimilarity = topSimilarities[0];
           console.debug(`Top similarity score: ${topSimilarity.similarity}`);
-          console.debug(`Top similarity content: ${topSimilarity.content}`);
+          console.debug(`Top similarity content: ${topSimilarity.msg}`);
         } else {
           console.debug("No messages above similarity threshold");
         }
@@ -191,11 +191,11 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const formattedMessages = [
           ...topSimilarities.map((msg) => ({
             role: String(msg.role),
-            content: msg.content,
+            content: msg.msg,
           })),
           ...latestMessages.map((msg) => ({
             role: String(msg.role?.id || msg.role),
-            content: msg.content,
+            content: msg.msg,
           })),
         ];
 
