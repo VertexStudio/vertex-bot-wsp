@@ -4,11 +4,12 @@ This project uses the BuilderBot SDK to create a chatbot with Baileys. Follow th
 
 ## Prerequisites
 
-- Node.js version 21.1.0 or higher
+- Node.js version 22.8.0 or higher
 - MongoDB version 6.6.1 or higher
 - Imgur API key
 - OpenAI API key
 - Rust and Cargo installed
+- Updated OpenSSL version (OpenSSL 3.0.12 24 Oct 2023 (Library: OpenSSL 3.0.12 24 Oct 2023))
 
 ## Setup Instructions
 
