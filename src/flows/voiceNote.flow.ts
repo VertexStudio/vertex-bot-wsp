@@ -6,10 +6,13 @@ import fs from "fs";
 import { toAsk } from "@builderbot-plugins/openai-assistants";
 import { recording, typing } from "../utils/presence";
 import path from "path";
+import { setupLogger } from '../utils/logger';
 
 const ASSISTANT_ID = process.env?.ASSISTANT_ID ?? "";
 const openai = new OpenAI();
 const speechFile = path.resolve("./assets/audio_bot/speech.mp3");
+
+setupLogger();
 
 async function transcribeAudio(localPath) {
     return openai.audio.transcriptions.create({
@@ -33,7 +36,7 @@ async function deleteFile(filePath) {
         if (err) {
             console.error(`Error deleting file: ${filePath}`, err);
         } else {
-            console.log(`File successfully deleted: ${filePath}`);
+            console.debug(`File successfully deleted: ${filePath}`);
         }
     });
 }
@@ -45,7 +48,7 @@ export const voiceNoteFlow = addKeyword<Provider, Database>(EVENTS.VOICE_NOTE)
                 path: "./assets/audio/",
             });
             const transcription = await transcribeAudio(localPath);
-            console.log("Transcription:", transcription.text);
+            console.debug("Transcription:", transcription.text);
             await typing(ctx, provider);
             const response = await toAsk(ASSISTANT_ID, transcription.text, state);
             const chunks = response.split(/(?<!\d)\.\s+/g);
@@ -55,7 +58,7 @@ export const voiceNoteFlow = addKeyword<Provider, Database>(EVENTS.VOICE_NOTE)
 
             const cleanResponse = response.replace(/【.*?】/g, "");
             await generateSpeech(cleanResponse);
-            console.log(speechFile);
+            console.debug(speechFile);
 
             await recording(ctx, provider);
 
