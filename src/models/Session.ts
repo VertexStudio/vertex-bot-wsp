@@ -72,7 +72,7 @@ export class Session {
     const messageContents = messages.map((msg) => msg.content);
     const embeddingResult = await createEmbeddings(
       messageContents,
-      EMBEDDING_MODEL
+      "conversation"
     );
 
     const createQueries = messages.map((msg, index) => {
