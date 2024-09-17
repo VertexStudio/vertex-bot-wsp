@@ -256,19 +256,59 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           .filter(Boolean);
 
         if (factValues.length > 0) {
-          // Rerank the messages
-          const rerankedResult = await rerankTexts(body, factValues);
+          // Use topSimilarity for facts
+          const factSimilarityResult = await topSimilarity(
+            body,
+            undefined,
+            10,
+            0.5
+          );
 
-          if (rerankedResult && Array.isArray(rerankedResult.msg)) {
-            // Sort the reranked messages by score in descending order
-            const sortedRerankedMessages = rerankedResult.msg
-              .sort((a, b) => b.score - a.score)
-              .map((item) => factValues[item.index]);
+          let topSimilarFacts: Array<{
+            content: string;
+            similarity: number;
+          }> = [];
 
-            // Take the top 5 reranked messages or all if less than 5
-            rerankedFacts = sortedRerankedMessages.slice(0, 5);
+          if (
+            factSimilarityResult.msg &&
+            factSimilarityResult.msg.similarities
+          ) {
+            topSimilarFacts = factSimilarityResult.msg.similarities.map(
+              (sim) => ({
+                content: sim.text,
+                similarity: sim.similarity,
+              })
+            );
+          }
+
+          // Log the top similarity score and content for facts
+          if (topSimilarFacts.length > 0) {
+            const topSimilarityFact = topSimilarFacts[0];
+            console.debug(
+              `Top fact similarity score: ${topSimilarityFact.similarity}`
+            );
+            console.debug(
+              `Top fact similarity content: ${topSimilarityFact.content}`
+            );
           } else {
-            console.warn("Unexpected rerankedResult format:", rerankedResult);
+            console.debug("No facts above similarity threshold");
+          }
+
+          // Rerank the top similar facts
+          const factsToRerank = topSimilarFacts.map(({ content }) => content);
+          const rerankedFactsResult = await rerankTexts(body, factsToRerank);
+
+          if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg)) {
+            // Sort the reranked facts by score in descending order
+            rerankedFacts = rerankedFactsResult.msg
+              .sort((a, b) => b.score - a.score)
+              .map((item) => factsToRerank[item.index])
+              .slice(0, 5); // Take the top 5 reranked facts
+          } else {
+            console.warn(
+              "Unexpected rerankedFactsResult format:",
+              rerankedFactsResult
+            );
           }
         }
 
