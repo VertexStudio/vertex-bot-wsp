@@ -198,15 +198,54 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           console.debug("No messages above similarity threshold");
         }
 
-        const formattedMessages = [
-          ...topSimilarities.map(({ role, content }) => ({ role, content })),
-          ...latestMessages.map((msg) => ({
-            role: String(msg.role?.id || msg.role),
-            content: msg.msg,
-          })),
+        // Rerank messages
+        const messagesToRerank = [
+          ...topSimilarities.map(({ content }) => content),
+          ...latestMessages.map((msg) => msg.msg),
         ];
 
-        let rerankedMessages: string[] = [];
+        const rerankedMessagesResult = await rerankTexts(
+          body,
+          messagesToRerank
+        );
+
+        let rerankedMessages: Array<{
+          role: string;
+          content: string;
+          score: number;
+        }> = [];
+
+        if (
+          rerankedMessagesResult &&
+          Array.isArray(rerankedMessagesResult.msg)
+        ) {
+          rerankedMessages = rerankedMessagesResult.msg
+            .sort((a, b) => b.score - a.score)
+            .map((item) => {
+              const message = messagesToRerank[item.index];
+              const originalMessage = [
+                ...topSimilarities,
+                ...latestMessages,
+              ].find((msg) => msg.content === message || msg.msg === message);
+              return {
+                role: String(originalMessage.role?.id || originalMessage.role),
+                content: message,
+                score: item.score,
+              };
+            });
+        } else {
+          console.warn(
+            "Unexpected rerankedMessagesResult format:",
+            rerankedMessagesResult
+          );
+        }
+
+        const formattedMessages = rerankedMessages.map(({ role, content }) => ({
+          role,
+          content,
+        }));
+
+        let rerankedFacts: string[] = [];
 
         const factValues = facts
           .flatMap((fact) =>
@@ -227,14 +266,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
               .map((item) => factValues[item.index]);
 
             // Take the top 5 reranked messages or all if less than 5
-            rerankedMessages = sortedRerankedMessages.slice(0, 5);
+            rerankedFacts = sortedRerankedMessages.slice(0, 5);
           } else {
             console.warn("Unexpected rerankedResult format:", rerankedResult);
           }
         }
 
         const relevantFactsText =
-          rerankedMessages.length > 0 ? rerankedMessages.join("\n") : "";
+          rerankedFacts.length > 0 ? rerankedFacts.join("\n") : "";
 
         const systemPrompt = {
           role: "system",
