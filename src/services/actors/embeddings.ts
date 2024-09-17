@@ -43,7 +43,7 @@ async function createEmbeddings(
 
     const embeddingsId = bioma.createActorId(
       "/embeddings",
-      "embeddings::embeddings::Embeddings"
+      "bioma_llm::embeddings::Embeddings"
     );
 
     const createEmbeddingsMessage = {
@@ -54,7 +54,7 @@ async function createEmbeddings(
     const messageId = await bioma.sendMessage(
       vertexBotWspId,
       embeddingsId,
-      "embeddings::embeddings::GenerateEmbeddings",
+      "bioma_llm::embeddings::GenerateEmbeddings",
       createEmbeddingsMessage
     );
 
