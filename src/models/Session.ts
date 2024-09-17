@@ -1,6 +1,6 @@
 import { getDb } from "~/database/surreal";
 import "dotenv/config";
-import createEmbeddings from "~/services/actors/embeddings";
+import { createEmbeddings } from "~/services/actors/embeddings";
 
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
 
