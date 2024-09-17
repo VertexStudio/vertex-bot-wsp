@@ -146,7 +146,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         }
 
         // TODO: Figure out how to do embeddings only once. No need to do it twice (here and in VV DB).
-        const queryEmbedding = await generateEmbedding(body);
 
         // Convert latestMessagesEmbeddings to an array if it's not already
         const allMessages = Array.isArray(latestMessagesEmbeddings)
