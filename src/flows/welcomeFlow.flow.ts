@@ -15,6 +15,7 @@ import { cosineSimilarity } from "../utils/vectorUtils";
 import { getMessage } from "../services/translate";
 import { facts } from "~/app";
 import rerankTexts from "~/services/actors/rerank";
+import { topSimilarity } from "../services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -161,38 +162,45 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const latestMessages = allMessages.slice(-10);
         const olderMessages = allMessages.slice(0, -10);
 
-        const similarities = olderMessages.map((msg) => ({
-          id: msg.id,
-          embedding: msg.embedding.vector,
-          similarity: cosineSimilarity(queryEmbedding, msg.embedding.vector),
-          msg: msg.msg,
-          role: msg.role.id,
-          created_at: msg.created_at,
-        }));
+        // Use topSimilarity function
+        const similarityResult = await topSimilarity(body, undefined, 10, 0.5);
 
-        similarities.forEach((item) => {
-          console.debug(`Score: ${item.similarity}, Content: ${item.msg}`);
-        });
+        let topSimilarities: Array<{
+          role: string;
+          content: string;
+          similarity: number;
+        }> = [];
 
-        const similarityThreshold = 0.5;
-        const topSimilarities = similarities
-          .filter((item) => item.similarity >= similarityThreshold)
-          .sort((a, b) => b.similarity - a.similarity);
+        if (similarityResult.msg && similarityResult.msg.similarities) {
+          topSimilarities = similarityResult.msg.similarities
+            .map((sim) => {
+              const matchingMessage = olderMessages.find(
+                (msg) => msg.msg === sim.text
+              );
+              return matchingMessage
+                ? {
+                    role: String(
+                      matchingMessage.role?.id || matchingMessage.role
+                    ),
+                    content: sim.text,
+                    similarity: sim.similarity,
+                  }
+                : null;
+            })
+            .filter(Boolean);
+        }
 
         // Log the top similarity score and content
         if (topSimilarities.length > 0) {
           const topSimilarity = topSimilarities[0];
           console.debug(`Top similarity score: ${topSimilarity.similarity}`);
-          console.debug(`Top similarity content: ${topSimilarity.msg}`);
+          console.debug(`Top similarity content: ${topSimilarity.content}`);
         } else {
           console.debug("No messages above similarity threshold");
         }
 
         const formattedMessages = [
-          ...topSimilarities.map((msg) => ({
-            role: String(msg.role),
-            content: msg.msg,
-          })),
+          ...topSimilarities.map(({ role, content }) => ({ role, content })),
           ...latestMessages.map((msg) => ({
             role: String(msg.role?.id || msg.role),
             content: msg.msg,
