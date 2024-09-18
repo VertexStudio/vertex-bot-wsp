@@ -44,7 +44,6 @@ class BiomaInterface {
 
   async createActor(id) {
     const actor = await this.db.select(id);
-    console.debug("actor", actor);
     if (actor) {
       return actor;
     }

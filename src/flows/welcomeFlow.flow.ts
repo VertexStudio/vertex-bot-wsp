@@ -157,10 +157,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           body,
           "conversation",
           10,
-          0.7
+          0.5
         );
-
-        console.debug("similarityResult", similarityResult);
 
         let topSimilarities: Array<{
           role: string;
@@ -216,7 +214,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             Array.isArray(rerankedMessagesResult.msg)
           ) {
             rerankedOlderMessages = rerankedMessagesResult.msg
-              .sort((a, b) => b.score - a.score)
+              .sort((a, b) => a.score - b.score) // Changed to ascending order
               .map((item) => {
                 const message = messagesToRerank[item.index];
                 const originalMessage = topSimilarities.find(

@@ -153,23 +153,3 @@ export class Session {
 }
 
 export const sessions = new Map<string, Session>();
-
-export async function getFacts() {
-  const db = getDb();
-  const facts = await db.query<Fact[]>("SELECT * FROM fact");
-  return facts;
-}
-
-export async function setupFactsLiveQuery(callback: (facts: Fact[]) => void) {
-  const db = getDb();
-
-  try {
-    const liveQuery = await db.live<Fact>("fact", (data) => {
-      getFacts().then(callback);
-    });
-
-    return liveQuery;
-  } catch (error) {
-    console.error("Error setting up live query:", error);
-  }
-}
