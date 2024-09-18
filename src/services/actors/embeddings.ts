@@ -89,7 +89,7 @@ async function topSimilarity(
 ): Promise<SimilarityResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
-      "/vertex-bot-wsp",
+      "/vertex-bot-wsp-embeddings",
       "vertex::VertexBotWSP"
     );
     const vertexBotWsp = await bioma.createActor(vertexBotWspId);

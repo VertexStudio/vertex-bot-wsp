@@ -70,7 +70,7 @@ export async function handleConversation(
     const [latestMessagesEmbeddings] = await db.query<Message[]>(`
       SELECT 
           *,
-          (->chat_message_role->role)[0] AS role
+          (->chat_message_role.out)[0] AS role
       FROM (
           SELECT ->conversation_chat_messages->chat_message AS chat_message 
           FROM conversation 
@@ -95,6 +95,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
       // TODO: Get conversation only once.
       const result = await handleConversation(groupId);
+      console.debug("result", result);
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
         : result;
