@@ -38,7 +38,7 @@ async function rerankTexts(
     );
 
     const vertexBotWspId = bioma.createActorId(
-      "/vertex-bot-wsp",
+      "/vertex-bot-wsp-rerank",
       "vertex::VertexBotWSP"
     );
     const vertexBotWsp = await bioma.createActor(vertexBotWspId);
