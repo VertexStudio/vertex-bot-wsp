@@ -36,7 +36,7 @@ async function createEmbeddings(
 ): Promise<EmbeddingResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
-      "/vertex-bot-wsp",
+      "/vertex-bot-wsp-embeddings",
       "vertex::VertexBotWSP"
     );
     const vertexBotWsp = await bioma.createActor(vertexBotWspId);
