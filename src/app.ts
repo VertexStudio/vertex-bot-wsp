@@ -5,7 +5,6 @@ import {
 } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
 import { initDb, getDb } from "./database/surreal";
 
@@ -54,7 +53,6 @@ const main = async () => {
 		}
 	})
 
-	httpInject(adapterProvider.server);
 	httpServer(+PORT);
 
 	adapterProvider.server.post(
