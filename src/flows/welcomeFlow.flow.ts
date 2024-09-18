@@ -11,7 +11,6 @@ import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { RecordId } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
-import { cosineSimilarity } from "../utils/vectorUtils";
 import { getMessage } from "../services/translate";
 import rerankTexts from "~/services/actors/rerank";
 import { topSimilarity } from "../services/actors/embeddings";
@@ -27,15 +26,9 @@ type Conversation = {
   system_prompt: string;
 };
 
-type EmbeddingData = {
-  id: RecordId;
-  vector: number[];
-};
-
 type Message = {
   msg: string;
   created_at: string;
-  embedding: EmbeddingData;
   id: RecordId;
   role: RecordId;
 };
@@ -77,13 +70,12 @@ export async function handleConversation(
     const [latestMessagesEmbeddings] = await db.query<Message[]>(`
       SELECT 
           *,
-          (->message_embedding->embedding)[0].* AS embedding,
-          (->message_role->role)[0] AS role
+          (->chat_message_role->role)[0] AS role
       FROM (
-          SELECT ->conversation_messages->message AS message 
+          SELECT ->conversation_chat_messages->chat_message AS chat_message 
           FROM conversation 
           WHERE whatsapp_id = '${groupId}'
-      )[0].message 
+      )[0].chat_message 
       ORDER BY created_at 
       LIMIT 30;
     `);
@@ -199,16 +191,11 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           console.debug(`Top similarity score: ${topSimilarity.similarity}`);
           console.debug(`Top similarity content: ${topSimilarity.content}`);
         } else {
-          console.debug("No older messages above similarity threshold");
+          console.debug("No messages above similarity threshold");
         }
 
-        // Rerank only the similar older messages
+        // Rerank only the top similar messages
         const messagesToRerank = topSimilarities.map(({ content }) => content);
-
-        const rerankedMessagesResult = await rerankTexts(
-          body,
-          messagesToRerank
-        );
 
         let rerankedOlderMessages: Array<{
           role: string;
@@ -216,31 +203,38 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           score: number;
         }> = [];
 
-        if (
-          rerankedMessagesResult &&
-          Array.isArray(rerankedMessagesResult.msg)
-        ) {
-          rerankedOlderMessages = rerankedMessagesResult.msg
-            .sort((a, b) => b.score - a.score)
-            .map((item) => {
-              const message = messagesToRerank[item.index];
-              const originalMessage = topSimilarities.find(
-                (msg) => msg.content === message
-              );
-              return {
-                role: originalMessage.role,
-                content: message,
-                score: item.score,
-              };
-            });
-        } else {
-          console.warn(
-            "Unexpected rerankedMessagesResult format:",
-            rerankedMessagesResult
+        if (messagesToRerank.length > 0) {
+          const rerankedMessagesResult = await rerankTexts(
+            body,
+            messagesToRerank
           );
+
+          if (
+            rerankedMessagesResult &&
+            Array.isArray(rerankedMessagesResult.msg)
+          ) {
+            rerankedOlderMessages = rerankedMessagesResult.msg
+              .sort((a, b) => b.score - a.score)
+              .map((item) => {
+                const message = messagesToRerank[item.index];
+                const originalMessage = topSimilarities.find(
+                  (msg) => msg.content === message
+                );
+                return {
+                  role: originalMessage.role,
+                  content: message,
+                  score: item.score,
+                };
+              });
+          } else {
+            console.warn(
+              "Unexpected rerankedMessagesResult format:",
+              rerankedMessagesResult
+            );
+          }
         }
 
-        // Combine reranked older messages with untouched latest messages
+        // Combine reranked older messages with latest messages
         const formattedMessages = [
           ...rerankedOlderMessages.map(({ role, content }) => ({
             role,
@@ -290,7 +284,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
           // Rerank the top similar facts
           const factsToRerank = topSimilarFacts.map(({ content }) => content);
-          console.debug("factsToRerank", factsToRerank);
           const rerankedFactsResult = await rerankTexts(body, factsToRerank);
 
           if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg)) {

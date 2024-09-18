@@ -77,16 +77,11 @@ export class Session {
 
     const createQueries = messages.map((msg, index) => {
       const query = `
-        LET $message = CREATE message SET content = ${JSON.stringify(
+        LET $chat_message = CREATE chat_message SET msg = ${JSON.stringify(
           msg.content
         )}, created_at = time::now();
-        LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
-          embeddingResult.msg.embeddings[index]
-        )};
-        RELATE conversation:${conversation}->conversation_messages->$message;
-        RELATE $message->message_role->role:${msg.role};
-        RELATE $message->message_embedding->$embedding;
-        RELATE $embedding->embedding_embedding_model->embedding_model:\`${EMBEDDING_MODEL}\`;
+        RELATE conversation:${conversation}->conversation_chat_messages->$chat_message;
+        RELATE $chat_message->chat_message_role->role:${msg.role};
       `
         .replace(/\n/g, " ")
         .trim();
