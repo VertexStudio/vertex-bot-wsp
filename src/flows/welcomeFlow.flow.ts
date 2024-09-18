@@ -13,7 +13,6 @@ import { RecordId } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
 import { cosineSimilarity } from "../utils/vectorUtils";
 import { getMessage } from "../services/translate";
-import { facts } from "~/app";
 import rerankTexts from "~/services/actors/rerank";
 import { topSimilarity } from "../services/actors/embeddings";
 
@@ -255,39 +254,26 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         let rerankedFacts: string[] = [];
 
-        const factValues = facts
-          .flatMap((fact) =>
-            Array.isArray(fact)
-              ? fact.map((f) => f.fact_value)
-              : [fact.fact_value]
-          )
-          .filter(Boolean);
+        // Use topSimilarity for facts
+        const factSimilarityResult = await topSimilarity(
+          body,
+          "facts",
+          10,
+          0.5
+        );
 
-        if (factValues.length > 0) {
-          // Use topSimilarity for facts
-          const factSimilarityResult = await topSimilarity(
-            body,
-            undefined,
-            10,
-            0.5
+        let topSimilarFacts: Array<{
+          content: string;
+          similarity: number;
+        }> = [];
+
+        if (factSimilarityResult.msg && factSimilarityResult.msg.similarities) {
+          topSimilarFacts = factSimilarityResult.msg.similarities.map(
+            (sim) => ({
+              content: sim.text,
+              similarity: sim.similarity,
+            })
           );
-
-          let topSimilarFacts: Array<{
-            content: string;
-            similarity: number;
-          }> = [];
-
-          if (
-            factSimilarityResult.msg &&
-            factSimilarityResult.msg.similarities
-          ) {
-            topSimilarFacts = factSimilarityResult.msg.similarities.map(
-              (sim) => ({
-                content: sim.text,
-                similarity: sim.similarity,
-              })
-            );
-          }
 
           // Log the top similarity score and content for facts
           if (topSimilarFacts.length > 0) {
