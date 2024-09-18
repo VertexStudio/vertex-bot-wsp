@@ -95,7 +95,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
       // TODO: Get conversation only once.
       const result = await handleConversation(groupId);
-      console.debug("result", result);
       const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
         ? { latestMessagesEmbeddings: [], conversation: null }
         : result;
@@ -158,8 +157,10 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           body,
           "conversation",
           10,
-          0.5
+          0.7
         );
+
+        console.debug("similarityResult", similarityResult);
 
         let topSimilarities: Array<{
           role: string;
@@ -167,8 +168,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           similarity: number;
         }> = [];
 
-        if (similarityResult.msg && similarityResult.msg.similarities) {
-          topSimilarities = similarityResult.msg.similarities
+        if (similarityResult.msg && Array.isArray(similarityResult.msg)) {
+          topSimilarities = similarityResult.msg
             .map((sim) => {
               const matchingMessage = olderMessages.find(
                 (msg) => msg.msg === sim.text
@@ -262,13 +263,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           similarity: number;
         }> = [];
 
-        if (factSimilarityResult.msg && factSimilarityResult.msg.similarities) {
-          topSimilarFacts = factSimilarityResult.msg.similarities.map(
-            (sim) => ({
-              content: sim.text,
-              similarity: sim.similarity,
-            })
-          );
+        if (
+          factSimilarityResult.msg &&
+          Array.isArray(factSimilarityResult.msg)
+        ) {
+          topSimilarFacts = factSimilarityResult.msg.map((sim) => ({
+            content: sim.text,
+            similarity: sim.similarity,
+          }));
 
           // Log the top similarity score and content for facts
           if (topSimilarFacts.length > 0) {

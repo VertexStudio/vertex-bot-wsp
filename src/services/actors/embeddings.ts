@@ -70,12 +70,10 @@ async function createEmbeddings(
 type SimilarityResult = {
   err: undefined | string;
   id: RecordId;
-  msg: {
-    similarities: Array<{
-      text: string;
-      similarity: number;
-    }>;
-  };
+  msg: Array<{
+    text: string;
+    similarity: number;
+  }>;
   name: string;
   rx: RecordId;
   tx: RecordId;
