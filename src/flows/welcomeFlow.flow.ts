@@ -263,7 +263,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         if (
           factSimilarityResult.msg &&
-          Array.isArray(factSimilarityResult.msg)
+          Array.isArray(factSimilarityResult.msg) &&
+          factSimilarityResult.msg.length > 0
         ) {
           topSimilarFacts = factSimilarityResult.msg.map((sim) => ({
             content: sim.text,
@@ -271,17 +272,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           }));
 
           // Log the top similarity score and content for facts
-          if (topSimilarFacts.length > 0) {
-            const topSimilarityFact = topSimilarFacts[0];
-            console.debug(
-              `Top fact similarity score: ${topSimilarityFact.similarity}`
-            );
-            console.debug(
-              `Top fact similarity content: ${topSimilarityFact.content}`
-            );
-          } else {
-            console.debug("No facts above similarity threshold");
-          }
+          const topSimilarityFact = topSimilarFacts[0];
+          console.debug(
+            `Top fact similarity score: ${topSimilarityFact.similarity}`
+          );
+          console.debug(
+            `Top fact similarity content: ${topSimilarityFact.content}`
+          );
 
           // Rerank the top similar facts
           const factsToRerank = topSimilarFacts.map(({ content }) => content);
@@ -299,6 +296,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
               rerankedFactsResult
             );
           }
+        } else {
+          console.debug("No facts above similarity threshold");
         }
 
         const relevantFactsText =
