@@ -77,7 +77,7 @@ export class Session {
 
     const createQueries = messages.map((msg, index) => {
       const query = `
-        LET $message = CREATE message SET content = ${JSON.stringify(
+        LET $message = CREATE message SET msg = ${JSON.stringify(
           msg.content
         )}, created_at = time::now();
         LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
