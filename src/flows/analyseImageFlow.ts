@@ -12,7 +12,7 @@ import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { getDb } from "~/database/surreal";
-import { handleConversation } from "./welcomeFlow.flow";
+import { handleConversation } from "../services/conversationService";
 import { getMessage } from "../services/translate";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
