@@ -79,9 +79,8 @@ export class Session {
       const query = `
         LET $chat_message = CREATE chat_message SET msg = ${JSON.stringify(
           msg.content
-        )}, created_at = time::now();
+        )}, created_at = time::now(), role = ${msg.role};
         RELATE conversation:${conversation}->conversation_chat_messages->$chat_message;
-        RELATE $chat_message->chat_message_role->role:${msg.role};
       `
         .replace(/\n/g, " ")
         .trim();

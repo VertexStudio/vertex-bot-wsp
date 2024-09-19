@@ -30,7 +30,7 @@ type Message = {
   msg: string;
   created_at: string;
   id: RecordId;
-  role: RecordId;
+  role: "user" | "assistant" | "system" | "tool";
 };
 
 // Initialize SurrealDB connection
@@ -70,7 +70,6 @@ export async function handleConversation(
     const [latestMessagesEmbeddings] = await db.query<Message[]>(`
       SELECT 
           *,
-          (->chat_message_role.out)[0] AS role
       FROM (
           SELECT ->conversation_chat_messages->chat_message AS chat_message 
           FROM conversation 
@@ -174,9 +173,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
               );
               return matchingMessage
                 ? {
-                    role: String(
-                      matchingMessage.role?.id || matchingMessage.role
-                    ),
+                    role: String(matchingMessage.role),
                     content: sim.text,
                     similarity: sim.similarity,
                   }
@@ -241,7 +238,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             content,
           })),
           ...latestMessages.map((msg) => ({
-            role: String(msg.role?.id || msg.role),
+            role: String(msg.role),
             content: msg.msg,
           })),
         ];
