@@ -156,11 +156,9 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const similarityResult = await topSimilarity(
           body,
           "conversation",
-          10,
+          20,
           0.5
         );
-
-        console.debug("Similarity result:", similarityResult);
 
         let topSimilarities: Array<{
           role: string;
@@ -211,15 +209,11 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             messagesToRerank
           );
 
-          console.debug("Reranked messages result:", rerankedMessagesResult);
-
           if (
             rerankedMessagesResult &&
             Array.isArray(rerankedMessagesResult.msg)
           ) {
             rerankedOlderMessages = rerankedMessagesResult.msg
-              .filter((item) => item.score > 0.5) // Only include scores above 0.5
-              .sort((a, b) => b.score - a.score) // Sort in descending order
               .map((item) => {
                 const message = messagesToRerank[item.index];
                 const originalMessage = topSimilarities.find(
@@ -230,7 +224,9 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
                   content: message,
                   score: item.score,
                 };
-              });
+              })
+              .sort((a, b) => a.score - b.score)
+              .slice(0, 10);
           } else {
             console.warn(
               "Unexpected rerankedMessagesResult format:",
@@ -239,9 +235,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           }
         }
 
-        console.debug("Reranked older messages:", rerankedOlderMessages);
-
-        // Combine reranked older messages with latest messages
         const formattedMessages = [
           ...rerankedOlderMessages.map(({ role, content }) => ({
             role,
@@ -255,15 +248,12 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         let rerankedFacts: string[] = [];
 
-        // Use topSimilarity for facts
         const factSimilarityResult = await topSimilarity(
           body,
           "facts",
-          15,
+          20,
           0.5
         );
-
-        console.debug("Fact similarity result:", factSimilarityResult);
 
         let topSimilarFacts: Array<{
           content: string;
@@ -280,7 +270,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             similarity: sim.similarity,
           }));
 
-          // Log the top similarity score and content for facts
           const topSimilarityFact = topSimilarFacts[0];
           console.debug(
             `Top fact similarity score: ${topSimilarityFact.similarity}`
@@ -289,17 +278,14 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
             `Top fact similarity content: ${topSimilarityFact.content}`
           );
 
-          // Rerank the top similar facts
           const factsToRerank = topSimilarFacts.map(({ content }) => content);
+
           const rerankedFactsResult = await rerankTexts(body, factsToRerank);
 
-          console.debug("Reranked facts result:", rerankedFactsResult);
-
           if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg)) {
-            // Sort the reranked facts by score in descending order and filter by score
             rerankedFacts = rerankedFactsResult.msg
-              .filter((item) => item.score > 0.01) // Only include scores above 0.5
               .sort((a, b) => b.score - a.score)
+              .slice(0, 10)
               .map((item) => factsToRerank[item.index]);
           } else {
             console.warn(
@@ -310,8 +296,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         } else {
           console.debug("No facts above similarity threshold");
         }
-
-        console.debug("Reranked facts:", rerankedFacts);
 
         const relevantFactsText =
           rerankedFacts.length > 0 ? rerankedFacts.join("\n") : "";
