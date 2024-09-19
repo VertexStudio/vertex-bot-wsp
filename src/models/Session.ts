@@ -1,6 +1,6 @@
 import { getDb } from "~/database/surreal";
 import "dotenv/config";
-import createEmbeddings from "~/services/actors/embeddings";
+import { createEmbeddings } from "~/services/actors/embeddings";
 
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
 
@@ -72,21 +72,16 @@ export class Session {
     const messageContents = messages.map((msg) => msg.content);
     const embeddingResult = await createEmbeddings(
       messageContents,
-      EMBEDDING_MODEL
+      "conversation"
     );
 
     const createQueries = messages.map((msg, index) => {
       const query = `
-        LET $message = CREATE message SET msg = ${JSON.stringify(
+        LET $chat_message = CREATE chat_message SET msg = ${JSON.stringify(
           msg.content
         )}, created_at = time::now();
-        LET $embedding = CREATE embedding SET vector = ${JSON.stringify(
-          embeddingResult.msg.embeddings[index]
-        )};
-        RELATE conversation:${conversation}->conversation_messages->$message;
-        RELATE $message->message_role->role:${msg.role};
-        RELATE $message->message_embedding->$embedding;
-        RELATE $embedding->embedding_embedding_model->embedding_model:\`${EMBEDDING_MODEL}\`;
+        RELATE conversation:${conversation}->conversation_chat_messages->$chat_message;
+        RELATE $chat_message->chat_message_role->role:${msg.role};
       `
         .replace(/\n/g, " ")
         .trim();
@@ -158,23 +153,3 @@ export class Session {
 }
 
 export const sessions = new Map<string, Session>();
-
-export async function getFacts() {
-  const db = getDb();
-  const facts = await db.query<Fact[]>("SELECT * FROM fact");
-  return facts;
-}
-
-export async function setupFactsLiveQuery(callback: (facts: Fact[]) => void) {
-  const db = getDb();
-
-  try {
-    const liveQuery = await db.live<Fact>("fact", (data) => {
-      getFacts().then(callback);
-    });
-
-    return liveQuery;
-  } catch (error) {
-    console.error("Error setting up live query:", error);
-  }
-}

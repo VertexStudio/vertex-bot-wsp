@@ -11,10 +11,9 @@ import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { RecordId } from "surrealdb.js";
 import { getDb } from "~/database/surreal";
-import { cosineSimilarity } from "../utils/vectorUtils";
 import { getMessage } from "../services/translate";
-import { facts } from "~/app";
 import rerankTexts from "~/services/actors/rerank";
+import { topSimilarity } from "../services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -27,15 +26,9 @@ type Conversation = {
   system_prompt: string;
 };
 
-type EmbeddingData = {
-  id: RecordId;
-  vector: number[];
-};
-
 type Message = {
   msg: string;
   created_at: string;
-  embedding: EmbeddingData;
   id: RecordId;
   role: RecordId;
 };
@@ -77,13 +70,12 @@ export async function handleConversation(
     const [latestMessagesEmbeddings] = await db.query<Message[]>(`
       SELECT 
           *,
-          (->message_embedding->embedding)[0].* AS embedding,
-          (->message_role->role)[0] AS role
+          (->chat_message_role.out)[0] AS role
       FROM (
-          SELECT ->conversation_messages->message AS message 
+          SELECT ->conversation_chat_messages->chat_message AS chat_message 
           FROM conversation 
           WHERE whatsapp_id = '${groupId}'
-      )[0].message 
+      )[0].chat_message 
       ORDER BY created_at 
       LIMIT 30;
     `);
@@ -145,7 +137,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         }
 
         // TODO: Figure out how to do embeddings only once. No need to do it twice (here and in VV DB).
-        const queryEmbedding = await generateEmbedding(body);
 
         // Convert latestMessagesEmbeddings to an array if it's not already
         const allMessages = Array.isArray(latestMessagesEmbeddings)
@@ -161,37 +152,93 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         const latestMessages = allMessages.slice(-10);
         const olderMessages = allMessages.slice(0, -10);
 
-        const similarities = olderMessages.map((msg) => ({
-          id: msg.id,
-          embedding: msg.embedding.vector,
-          similarity: cosineSimilarity(queryEmbedding, msg.embedding.vector),
-          msg: msg.msg,
-          role: msg.role.id,
-          created_at: msg.created_at,
-        }));
+        // Use topSimilarity function for older messages
+        const similarityResult = await topSimilarity(
+          body,
+          "conversation",
+          20,
+          0.5
+        );
 
-        similarities.forEach((item) => {
-          console.debug(`Score: ${item.similarity}, Content: ${item.msg}`);
-        });
+        let topSimilarities: Array<{
+          role: string;
+          content: string;
+          similarity: number;
+        }> = [];
 
-        const similarityThreshold = 0.5;
-        const topSimilarities = similarities
-          .filter((item) => item.similarity >= similarityThreshold)
-          .sort((a, b) => b.similarity - a.similarity);
+        if (similarityResult.msg && Array.isArray(similarityResult.msg)) {
+          topSimilarities = similarityResult.msg
+            .map((sim) => {
+              const matchingMessage = olderMessages.find(
+                (msg) => msg.msg === sim.text
+              );
+              return matchingMessage
+                ? {
+                    role: String(
+                      matchingMessage.role?.id || matchingMessage.role
+                    ),
+                    content: sim.text,
+                    similarity: sim.similarity,
+                  }
+                : null;
+            })
+            .filter(Boolean);
+        }
 
         // Log the top similarity score and content
         if (topSimilarities.length > 0) {
           const topSimilarity = topSimilarities[0];
           console.debug(`Top similarity score: ${topSimilarity.similarity}`);
-          console.debug(`Top similarity content: ${topSimilarity.msg}`);
+          console.debug(`Top similarity content: ${topSimilarity.content}`);
         } else {
           console.debug("No messages above similarity threshold");
         }
 
+        // Rerank only the top similar messages
+        const messagesToRerank = topSimilarities.map(({ content }) => content);
+
+        let rerankedOlderMessages: Array<{
+          role: string;
+          content: string;
+          score: number;
+        }> = [];
+
+        if (messagesToRerank.length > 0) {
+          const rerankedMessagesResult = await rerankTexts(
+            body,
+            messagesToRerank
+          );
+
+          if (
+            rerankedMessagesResult &&
+            Array.isArray(rerankedMessagesResult.msg)
+          ) {
+            rerankedOlderMessages = rerankedMessagesResult.msg
+              .map((item) => {
+                const message = messagesToRerank[item.index];
+                const originalMessage = topSimilarities.find(
+                  (msg) => msg.content === message
+                );
+                return {
+                  role: originalMessage.role,
+                  content: message,
+                  score: item.score,
+                };
+              })
+              .sort((a, b) => a.score - b.score)
+              .slice(0, 10);
+          } else {
+            console.warn(
+              "Unexpected rerankedMessagesResult format:",
+              rerankedMessagesResult
+            );
+          }
+        }
+
         const formattedMessages = [
-          ...topSimilarities.map((msg) => ({
-            role: String(msg.role),
-            content: msg.msg,
+          ...rerankedOlderMessages.map(({ role, content }) => ({
+            role,
+            content,
           })),
           ...latestMessages.map((msg) => ({
             role: String(msg.role?.id || msg.role),
@@ -199,35 +246,59 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           })),
         ];
 
-        let rerankedMessages: string[] = [];
+        let rerankedFacts: string[] = [];
 
-        const factValues = facts
-          .flatMap((fact) =>
-            Array.isArray(fact)
-              ? fact.map((f) => f.fact_value)
-              : [fact.fact_value]
-          )
-          .filter(Boolean);
+        const factSimilarityResult = await topSimilarity(
+          body,
+          "facts",
+          20,
+          0.5
+        );
 
-        if (factValues.length > 0) {
-          // Rerank the messages
-          const rerankedResult = await rerankTexts(body, factValues);
+        let topSimilarFacts: Array<{
+          content: string;
+          similarity: number;
+        }> = [];
 
-          if (rerankedResult && Array.isArray(rerankedResult.msg)) {
-            // Sort the reranked messages by score in descending order
-            const sortedRerankedMessages = rerankedResult.msg
+        if (
+          factSimilarityResult.msg &&
+          Array.isArray(factSimilarityResult.msg) &&
+          factSimilarityResult.msg.length > 0
+        ) {
+          topSimilarFacts = factSimilarityResult.msg.map((sim) => ({
+            content: sim.text,
+            similarity: sim.similarity,
+          }));
+
+          const topSimilarityFact = topSimilarFacts[0];
+          console.debug(
+            `Top fact similarity score: ${topSimilarityFact.similarity}`
+          );
+          console.debug(
+            `Top fact similarity content: ${topSimilarityFact.content}`
+          );
+
+          const factsToRerank = topSimilarFacts.map(({ content }) => content);
+
+          const rerankedFactsResult = await rerankTexts(body, factsToRerank);
+
+          if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg)) {
+            rerankedFacts = rerankedFactsResult.msg
               .sort((a, b) => b.score - a.score)
-              .map((item) => factValues[item.index]);
-
-            // Take the top 5 reranked messages or all if less than 5
-            rerankedMessages = sortedRerankedMessages.slice(0, 5);
+              .slice(0, 10)
+              .map((item) => factsToRerank[item.index]);
           } else {
-            console.warn("Unexpected rerankedResult format:", rerankedResult);
+            console.warn(
+              "Unexpected rerankedFactsResult format:",
+              rerankedFactsResult
+            );
           }
+        } else {
+          console.debug("No facts above similarity threshold");
         }
 
         const relevantFactsText =
-          rerankedMessages.length > 0 ? rerankedMessages.join("\n") : "";
+          rerankedFacts.length > 0 ? rerankedFacts.join("\n") : "";
 
         const systemPrompt = {
           role: "system",
