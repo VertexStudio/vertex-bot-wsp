@@ -16,6 +16,7 @@ import { handleConversation } from "../services/conversationService";
 import { getMessage } from "../services/translate";
 import { minioClient } from "../services/minioClient";
 import { v4 as uuidv4 } from "uuid";
+import processSnap from "~/services/actors/snapActor";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -320,13 +321,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     const newSnapId = await insertImageRecord(imagePath, caption, db);
     console.info("New snap ID:", newSnapId);
 
-    const analysisResult = await setUpLiveQuery(newSnapId, db);
-    console.debug("Analysis query UUID:", analysisResult);
-
     typing(ctx, provider);
 
-    const initialData = await waitForFirstResult(analysisResult, db);
-    const results = initialData.results;
+    const initialData = await processSnap(imagePath, caption);
+
+    const results = initialData.msg.analysis.results;
 
     const humanReadableResponse = await generateHumanReadableResponse(
       caption,
