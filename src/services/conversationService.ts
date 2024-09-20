@@ -50,8 +50,7 @@ async function getConversationMessages(
 ): Promise<Message[]> {
   const [result] = await db.query<Message[]>(`
     SELECT 
-        *,
-        (->chat_message_role.out)[0] AS role
+        *
     FROM (
         SELECT ->conversation_chat_messages->chat_message AS chat_message 
         FROM conversation 
