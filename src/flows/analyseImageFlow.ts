@@ -16,7 +16,7 @@ import { handleConversation } from "../services/conversationService";
 import { getMessage } from "../services/translate";
 import { minioClient } from "../services/minioClient";
 import { v4 as uuidv4 } from "uuid";
-import processSnap from "~/services/actors/snapActor";
+import processSnap from "~/services/actors/snap";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
