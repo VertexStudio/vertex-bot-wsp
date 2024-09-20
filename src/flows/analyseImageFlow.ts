@@ -14,6 +14,8 @@ import { setupLogger } from "../utils/logger";
 import { getDb } from "~/database/surreal";
 import { handleConversation } from "../services/conversationService";
 import { getMessage } from "../services/translate";
+import { minioClient } from "../services/minioClient"; // Import MinIO client
+import { v4 as uuidv4 } from "uuid"; // Import uuidv4
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -85,14 +87,43 @@ async function processImage(localPath: string): Promise<Buffer> {
   return sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
 }
 
-async function insertImageIntoDatabase(
+// Upload image to MinIO with specified path and name
+async function uploadImageToMinio(
   jpegBuffer: Buffer,
-  caption: String
+  cameraId: string
+): Promise<string> {
+  const bucketName = process.env.MINIO_BUCKET_NAME || "veoveo";
+  const region = process.env.MINIO_REGION || "us-east-1";
+
+  // Ensure the bucket exists
+  const bucketExists = await minioClient.bucketExists(bucketName);
+  if (!bucketExists) {
+    await minioClient.makeBucket(bucketName, region);
+  }
+
+  // Generate a unique image name
+  const uuid = uuidv4();
+  const imageName = `frame-${uuid}.jpg`;
+
+  // Construct the image path: output/CAMERA_ID/frame-UUID.jpg
+  const imagePath = `output/${cameraId}/${imageName}`;
+
+  // Upload the image to MinIO
+  await minioClient.putObject(bucketName, imagePath, jpegBuffer);
+
+  // Return the image path
+  return imagePath;
+}
+
+// Insert image record into database
+async function insertImageRecord(
+  imagePath: string,
+  caption: string
 ): Promise<string> {
   const insertQuery = `
     BEGIN TRANSACTION;
     LET $new_snap = CREATE snap SET
-      data = encoding::base64::decode($data),
+      image_path = $image_path,
       format = $format,
       caption = $caption,
       queued_timestamp = time::now();
@@ -101,12 +132,10 @@ async function insertImageIntoDatabase(
     COMMIT TRANSACTION;
   `;
 
-  const base64String = jpegBuffer.toString("base64").replace(/=+$/, "");
-
   const insertResult = await db.query(insertQuery, {
-    data: base64String,
+    image_path: imagePath,
     format: "jpeg",
-    ...(caption.trim() !== "" ? { caption } : {}),
+    ...(caption && caption.trim() !== "" ? { caption } : {}),
     camera: new RecordId("camera", CAMERA_ID),
   });
 
@@ -192,39 +221,39 @@ function generateImageAnalysisPrompt(caption: string): {
 } {
   const system = `You are an AI assistant for image analysis tasks. Your role is to determine the most appropriate type of image analysis based on the user's request about an image.
 
-  Instructions:
-  1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
-    ${IMAGE_ANALYSIS_TYPES.join(", ")}.
+Instructions:
+1. Respond ONLY with the EXACT text label from the list below, matching the case PRECISELY. Your entire response should be a single label from this list:
+  ${IMAGE_ANALYSIS_TYPES.join(", ")}.
 
-  2. Guidelines for query interpretation:
-    - Text-related queries (Use "OCR"):
-      • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
-      • Queries about documents, reports, labels, instructions, signs, or any written information
-      • Requests to explain, clarify, or provide more information about visible text
-      • Questions about specific textual content (e.g., prices, scores, dates, names)
-      • Requests to translate or interpret text in the image
-      • ANY query using words like "explain", "clarify", "elaborate", "describe", or "interpret" when referring to content that could be text
+2. Guidelines for query interpretation:
+  - Text-related queries (Use "OCR"):
+    • ANY request involving reading, understanding, or analyzing text, numbers, or symbols visible in the image
+    • Queries about documents, reports, labels, instructions, signs, or any written information
+    • Requests to explain, clarify, or provide more information about visible text
+    • Questions about specific textual content (e.g., prices, scores, dates, names)
+    • Requests to translate or interpret text in the image
+    • ANY query using words like "explain", "clarify", "elaborate", "describe", or "interpret" when referring to content that could be text
 
-    - General queries and detailed descriptions (Use "more detailed caption"):
-      • Requests about the overall image content, context, or scene description
-      • Identifying or describing objects, people, animals, or environments
-      • Questions about actions, events, or situations depicted in the image
-      • Requests for detailed information about visual elements (e.g., colors, styles, arrangements)
-      • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
-      • Any question involving visual recognition or recall without explicitly mentioning text
+  - General queries and detailed descriptions (Use "more detailed caption"):
+    • Requests about the overall image content, context, or scene description
+    • Identifying or describing objects, people, animals, or environments
+    • Questions about actions, events, or situations depicted in the image
+    • Requests for detailed information about visual elements (e.g., colors, styles, arrangements)
+    • Queries about recognizing familiar elements (e.g., logos, brands, famous people)
+    • Any question involving visual recognition or recall without explicitly mentioning text
 
-    - Entity(ies) location, presence, or counting (Use "dense region caption"):
-      • Questions about locating specific entities (eg. "where is the phone?")
-      • Requests to count the number of particular entities (eg. "how many apples?")
-      • Queries about the presence or absence of certain entities (eg. "is there a person?", "what's she holding?")
+  - Entity(ies) location, presence, or counting (Use "dense region caption"):
+    • Questions about locating specific entities (e.g., "where is the phone?")
+    • Requests to count the number of particular entities (e.g., "how many apples?")
+    • Queries about the presence or absence of certain entities (e.g., "is there a person?", "what's she holding?")
 
-  3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
-  4. For ambiogous queries, prefer "more detailed caption".
-  5. Always interpret the request as being about the image content.
-  6. Do not explain your choice or mention inability to see the image.
-  7. If the query mentions both text and general image content, prioritize "OCR".
+3. For ambiguous queries, prefer "OCR" if there's any possibility of text being involved.
+4. For ambiguous queries, prefer "more detailed caption".
+5. Always interpret the request as being about the image content.
+6. Do not explain your choice or mention inability to see the image.
+7. If the query mentions both text and general image content, prioritize "OCR".
 
-  CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
+CRITICAL: Your entire response must be a single label from the list, exactly as written above, including correct capitalization.`;
 
   const prompt = `User's text request: "${caption}"`;
 
@@ -240,18 +269,18 @@ function generateHumanReadablePrompt(
 } {
   const system = `You are an AI assistant providing image analysis results directly to the end user via WhatsApp. Answer the user's request about the image based on the analysis results provided.
 
-  1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
-  2. Use natural language and explain technical terms if necessary.
-  3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
-  4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
-  5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
-    - Use double line breaks to separate sections, subsections, and parent lists.
-    - When using bold text, use it ONLY like this: *bold text*.
-  6. Provide step-by-step instructions or detailed explanations when necessary.
-  7. If any URLs are found in the analysis results, state them as plain text.
-  8. Keep in mind the overall intent of the user's request.
-  9. Use all available information from the analysis results to answer the user's request accurately.
-  10. Do not offer further help or guidance.`;
+1. Provide a direct answer with appropriate detail. Match the complexity of your response to the query and the image analysis results. Do not include any introductory or concluding remarks.
+2. Use natural language and explain technical terms if necessary.
+3. If the answer can't be fully determined, acknowledge the limitation and advise to send the image again with a clearer request.
+4. Don't mention the image analysis process, raw analysis results, or that an analysis was performed at all.
+5. Fancy format for readability in WhatsApp chat only when necessary for complex responses.
+  - Use double line breaks to separate sections, subsections, and parent lists.
+  - When using bold text, use it ONLY like this: *bold text*.
+6. Provide step-by-step instructions or detailed explanations when necessary.
+7. If any URLs are found in the analysis results, state them as plain text.
+8. Keep in mind the overall intent of the user's request.
+9. Use all available information from the analysis results to answer the user's request accurately.
+10. Do not offer further help or guidance.`;
 
   const prompt = `User's request about an image: "${caption}"
 
@@ -266,7 +295,6 @@ Provide a direct answer to the user's request based on these results.`;
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
-  const systemName = "System";
   const groupId = ctx.to.split("@")[0];
 
   const result = await handleConversation(groupId);
@@ -285,7 +313,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       };
     }
 
-    const caption: string | null = ctx.message.imageMessage?.caption;
+    const caption: string = ctx.message.imageMessage?.caption || "";
 
     if (!caption) {
       console.info("No caption received");
@@ -299,13 +327,19 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     }
     const session = sessions.get(number)!;
 
-    await updateDatabaseWithModelTask(await determineAnalysisType(caption));
+    const analysisType = await determineAnalysisType(caption);
+    if (analysisType) {
+      await updateDatabaseWithModelTask(analysisType);
+    } else {
+      throw new Error("Unable to determine analysis type");
+    }
 
     const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
     console.info("File saved at:", localPath);
 
     const jpegBuffer = await processImage(localPath);
-    const newSnapId = await insertImageIntoDatabase(jpegBuffer, caption);
+    const imagePath = await uploadImageToMinio(jpegBuffer, CAMERA_ID);
+    const newSnapId = await insertImageRecord(imagePath, caption);
     console.info("New snap ID:", newSnapId);
 
     const analysisResult = await setUpLiveQuery(newSnapId);
@@ -333,7 +367,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       await sendMessage(provider, number, humanReadableResponse, ctx);
     });
 
-    console.info("Image processed and stored in the database");
+    console.info("Image processed and stored in MinIO and the database");
 
     await fs.unlink(localPath);
   } catch (error) {
