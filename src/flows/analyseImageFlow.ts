@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Surreal, RecordId, Uuid as UUID } from "surrealdb.js";
+import Surreal, { RecordId, Uuid as UUID } from "surrealdb.js";
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
@@ -14,8 +14,8 @@ import { setupLogger } from "../utils/logger";
 import { getDb } from "~/database/surreal";
 import { handleConversation } from "../services/conversationService";
 import { getMessage } from "../services/translate";
-import { minioClient } from "../services/minioClient"; // Import MinIO client
-import { v4 as uuidv4 } from "uuid"; // Import uuidv4
+import { minioClient } from "../services/minioClient";
+import { v4 as uuidv4 } from "uuid";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -36,16 +36,7 @@ type ImageAnalysisType =
   | "OCR with region";
 
 // Constants
-const {
-  VV_DB_HOST,
-  VV_DB_PORT,
-  VV_DB_PROTOCOL,
-  VV_DB_NAMESPACE,
-  VV_DB_DATABASE,
-  VV_DB_USERNAME,
-  VV_DB_PASSWORD,
-  CAMERA_ID,
-} = process.env;
+const CAMERA_ID = process.env.CAMERA_ID;
 
 setupLogger();
 
@@ -63,23 +54,6 @@ export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
   "OCR",
   // "OCR with region",
 ];
-
-// Database connection
-let db = getDb();
-
-async function connectToDatabase(): Promise<void> {
-  db = new Surreal();
-  try {
-    await db.connect(`${VV_DB_PROTOCOL}://${VV_DB_HOST}:${VV_DB_PORT}/rpc`, {
-      namespace: VV_DB_NAMESPACE,
-      database: VV_DB_DATABASE,
-      auth: { username: VV_DB_USERNAME, password: VV_DB_PASSWORD },
-    });
-  } catch (err) {
-    console.error("Failed to connect to SurrealDB:", err);
-    throw err;
-  }
-}
 
 // Image processing functions
 async function processImage(localPath: string): Promise<Buffer> {
@@ -118,7 +92,8 @@ async function uploadImageToMinio(
 // Insert image record into database
 async function insertImageRecord(
   imagePath: string,
-  caption: string
+  caption: string,
+  db: Surreal
 ): Promise<string> {
   const insertQuery = `
     BEGIN TRANSACTION;
@@ -143,7 +118,7 @@ async function insertImageRecord(
 }
 
 // Analysis functions
-async function setUpLiveQuery(snapId: string): Promise<UUID> {
+async function setUpLiveQuery(snapId: string, db: Surreal): Promise<UUID> {
   const analysisQuery = `
     LIVE SELECT 
       ->analysis.results AS results
@@ -156,7 +131,8 @@ async function setUpLiveQuery(snapId: string): Promise<UUID> {
 }
 
 function waitForFirstResult(
-  analysisResult: UUID
+  analysisResult: UUID,
+  db: Surreal
 ): Promise<Record<string, unknown>> {
   return new Promise((resolve) => {
     let isResolved = false;
@@ -199,7 +175,8 @@ async function sendMessage(
 }
 
 async function updateDatabaseWithModelTask(
-  model_task: ImageAnalysisType
+  model_task: ImageAnalysisType,
+  db: Surreal
 ): Promise<void> {
   const updateQuery = `
     LET $linkedTask = (SELECT (->camera_tasks.out)[0] AS task FROM $camera)[0].task;
@@ -293,6 +270,7 @@ Provide a direct answer to the user's request based on these results.`;
 }
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
+  const db = getDb();
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
   const groupId = ctx.to.split("@")[0];
@@ -329,7 +307,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const analysisType = await determineAnalysisType(caption);
     if (analysisType) {
-      await updateDatabaseWithModelTask(analysisType);
+      await updateDatabaseWithModelTask(analysisType, db);
     } else {
       throw new Error("Unable to determine analysis type");
     }
@@ -339,15 +317,15 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     const jpegBuffer = await processImage(localPath);
     const imagePath = await uploadImageToMinio(jpegBuffer, CAMERA_ID);
-    const newSnapId = await insertImageRecord(imagePath, caption);
+    const newSnapId = await insertImageRecord(imagePath, caption, db);
     console.info("New snap ID:", newSnapId);
 
-    const analysisResult = await setUpLiveQuery(newSnapId);
+    const analysisResult = await setUpLiveQuery(newSnapId, db);
     console.debug("Analysis query UUID:", analysisResult);
 
     typing(ctx, provider);
 
-    const initialData = await waitForFirstResult(analysisResult);
+    const initialData = await waitForFirstResult(analysisResult, db);
     const results = initialData.results;
 
     const humanReadableResponse = await generateHumanReadableResponse(
