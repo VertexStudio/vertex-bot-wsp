@@ -21,7 +21,7 @@ let processId = 0;
 let provider: Provider;
 let currentCtx: any;
 const sentAlerts = new Map<string, AlertControl>();
-const FEEDBACK_TIMEOUT = 1 * 60 * 1000; // 1 minute
+const FEEDBACK_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 export const alertsFlow = addKeyword<Provider, Database>("alertas", {
   sensitive: false,
