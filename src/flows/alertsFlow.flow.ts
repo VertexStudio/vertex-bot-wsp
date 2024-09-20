@@ -2,15 +2,12 @@ import { addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { initDb } from "../database/surreal";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import * as fs from "fs";
-import * as path from "path";
 import { typing } from "../utils/presence";
-import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { RecordId, Uuid as UUID } from "surrealdb.js";
-import * as os from "os";
-import { setupLogger } from '../utils/logger';
-import { getMessage } from '../services/translate';
+import { setupLogger } from "../utils/logger";
+import { getMessage } from "../services/translate";
+import { Client as MinioClient } from "minio";
 
 const MESSAGE_GAP_SECONDS = 3000;
 
@@ -23,8 +20,7 @@ interface ImageMessage {
   id?: string;
 }
 interface Snap {
-  data: Uint8Array;
-  format: "jpeg" | "png" | "bmp" | "gif";
+  image_path: string;
   id: Record<string, string>;
   queued_timestamp: Date;
 }
@@ -41,9 +37,9 @@ interface Anomaly {
 }
 
 interface AlertControl {
-  alertAnomaly: Record<string, string>,
-  feedback: boolean[],
-  waiting: boolean,
+  alertAnomaly: Record<string, string>;
+  feedback: boolean[];
+  waiting: boolean;
 }
 
 const imageQueue: ImageMessage[] = [];
@@ -57,6 +53,40 @@ const resizedImages: Set<string> = new Set();
 const sentAlerts = new Map<string, AlertControl>();
 
 setupLogger();
+
+// Initialize MinIO client
+const minioClient = new MinioClient({
+  endPoint: process.env.MINIO_ENDPOINT,
+  port: parseInt(process.env.MINIO_PORT),
+  useSSL: process.env.MINIO_USE_SSL === "true",
+  accessKey: process.env.MINIO_ACCESS_KEY,
+  secretKey: process.env.MINIO_SECRET_KEY,
+  region: process.env.MINIO_REGION,
+});
+
+// New function to get image URL from MinIO
+async function getImageUrlFromMinio(imagePath: string): Promise<string> {
+  try {
+    const bucketName = "veoveo";
+    const expiryTime = 24 * 60 * 60;
+
+    // Check if bucket exists, if not, create it
+    const bucketExists = await minioClient.bucketExists(bucketName);
+    if (!bucketExists) {
+      await minioClient.makeBucket(bucketName, process.env.MINIO_REGION);
+    }
+
+    const presignedUrl = await minioClient.presignedGetObject(
+      bucketName,
+      imagePath,
+      expiryTime
+    );
+    return presignedUrl;
+  } catch (error) {
+    console.error("Error getting image URL from MinIO:", error);
+    throw error;
+  }
+}
 
 //Listen to new anomalies
 async function anomalyLiveQuery(): Promise<UUID> {
@@ -88,13 +118,18 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     //Send image to the group
     if (currentCtx && provider) {
+      const imageUrl = await getImageUrlFromMinio(snap.image_path);
       const messageId = await sendImage(
         currentCtx,
         provider,
-        parseImageToUrlFromUint8Array(snap.data, snap.format),
+        imageUrl,
         analysis.results
       );
-      sentAlerts.set(messageId, { alertAnomaly: analysis.id, feedback: [], waiting: false });
+      sentAlerts.set(messageId, {
+        alertAnomaly: analysis.id,
+        feedback: [],
+        waiting: false,
+      });
     }
   });
 
@@ -103,32 +138,18 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
 await anomalyLiveQuery();
 
-//helper function to parse image from Uint8Array to URL
-function parseImageToUrlFromUint8Array(
-  data: Uint8Array,
-  format: string
-): string {
-  const buffer = Buffer.from(data);
-
-  const tmpDir = os.tmpdir();
-  const tmpFilePath = path.join(tmpDir, `file_${Date.now()}.${format}`);
-
-  fs.writeFileSync(tmpFilePath, buffer);
-
-  return tmpFilePath;
-}
-
+// Update sendImage function to use URL directly
 async function sendImage(
   ctx: any,
   provider: Provider,
-  imagePath: string,
+  imageUrl: string,
   caption?: string
 ): Promise<string> {
-  console.info(`[${processId}] Sending image: ${imagePath}`);
+  console.info(`[${processId}] Sending image: ${imageUrl}`);
   const number = ctx.key.remoteJid;
-  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || path.basename(imagePath)}`;
+  const enhancedCaption = `🚨 Anomaly Detected 🚨\n\n${caption || "Image"}`;
   const sentMessage = await provider.vendor.sendMessage(number, {
-    image: { url: imagePath },
+    image: { url: imageUrl },
     caption: enhancedCaption,
   });
 
@@ -136,7 +157,7 @@ async function sendImage(
 
   if (sentMessage && sentMessage.key && sentMessage.key.id) {
     const messageId = sentMessage.key.id;
-    sentImages.set(messageId, { path: imagePath, id: messageId });
+    sentImages.set(messageId, { path: imageUrl, id: messageId });
     console.info(`[${processId}] Image sent with ID: ${messageId}`);
     return messageId;
   } else {
@@ -234,33 +255,26 @@ async function handleReaction(reactions: any[]) {
     //Check if the reaction is correct or incorrect and add the respective status value to the feedback array of that alert
     //If the emoji is invalid, send a message to the user
     if (correctEmojiList.includes(emoji)) {
-
       alertControl.feedback.push(true);
-
     } else if (incorrectEmojiList.includes(emoji)) {
-
       alertControl.feedback.push(false);
-
     } else {
-
       await provider.sendText(
         reactionKey.remoteJid,
         getMessage("invalid_reaction")
       );
 
       return;
-
     }
 
     //If the alert is not waiting to process, set a timeout to process the feedback
     if (!alertControl.waiting) {
-
       //If not waiting, set the alert to waiting and set a timeout to process the feedback
       alertControl.waiting = true;
 
       setTimeout(async () => {
-
-        let correct = 0, incorrect = 0;
+        let correct = 0,
+          incorrect = 0;
 
         for (let i = 0; i < alertControl.feedback.length; i++) {
           alertControl.feedback[i] ? correct++ : incorrect++;
@@ -275,20 +289,25 @@ async function handleReaction(reactions: any[]) {
         }
 
         //Update the status of the anomaly according to the feedback
-        await db.query(`UPDATE $anomaly SET status = ${status != null ? status : "None"}, timestamp = $timestamp;`, {
-          anomaly: anomalyRecord.id,
-          timestamp: anomalyRecord.timestamp
-        });
+        await db.query(
+          `UPDATE $anomaly SET status = ${
+            status != null ? status : "None"
+          }, timestamp = $timestamp;`,
+          {
+            anomaly: anomalyRecord.id,
+            timestamp: anomalyRecord.timestamp,
+          }
+        );
 
         alertControl.waiting = false;
 
-        console.info(`Feedback processed for alert ${alertId}. Status: ${status}`);
-
-      }, 5 * 60 * 1000); //Set the timeout to 5 minutes
+        console.info(
+          `Feedback processed for alert ${alertId}. Status: ${status}`
+        );
+      }, 5 * 60 * 1000);
     }
 
     sentImages.delete(reactionId.id);
-
   } catch (error) {
     console.error(`[${processId}] Could not recieve feedback`, error);
     await provider.sendText(
@@ -315,17 +334,11 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
     currentCtx = ctx;
     provider = _provider;
 
-    await provider.sendText(
-      ctx.key.remoteJid,
-      getMessage("alerts_on")
-    );
+    await provider.sendText(ctx.key.remoteJid, getMessage("alerts_on"));
 
     provider.on("reaction", handleReaction);
   } catch (error) {
     console.error(`[${processId}] Error while activating alerts.`, error);
-    await provider.sendText(
-      ctx.key.remoteJid,
-      getMessage("alerts_error")
-    );
+    await provider.sendText(ctx.key.remoteJid, getMessage("alerts_error"));
   }
 });
