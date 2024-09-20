@@ -59,15 +59,15 @@ const minioClient = new MinioClient({
   endPoint: process.env.MINIO_ENDPOINT,
   port: parseInt(process.env.MINIO_PORT),
   useSSL: process.env.MINIO_USE_SSL === "true",
-  accessKey: process.env.MINIO_ACCESS_KEY,
-  secretKey: process.env.MINIO_SECRET_KEY,
+  accessKey: process.env.MINIO_ROOT_USER,
+  secretKey: process.env.MINIO_ROOT_PASSWORD,
   region: process.env.MINIO_REGION,
 });
 
 // New function to get image URL from MinIO
 async function getImageUrlFromMinio(imagePath: string): Promise<string> {
   try {
-    const bucketName = "veoveo";
+    const bucketName = process.env.MINIO_BUCKET_NAME || "veoveo";
     const expiryTime = 24 * 60 * 60;
 
     // Check if bucket exists, if not, create it
