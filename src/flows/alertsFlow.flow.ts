@@ -13,6 +13,8 @@ import { getImageUrlFromMinio } from "../utils/helpers";
 import { sendImage } from "../utils/helpers";
 import { typing } from "../utils/presence";
 import { setupLogger } from "../utils/logger";
+import { sendMessage } from "~/services/messageService";
+import { sendResponse } from "~/services/responseService";
 
 setupLogger();
 
@@ -21,7 +23,7 @@ let processId = 0;
 let provider: Provider;
 let currentCtx: any;
 const sentAlerts = new Map<string, AlertControl>();
-const FEEDBACK_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const FEEDBACK_TIMEOUT = 1 * 1000; // 1 second
 
 export const alertsFlow = addKeyword<Provider, Database>("alertas", {
   sensitive: false,
@@ -91,6 +93,9 @@ async function handleReaction(reactions: any[]) {
 
   const reaction = reactions[0];
   const { key: reactionKey, text: emoji } = reaction.reaction || {};
+
+  console.debug("KEY", reactionKey);
+  console.debug("EMOJI", emoji);
 
   if (!reactionKey || !emoji) {
     console.info(`Invalid reaction format`);
@@ -184,6 +189,25 @@ async function processFeedback(
     }
   );
 
+  let statusEmoji = "";
+  if (status === true) {
+    statusEmoji = "✅";
+  } else if (status === false) {
+    statusEmoji = "❌";
+  } else {
+    statusEmoji = "❓";
+  }
+
   alertControl.waiting = false;
   console.info(`Feedback processed for alert ${alertId}. Status: ${status}`);
+
+  try {
+    await sendResponse(
+      provider,
+      currentCtx,
+      `Feedback processed for alert ${alertId}. Status: ${statusEmoji} ${status}`
+    );
+  } catch (error) {
+    console.error("Error sending feedback message:", error);
+  }
 }

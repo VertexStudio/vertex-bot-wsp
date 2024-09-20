@@ -42,6 +42,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       session.addParticipant(userNumber, userName);
 
       enqueueMessage(ctx.body, async (body) => {
+        console.debug("Context: ", ctx);
         body = processQuotedMessage(ctx, session, userNumber, userName, body);
 
         const formattedMessages = await getRelevantMessages(
