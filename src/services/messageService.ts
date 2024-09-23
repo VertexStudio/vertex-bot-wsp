@@ -9,7 +9,6 @@ export async function sendMessage(
   retryCount: number = 0
 ) {
   try {
-    console.debug("Quoted message", quotedMessage);
     await provider.vendor.sendMessage(
       remoteJid,
       { text: messageText, mentions },

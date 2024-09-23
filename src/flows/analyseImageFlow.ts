@@ -135,7 +135,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
     session.addMessages(
       String(conversation.id.id),
       { role: "user", content: `${userName}: ${caption}` },
-      { role: "tool", content: `${results[0]}` },
+      { role: "tool", content: `${results}` },
       { role: "assistant", content: humanReadableResponse }
     );
 
