@@ -56,7 +56,7 @@ async function getConversationMessages(
         FROM conversation 
         WHERE whatsapp_id = '${groupId}'
     )[0].chat_message 
-    ORDER BY created_at 
+    ORDER BY created_at DESC
     LIMIT 30;
   `);
   return Array.isArray(result) ? result : [];
