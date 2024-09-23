@@ -43,8 +43,12 @@ class BiomaInterface {
   }
 
   async createActor(id) {
-    const actor = await this.db.create("actor", id);
-    return actor;
+    const actor = await this.db.select(id);
+    if (actor) {
+      return actor;
+    }
+    const newActor = await this.db.create("actor", id);
+    return newActor;
   }
 
   async sendMessage(tx, rx, name, message) {

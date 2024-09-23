@@ -31,29 +31,30 @@ type EmbeddingResult = {
 
 async function createEmbeddings(
   texts: string[],
-  model: string
+  tag: string,
+  model?: string
 ): Promise<EmbeddingResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
-      "/vertex-bot-wsp",
+      "/vertex-bot-wsp-embeddings",
       "vertex::VertexBotWSP"
     );
     const vertexBotWsp = await bioma.createActor(vertexBotWspId);
 
     const embeddingsId = bioma.createActorId(
       "/embeddings",
-      "embeddings::embeddings::Embeddings"
+      "bioma_llm::embeddings::Embeddings"
     );
 
     const createEmbeddingsMessage = {
       texts: texts,
-      model_name: model,
+      tag: tag,
     };
 
     const messageId = await bioma.sendMessage(
       vertexBotWspId,
       embeddingsId,
-      "embeddings::embeddings::GenerateEmbeddings",
+      "bioma_llm::embeddings::GenerateEmbeddings",
       createEmbeddingsMessage
     );
 
@@ -66,4 +67,57 @@ async function createEmbeddings(
   }
 }
 
-export default createEmbeddings;
+type SimilarityResult = {
+  err: undefined | string;
+  id: RecordId;
+  msg: Array<{
+    text: string;
+    similarity: number;
+  }>;
+  name: string;
+  rx: RecordId;
+  tx: RecordId;
+};
+
+async function topSimilarity(
+  query: string | number[],
+  tag?: string,
+  k: number = 5,
+  threshold: number = 0.7
+): Promise<SimilarityResult> {
+  try {
+    const vertexBotWspId = bioma.createActorId(
+      "/vertex-bot-wsp-embeddings",
+      "vertex::VertexBotWSP"
+    );
+    const vertexBotWsp = await bioma.createActor(vertexBotWspId);
+
+    const embeddingsId = bioma.createActorId(
+      "/embeddings",
+      "bioma_llm::embeddings::Embeddings"
+    );
+
+    const topKMessage = {
+      query: typeof query === "string" ? { Text: query } : { Embedding: query },
+      tag: tag,
+      k: k,
+      threshold: threshold,
+    };
+
+    const messageId = await bioma.sendMessage(
+      vertexBotWspId,
+      embeddingsId,
+      "bioma_llm::embeddings::TopK",
+      topKMessage
+    );
+
+    const reply = await bioma.waitForReply(messageId, 60000);
+
+    return reply as SimilarityResult;
+  } catch (error) {
+    console.error("Error in topSimilarity:", error);
+    throw error;
+  }
+}
+
+export { createEmbeddings, topSimilarity };
