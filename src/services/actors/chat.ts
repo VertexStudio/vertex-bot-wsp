@@ -27,19 +27,16 @@ type ChatMessage = {
 };
 
 type ChatResult = {
-  err: undefined | string;
-  id: RecordId;
-  msg: {
-    messages: ChatMessage[];
-  };
-  name: string;
-  rx: RecordId;
-  tx: RecordId;
+  model: string;
+  created_at: string;
+  message: ChatMessage | null;
+  done: boolean;
+  final_data?: {};
 };
 
 async function sendChatMessage(
   messages: ChatMessage[],
-  sessionId: string
+  restart: boolean
 ): Promise<ChatResult> {
   try {
     const vertexChatId = bioma.createActorId("/vertex-chat", "chat::ChatActor");
@@ -48,8 +45,8 @@ async function sendChatMessage(
     const chatId = bioma.createActorId("/chat", "chat::ChatService");
 
     const sendMessage = {
-      session_id: sessionId,
-      messages: messages,
+      messages,
+      restart,
     };
 
     const messageId = await bioma.sendMessage(
