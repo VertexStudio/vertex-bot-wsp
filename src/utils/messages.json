@@ -5,11 +5,12 @@
       "errorWelcome": "Error in welcomeFlow:",
       "anomaly_correct": "Image marked as correct.",
       "anomaly_incorrect": "Image marked as incorrect.",
-      "alerts_on": "The alerts have been activated.",
-      "alerts_error": "There was an error processing the images.",
+      "alerts_on": "Alerts are now active. You will receive alerts for new anomalies.",
+      "alerts_error": "Sorry, an error occurred while activating alerts.",
       "selectLanguagePrompt": "Please select your language.",
       "languageSetConfirmation": "Language has been set.",
-      "languageNotRecognized": "Language not recognized."
+      "languageNotRecognized": "Language not recognized.",
+      "invalid_reaction": "Invalid reaction. Please use one of the following reactions: ✅, 👍 or ❌, 👎"
     },
     "es": {
       "analyzing_image": "Estamos analizando tu imagen. Por favor, espera...",
@@ -17,10 +18,11 @@
       "errorWelcome": "Error en welcomeFlow:",
       "anomaly_correct": "Imagen marcada como correcta.",
       "anomaly_incorrect": "Imagen marcada como incorrecta.",
-      "alerts_on": "Las alertas han sido activadas.",
-      "alerts_error": "Se ha producido un error al procesar las imágenes.",
+      "alerts_on": "Las alertas ya están activas. Recibirá alertas de nuevas anomalías.",
+      "alerts_error": "Lo sentimos, se ha producido un error al activar las alertas.",
       "selectLanguagePrompt": "Por favor, seleccione su idioma.",
       "languageSetConfirmation": "El idioma ha sido configurado.",
-      "languageNotRecognized": "Idioma no reconocido."
+      "languageNotRecognized": "Idioma no reconocido.",
+      "invalid_reaction": "Reacción no válida. Por favor, utilice una de las siguientes reacciones: ✅, 👍 o ❌, 👎"
     }
 }

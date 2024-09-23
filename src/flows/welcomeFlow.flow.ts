@@ -5,59 +5,93 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
-import { getMessage } from '../services/translate';
+import { setupLogger } from "../utils/logger";
+import { handleConversation } from "../services/conversationService";
+import {
+  processQuotedMessage,
+  getRelevantMessages,
+  getRelevantFacts,
+} from "../services/messageProcessor";
+import { buildPromptMessages } from "../services/promptBuilder";
+import { sendResponse } from "../services/responseService";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
+
+setupLogger();
 
 export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
   async (ctx, { provider }) => {
     try {
       await typing(ctx, provider);
+
+      const groupId = ctx.to.split("@")[0];
+      const userId = ctx.key.remoteJid;
+      const userName = ctx.pushName || "User";
+      const userNumber = ctx.key.participant || ctx.key.remoteJid;
+
+      const { latestMessagesEmbeddings, conversation } =
+        await handleConversation(groupId);
+
+      let session = sessions.get(userId);
+      if (!session) {
+        session = new Session(conversation.system_prompt);
+        sessions.set(userId, session);
+      }
+
+      session.addParticipant(userNumber, userName);
+
       enqueueMessage(ctx.body, async (body) => {
-        console.log("Processed messages:", body);
-        const userId = ctx.key.remoteJid;
-        const userName = ctx.pushName || "User";
+        body = processQuotedMessage(ctx, session, userNumber, userName, body);
 
-        if (!sessions.has(userId)) {
-          sessions.set(userId, new Session());
-        }
-        const session = sessions.get(userId)!;
+        const formattedMessages = await getRelevantMessages(
+          body,
+          latestMessagesEmbeddings
+        );
+        const relevantFactsText = await getRelevantFacts(body);
 
-        session.addMessage({
-          role: "user",
-          content: `${userName}: ${body}`,
-        });
+        const promptMessages = buildPromptMessages(
+          conversation.system_prompt,
+          relevantFactsText,
+          formattedMessages,
+          userName,
+          body
+        );
 
-        const response = await callOllamaAPIChat(session, {
+        const response = await callOllamaAPIChat(promptMessages, {
           temperature: 0.3,
           top_k: 20,
           top_p: 0.45,
+          num_ctx: 30720,
         });
 
-        session.addMessage(response);
+        const responseMessage = {
+          role: "assistant",
+          content: response.content,
+        };
 
-        console.log("Session messages: ", session.messages);
+        const messagesToSave = [
+          { role: "user", content: `${userName}: ${body}` },
+          responseMessage,
+        ];
 
-        let messageText = response.content;
-        let mentions: string[] = [];
-
-        if (ctx.key.participant) {
-          messageText = `@${ctx.key.participant.split("@")[0]} ${messageText}`;
-          mentions = [ctx.key.participant];
-        }
-
-        await sendMessage(
-          provider,
-          ctx.key.remoteJid,
-          messageText,
-          mentions,
-          ctx
+        await session.addMessages(
+          String(conversation.id.id),
+          ...messagesToSave
         );
+
+        console.debug("Messages: ", { ...promptMessages, responseMessage });
+        console.log("Session participants: ", session.participants);
+
+        await sendResponse(provider, ctx, response.content);
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
-      await sendMessage(provider, ctx.key.remoteJid, getMessage(`errorWelcome ${error.message}`));
+      await sendMessage(
+        provider,
+        ctx.key.remoteJid,
+        `errorWelcome ${error.message}`
+      );
     }
   }
 );

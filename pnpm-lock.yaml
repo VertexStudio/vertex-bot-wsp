@@ -18,6 +18,11 @@ importers:
         specifier: ^1.1.0
         version: 1.1.0
       axios:
+        specifier: ^1.7.4
+        version: 1.7.7
+      chokidar:
+        specifier: ^3.6.0
+        version: 3.6.0
         specifier: ^1.6.8
         version: 1.6.8
       dotenv:
@@ -32,6 +37,15 @@ importers:
       lru-cache:
         specifier: 11.0.0
         version: 11.0.0
+      openai:
+        specifier: ^4.42.0
+        version: 4.42.0
+      openai-whisper:
+        specifier: ^1.0.2
+        version: 1.0.2
+      lru-cache:
+        specifier: 11.0.0
+        version: 11.0.0
       path:
         specifier: ^0.12.7
         version: 0.12.7
@@ -39,6 +53,11 @@ importers:
         specifier: ^0.33.4
         version: 0.33.4
       surrealdb.js:
+        specifier: 1.0.0-beta.18
+        version: 1.0.0-beta.18(tslib@2.6.2)(typescript@5.4.5)(ws@8.16.0(bufferutil@4.0.8)(utf-8-validate@6.0.4))
+      uuid:
+        specifier: ^10.0.0
+        version: 10.0.0
         specifier: 1.0.0-beta.9
         version: 1.0.0-beta.9
       uuid:
@@ -97,12 +116,6 @@ packages:
 
   '@builderbot/provider-baileys@1.2.2':
     resolution: {integrity: sha512-Yj37OqyZrTRbEtPuY5IOTaH4tahNweqzgx8HAENPrf7UU5sFQIuTXEIjyA1Ycm9G44O4o1qZz1ZxsAlhzYPLbA==}
-
-  '@deno/shim-deno-test@0.4.0':
-    resolution: {integrity: sha512-oYWcD7CpERZy/TXMTM9Tgh1HD/POHlbY9WpzmAk+5H8DohcxG415Qws8yLGlim3EaKBT2v3lJv01x4G0BosnaQ==}
-
-  '@deno/shim-deno@0.16.1':
-    resolution: {integrity: sha512-s9v0kzF5bm/o9TgdwvsraHx6QNllYrXXmKzgOG2lh4LFXnVMr2gpjK/c/ve6EflQn1MqImcWmVD8HAv5ahuuZQ==}
 
   '@emnapi/runtime@1.1.1':
     resolution: {integrity: sha512-3bfqkzuR1KLx57nZfjr2NLnFOobvyS0aTszaEGCGqmYMVDRaGvgIZbjGSV/MHSSmLgQ/b9JFHQ5xm5WRZYd+XQ==}
@@ -325,9 +338,6 @@ packages:
 
   '@humanwhocodes/object-schema@2.0.3':
     resolution: {integrity: sha512-93zYdMES/c1D69yZiKDBj0V24vqNzB/koF26KPaagAfd3P/4gUlh3Dys5ogAK+Exi9QyzlD8x/08Zt7wIKcDcA==}
-
-  '@icholy/duration@5.1.0':
-    resolution: {integrity: sha512-I/zdjC6qYdwWJ2H1/PZbI3g58pPIiI/eOe5XDTtQ/v36d0ogcvAylqwOIWj/teY1rBnIMzUyWfX7PMm9I67WWg==}
 
   '@img/sharp-darwin-arm64@0.33.3':
     resolution: {integrity: sha512-FaNiGX1MrOuJ3hxuNzWgsT/mg5OHG/Izh59WW2mk1UwYHUwtfbhk5QNKYZgxf0pLOhx9ctGiGa2OykD71vOnSw==}
@@ -905,9 +915,6 @@ packages:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}
     engines: {node: '>=6'}
 
-  cbor-redux@1.0.0:
-    resolution: {integrity: sha512-nqCD/Yu2FON0XgZYdUNsMx1Tc08MOY3noh9bO2MvkjlyLZyqIVWjuz6A0mDrPJncdOfacokFUtF7zlzzP5oK5A==}
-
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
@@ -978,9 +985,6 @@ packages:
     peerDependenciesMeta:
       supports-color:
         optional: true
-
-  decimal.js@10.4.3:
-    resolution: {integrity: sha512-VBBaLc1MgL5XpzgIP7ny5Z6Nx3UrRkIViUkPUdtl9aya5amy3De1gsUUSB1g3+3sExYNjCAsAznmukyxCb1GRA==}
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
@@ -1348,6 +1352,10 @@ packages:
 
   long@5.2.3:
     resolution: {integrity: sha512-lcHwpNoggQTObv5apGNCTdJrO69eHOZMi4BNC+rTLER8iHAqGrUVeLh/irVIM7zTw2bOXA8T6uNPeujwOLg/2Q==}
+
+  lru-cache@11.0.0:
+    resolution: {integrity: sha512-Qv32eSV1RSCfhY3fpPE2GNZ8jgM9X7rdAfemLWqTUxwiyIC4jJ6Sy0fZ8H+oLWevO6i4/bizg7c8d8i6bxrzbA==}
+    engines: {node: 20 || >=22}
 
   lru-cache@11.0.0:
     resolution: {integrity: sha512-Qv32eSV1RSCfhY3fpPE2GNZ8jgM9X7rdAfemLWqTUxwiyIC4jJ6Sy0fZ8H+oLWevO6i4/bizg7c8d8i6bxrzbA==}
@@ -1727,9 +1735,12 @@ packages:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
     engines: {node: '>=8'}
 
-  surrealdb.js@1.0.0-beta.9:
-    resolution: {integrity: sha512-EPodlWRWwfK91qtKHJ246Rljpvl7eB0egHwhthRa/wsxMoEVqUyIqmMSjmweKOGGKxm35NhivYbJh+5LnqI/nA==}
+  surrealdb.js@1.0.0-beta.18:
+    resolution: {integrity: sha512-bPok/1iyHZfOf0jEmSfeiNBL3KjDIp55rKDfhDVqyyMxTM5oNQMqQW4Nk8+keJYII0OsY/Uel9G9XCiQjIVAsQ==}
     engines: {node: '>=18.0.0'}
+    peerDependencies:
+      tslib: ^2.6.3
+      typescript: ^5.0.0
 
   text-table@0.2.0:
     resolution: {integrity: sha512-N+8UisAXDGk8PFXP4HAzVR9nbfmVJ3zYLAWiTIoqC5v5isinhr+r5uaO8+7r3BMfuNIufIsA7RdpVgacC2cSpw==}
@@ -1819,13 +1830,33 @@ packages:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
     hasBin: true
 
-  uuidv7@0.6.3:
-    resolution: {integrity: sha512-zV3eW2NlXTsun/aJ7AixxZjH/byQcH/r3J99MI0dDEkU2cJIBJxhEWUHDTpOaLPRNhebPZoeHuykYREkI9HafA==}
+  uuid@9.0.1:
+    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+  uuid@10.0.0:
+    resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    hasBin: true
+
+  uuidv7@1.0.2:
+    resolution: {integrity: sha512-8JQkH4ooXnm1JCIhqTMbtmdnYEn6oKukBxHn1Ic9878jMkL7daTI7anTExfY18VRCX7tcdn5quzvCb6EWrR8PA==}
     hasBin: true
 
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
+
+  web-streams-polyfill@3.3.3:
+    resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
+    engines: {node: '>= 8'}
+
+  web-streams-polyfill@4.0.0-beta.3:
+    resolution: {integrity: sha512-QW95TCTaHmsYfHDybGMwO5IJIM93I/6vTRk+daHTWFPhwh+C8Cg7j7XyKrwrj8Ib6vYXe0ocYNrmzY4xAAN6ug==}
+    engines: {node: '>= 14'}
+
+  webidl-conversions@3.0.1:
+    resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
+
+  whatwg-url@5.0.0:
+    resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
   which@1.3.1:
     resolution: {integrity: sha512-HxJdYWq1MTIQbJ3nw0cqssHoTNU267KlrDuGZ1WYlxDStUtKUhOaJmh112/TZmHxxUfuJqPXSOm7tDyas0OSIQ==}
@@ -1857,9 +1888,6 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
-
-  zod@3.23.8:
-    resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
 
 snapshots:
 
@@ -1902,13 +1930,6 @@ snapshots:
       - sharp
       - supports-color
       - utf-8-validate
-
-  '@deno/shim-deno-test@0.4.0': {}
-
-  '@deno/shim-deno@0.16.1':
-    dependencies:
-      '@deno/shim-deno-test': 0.4.0
-      which: 2.0.2
 
   '@emnapi/runtime@1.1.1':
     dependencies:
@@ -2061,8 +2082,6 @@ snapshots:
   '@humanwhocodes/module-importer@1.0.1': {}
 
   '@humanwhocodes/object-schema@2.0.3': {}
-
-  '@icholy/duration@5.1.0': {}
 
   '@img/sharp-darwin-arm64@0.33.3':
     optionalDependencies:
@@ -2471,6 +2490,7 @@ snapshots:
       async-lock: 1.4.1
       audio-decode: 2.2.0
       axios: 1.7.7
+      axios: 1.7.7
       cache-manager: 4.0.1
       futoin-hkdf: 1.5.3
       libphonenumber-js: 1.10.61
@@ -2623,10 +2643,6 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cbor-redux@1.0.0:
-    dependencies:
-      '@deno/shim-deno': 0.16.1
-
   chalk@4.1.2:
     dependencies:
       ansi-styles: 4.3.0
@@ -2696,8 +2712,6 @@ snapshots:
       ms: 2.1.2
     optionalDependencies:
       supports-color: 5.5.0
-
-  decimal.js@10.4.3: {}
 
   deep-is@0.1.4: {}
 
@@ -3104,6 +3118,8 @@ snapshots:
   long@4.0.0: {}
 
   long@5.2.3: {}
+
+  lru-cache@11.0.0: {}
 
   lru-cache@11.0.0: {}
 
@@ -3558,19 +3574,17 @@ snapshots:
     dependencies:
       has-flag: 4.0.0
 
-  surrealdb.js@1.0.0-beta.9:
+  surrealdb.js@1.0.0-beta.18(tslib@2.6.2)(typescript@5.4.5)(ws@8.16.0(bufferutil@4.0.8)(utf-8-validate@6.0.4)):
     dependencies:
-      '@icholy/duration': 5.1.0
-      cbor-redux: 1.0.0
-      decimal.js: 10.4.3
       isows: 1.0.4(ws@8.16.0(bufferutil@4.0.8)(utf-8-validate@6.0.4))
-      semver: 7.6.0
-      uuidv7: 0.6.3
-      ws: 8.16.0(bufferutil@4.0.8)(utf-8-validate@6.0.4)
-      zod: 3.23.8
+      tslib: 2.6.2
+      typescript: 5.4.5
+      uuidv7: 1.0.2
     optionalDependencies:
       bufferutil: 4.0.8
       utf-8-validate: 6.0.4
+    transitivePeerDependencies:
+      - ws
 
   text-table@0.2.0: {}
 
@@ -3648,7 +3662,7 @@ snapshots:
 
   uuid@10.0.0: {}
 
-  uuidv7@0.6.3: {}
+  uuidv7@1.0.2: {}
 
   vary@1.1.2: {}
 
@@ -3670,5 +3684,3 @@ snapshots:
   yallist@4.0.0: {}
 
   yocto-queue@0.1.0: {}
-
-  zod@3.23.8: {}

@@ -1,5 +1,15 @@
+import { getDb } from "~/database/surreal";
+import "dotenv/config";
+import { createEmbeddings } from "~/services/actors/embeddings";
+
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
+
+export type Fact = {
+  fact_value: string;
+};
+
 export class Session {
-  static readonly DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat. Follow these guidelines:
+  static readonly DEFAULT_SYSTEM_MESSAGE = `You are a helpful assistant in a WhatsApp group chat of a company. Follow these guidelines:
   
   1. Role: You are a helpful, friendly assistant named VeoVeo Bot. You do NOT impersonate or speak for any human users.
   
@@ -23,22 +33,110 @@ export class Session {
   7. Context Awareness:
      - Pay attention to the flow of conversation.
      - Query tool results when the user asks about the image.
+     - Only consider previously cited quotes if they are directly relevant to the user's current query. Ignore quotes that are unrelated to the current user prompt.
   
-  Remember, your role is to assist and interact as VeoVeo Bot.`;
+  Remember, your role is to assist and interact as VeoVeo Bot and answer all queries.`;
 
   private static readonly MAX_CHAR_LIMIT = 512000;
+  private static readonly ID_START_NUMBER = 1;
+  private static readonly MAX_QUOTES = 10;
 
-  messages: Array<{ role: string; content: string }>;
+  private messageIdCounter: number;
 
-  constructor() {
+  messages: Array<{ id: number; role: string; content: string }>;
+
+  participants: Array<{ id: string; name: string }>;
+
+  quotesByUser = {};
+
+  constructor(systemPrompt: string) {
     this.messages = [
-      { role: "system", content: Session.DEFAULT_SYSTEM_MESSAGE },
+      {
+        id: Session.ID_START_NUMBER,
+        role: "system",
+        content: systemPrompt,
+      },
     ];
+    this.messageIdCounter = Session.ID_START_NUMBER;
+    this.participants = [];
+    this.messageIdCounter = Session.ID_START_NUMBER;
+    this.participants = [];
   }
 
-  addMessage(message: { role: string; content: string }) {
-    this.messages.push(message);
-    this.trimMessages();
+  async addMessages(
+    conversation: string,
+    ...messages: { role: string; content: string }[]
+  ) {
+    const db = getDb();
+
+    const messageContents = messages.map((msg) => msg.content);
+    const embeddingResult = await createEmbeddings(
+      messageContents,
+      "conversation"
+    );
+
+    const createQueries = messages.map((msg, index) => {
+      const query = `
+        LET $chat_message = CREATE chat_message SET msg = ${JSON.stringify(
+          msg.content
+        )}, created_at = time::now(), role = '${msg.role}';
+        RELATE conversation:${conversation}->conversation_chat_messages->$chat_message;
+      `
+        .replace(/\n/g, " ")
+        .trim();
+      return query;
+    });
+
+    try {
+      const transactionQuery = `
+        BEGIN TRANSACTION;
+        ${createQueries.join(";\n")};
+        COMMIT TRANSACTION;
+      `;
+      const result = await db.query(transactionQuery);
+
+      messages.forEach((msg) => {
+        this.messages.push({ id: ++this.messageIdCounter, ...msg });
+      });
+      this.trimMessages();
+    } catch (error) {
+      console.error("Error executing database query:", error);
+      throw error;
+    }
+  }
+
+  addParticipant(id: string, name: string) {
+    if (!this.participants.find((p) => p.id === id)) {
+      this.participants.push({ id, name });
+    }
+  }
+
+  getParticipantName(id: string) {
+    const participant = this.participants.find((p) => p.id === id);
+    return participant ? participant.name : "assistant";
+  }
+
+  createQuotesByUser(userNumber: string) {
+    if (!this.quotesByUser[userNumber]) {
+      this.quotesByUser[userNumber] = new Set();
+    }
+  }
+
+  addQuoteByUser(userNumber: string, newQuote: string) {
+    if (this.quotesByUser[userNumber].size >= Session.MAX_QUOTES) {
+      this.quotesByUser[userNumber].delete(
+        this.quotesByUser[userNumber].values().next().value
+      );
+    }
+    this.quotesByUser[userNumber].add(newQuote);
+  }
+
+  getQuotesByUser(userNumber: string) {
+    let quotes = "";
+    this.quotesByUser[userNumber].forEach((quote) => {
+      quotes += `'${quote}' \n`;
+    });
+    return quotes;
   }
 
   private trimMessages() {
