@@ -93,9 +93,6 @@ async function handleReaction(reactions: any[]) {
   const reaction = reactions[0];
   const { key: reactionKey, text: emoji } = reaction.reaction || {};
 
-  console.debug("KEY", reactionKey);
-  console.debug("EMOJI", emoji);
-
   if (!reactionKey || !emoji) {
     console.info(`Invalid reaction format`);
     return;
