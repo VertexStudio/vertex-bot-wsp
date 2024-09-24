@@ -32,6 +32,7 @@ It is advisable to check first the [veoveo](https://github.com/VertexStudio/veov
 3. Run the required services (each in a separate terminal):
 
    ```bash
+   docker compose up -d
    cargo run -p rerank
    cargo run -p embeddings
    cargo run -p vv_vision
@@ -74,8 +75,8 @@ It is advisable to check first the [veoveo](https://github.com/VertexStudio/veov
 
 ## Group Validations
 
-1. Copy the groupsValidationFeature/index.cjs
-2. Paste and replace on node_modules/@builderbot/provider-baileys/dist/index.cjs
+1. Copy the groupsValidationFeature/index.cjsnode_modules/@builderbot/provider-baileys/dist/index.cjs
+2. Paste and replace on
 
 ## Additional Requirements
 
