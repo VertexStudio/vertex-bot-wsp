@@ -8,7 +8,6 @@ import { typing } from "../utils/presence";
 import sharp from "sharp";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
-import { callOllamaAPI } from "../services/ollamaService";
 import { sendMessage as sendMessageService } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
 import { getDb } from "~/database/surreal";
@@ -22,6 +21,7 @@ import {
   IMAGE_ANALYSIS_TYPES,
   ImageAnalysisType,
 } from "~/services/promptBuilder";
+import sendChatMessage, { ChatMessage } from "~/services/actors/chat";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -78,8 +78,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const groupId = ctx.to.split("@")[0];
 
   const result = await handleConversation(groupId);
-  const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
-    ? { latestMessagesEmbeddings: [], conversation: null }
+  const { latestMessages, conversation } = Array.isArray(result)
+    ? { latestMessages: [], conversation: null }
     : result;
 
   try {
@@ -166,13 +166,13 @@ async function determineAnalysisType(
   caption: string
 ): Promise<ImageAnalysisType | null> {
   const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const analysisType = await callOllamaAPI(prompt, {
-    system,
-    temperature: 0,
-    top_k: 20,
-    top_p: 0.45,
-  });
-  console.debug("Ollama API response (analysis type):", analysisType);
+  const messages: ChatMessage[] = [
+    { role: "system", content: system },
+    { role: "user", content: prompt },
+  ];
+  const response = await sendChatMessage(messages, true);
+  const analysisType = response.msg.message?.content || "";
+  console.debug("Chat message response (analysis type):", analysisType);
 
   return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
     ? (analysisType as ImageAnalysisType)
@@ -184,13 +184,14 @@ async function generateHumanReadableResponse(
   results: unknown
 ): Promise<string> {
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const response = await callOllamaAPI(prompt, {
-    system,
-    temperature: 0.1,
-    top_k: 20,
-    top_p: 0.45,
-  });
-  console.info("Human-readable response:", response);
+  const messages: ChatMessage[] = [
+    { role: "system", content: system },
+    { role: "user", content: prompt },
+    { role: "tool", content: JSON.stringify(results) },
+  ];
+  const response = await sendChatMessage(messages, true);
+  const humanReadableResponse = response.msg.message?.content || "";
+  console.info("Human-readable response:", humanReadableResponse);
 
-  return alignResponse(response);
+  return alignResponse(humanReadableResponse);
 }

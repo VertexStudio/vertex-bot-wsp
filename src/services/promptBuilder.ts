@@ -1,3 +1,5 @@
+import { ChatMessage } from "./actors/chat";
+
 // Type definitions
 export type ImageAnalysisType =
   | "more detailed caption"
@@ -34,7 +36,7 @@ export function buildPromptMessages(
   formattedMessages: { role: string; content: string }[],
   userName: string,
   body: string
-): { role: string; content: string }[] {
+): ChatMessage[] {
   const systemMessage = {
     role: "system",
     content: `${systemPrompt}\n\nRelevant facts (your RAG info):\n\n${relevantFactsText}`,
@@ -42,7 +44,7 @@ export function buildPromptMessages(
 
   const userMessage = { role: "user", content: `${userName}: ${body}` };
 
-  return [systemMessage, ...formattedMessages, userMessage];
+  return [systemMessage, ...formattedMessages, userMessage] as ChatMessage[];
 }
 
 // Prompt generation functions
@@ -113,12 +115,7 @@ export function generateHumanReadablePrompt(
 9. Use all available information from the analysis results to answer the user's request accurately.
 10. Do not offer further help or guidance.`;
 
-  const prompt = `User's request about an image: "${caption}"
-
-Image analysis result:
-${JSON.stringify(results, null, 2)}
-
-Provide a direct answer to the user's request based on these results.`;
+  const prompt = `${caption}`;
 
   return { system, prompt };
 }

@@ -26,15 +26,18 @@ It is advisable to check first the [veoveo](https://github.com/VertexStudio/veov
 2. Start SurrealDB:
 
    ```bash
+   cargo run -p vv_db -- --user root --pass root --dummy
    surreal start --user root --pass root surrealkv:assets/vv_db
    ```
 
 3. Run the required services (each in a separate terminal):
 
    ```bash
-   docker compose up -d
+   docker compose up -d (for minio service)
    cargo run -p rerank
    cargo run -p embeddings
+   cargo run -p facts
+   cargo run -p chat
    cargo run -p vv_vision
    ./run.sh cargo run --release -p asset_pipeline -- --comfy
    ```
@@ -106,7 +109,8 @@ sequenceDiagram
     participant W as WhatsApp
     participant VB as Vertex Bot
     participant DB as VV DB (SurrealDB)
-    participant O as Ollama
+    participant EA as Embeddings Actor
+    participant CA as Chat Actor
     participant RA as Rerank Actor
 
     U->>W: Send message
@@ -118,24 +122,19 @@ sequenceDiagram
         VB->>DB: Create new conversation
         DB->>VB: Return new conversation
     end
-    VB->>O: Generate embeddings for user query
-    O->>VB: Return embeddings
 
-    alt More than 10 messages in conversation
-        VB->>VB: Rerank older messages using cosine similarity
-    end
+    VB->>EA: Query Embeddings Actor to get top facts and top messages
+    EA->>VB: Return top facts and top messages
 
-    alt Company facts exist
-        VB->>RA: Rerank facts based on user query
-        RA->>VB: Return relevant facts
-    end
+    VB->>RA: Rerank facts and messages
+    RA->>VB: Return reranked facts and messages
 
-    VB->>VB: Build prompt with relevant facts
-    VB->>O: Send built prompt
-    O->>VB: Generate response
-    VB->>O: Create embeddings for new messages
-    O->>VB: Return new embeddings
-    VB->>DB: Save messages, embeddings, and relationships
-    VB->>W: Send response
+    VB->>CA: Send reranked messages to Chat Actor
+    CA->>VB: Return assistant response
+
+    VB->>EA: Create embeddings for new messages
+
+    VB->>DB: Save messages and relationships
+    VB->>W: Send assistant response
     W->>U: Deliver response
 ```

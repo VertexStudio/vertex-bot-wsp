@@ -4,16 +4,16 @@ import { Conversation, Message } from "../models/types";
 import { Session } from "~/models/Session";
 
 export async function handleConversation(groupId: string): Promise<{
-  latestMessagesEmbeddings: Message[];
+  latestMessages: Message[];
   conversation: Conversation;
 }> {
   const db = getDb();
 
   const conversation = await getOrCreateConversation(db, groupId);
 
-  const latestMessagesEmbeddings = await getConversationMessages(db, groupId);
+  const latestMessages = await getConversationMessages(db, groupId);
 
-  return { latestMessagesEmbeddings, conversation };
+  return { latestMessages, conversation };
 }
 
 async function getOrCreateConversation(

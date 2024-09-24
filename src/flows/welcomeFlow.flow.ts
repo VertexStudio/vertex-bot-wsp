@@ -2,7 +2,6 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
@@ -14,6 +13,7 @@ import {
 } from "../services/messageProcessor";
 import { buildPromptMessages } from "../services/promptBuilder";
 import { sendResponse } from "../services/responseService";
+import sendChatMessage from "~/services/actors/chat";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -30,8 +30,9 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const userName = ctx.pushName || "User";
       const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
-      const { latestMessagesEmbeddings, conversation } =
-        await handleConversation(groupId);
+      const { latestMessages, conversation } = await handleConversation(
+        groupId
+      );
 
       let session = sessions.get(userId);
       if (!session) {
@@ -47,7 +48,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         const formattedMessages = await getRelevantMessages(
           body,
-          latestMessagesEmbeddings
+          latestMessages
         );
         const relevantFactsText = await getRelevantFacts(body);
 
@@ -59,16 +60,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           body
         );
 
-        const response = await callOllamaAPIChat(promptMessages, {
-          temperature: 0.3,
-          top_k: 20,
-          top_p: 0.45,
-          num_ctx: 30720,
-        });
+        const response = await sendChatMessage(promptMessages, true);
+
+        console.debug("Response: ", response);
 
         const responseMessage = {
           role: "assistant",
-          content: response.content,
+          content: response.msg.message?.content || "",
         };
 
         const messagesToSave = [
@@ -84,7 +82,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         console.debug("Messages: ", { ...promptMessages, responseMessage });
         console.log("Session participants: ", session.participants);
 
-        await sendResponse(provider, ctx, response.content);
+        await sendResponse(provider, ctx, responseMessage.content);
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
