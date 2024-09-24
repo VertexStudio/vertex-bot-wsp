@@ -106,18 +106,11 @@ sequenceDiagram
     participant W as WhatsApp
     participant VB as Vertex Bot
     participant DB as VV DB (SurrealDB)
-    participant CA as Chat Actor
-    participant O as Ollama
     participant EA as Embeddings Actor
+    participant QEA as Query Embeddings Actor
+    participant CA as Chat Actor
     participant RA as Rerank Actor
 
-    Note over VB,DB: On Bot Initialization
-    VB->>DB: Fetch company facts
-    DB->>VB: Return company facts
-    VB->>DB: Set up live query subscription for facts
-    Note over VB,DB: Live query keeps facts updated
-
-    Note over U,W: User Interaction Begins
     U->>W: Send message
     W->>VB: Forward message
     VB->>DB: Fetch conversation
@@ -127,28 +120,19 @@ sequenceDiagram
         VB->>DB: Create new conversation
         DB->>VB: Return new conversation
     end
-    alt More than 10 messages in conversation
-        VB->>EA: Generate embeddings for user query
-        EA->>O: Request embeddings
-        O->>EA: Return embeddings
-        EA->>VB: Return embeddings
-        VB->>VB: Rerank older messages using cosine similarity
-    end
-    VB->>RA: Rerank facts based on user query
-    RA->>VB: Return relevant facts
-    VB->>VB: Build prompt with relevant facts
-    VB->>CA: Send conversation and prompt
-    CA->>O: Send built prompt
-    O->>CA: Generate response
-    CA->>VB: Return response
+
+    VB->>QEA: Query Embeddings Actor to get top facts and top messages
+    QEA->>VB: Return top facts and top messages
+
+    VB->>RA: Rerank facts and messages
+    RA->>VB: Return reranked facts and messages
+
+    VB->>CA: Send reranked messages to Chat Actor
+    CA->>VB: Return assistant response
+
     VB->>EA: Create embeddings for new messages
-    EA->>O: Request embeddings
-    O->>EA: Return embeddings
-    EA->>VB: Return new embeddings
-    VB->>DB: Save messages, embeddings, and relationships
+
+    VB->>DB: Save messages and relationships
     VB->>W: Send response
     W->>U: Deliver response
-
-    Note over VB,DB: Ongoing
-    DB-->>VB: Live updates to facts (as they occur)
 ```
