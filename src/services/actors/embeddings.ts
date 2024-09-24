@@ -1,6 +1,7 @@
 import { BiomaInterface } from "external/bioma_js/bioma.js";
 import { RecordId } from "surrealdb.js";
 import "dotenv/config";
+import { GenerateEmbeddings } from "~/models/types";
 
 const BIOMA_DB_URL = `${process.env.BIOMA_DB_PROTOCOL}://${process.env.BIOMA_DB_HOST}:${process.env.BIOMA_DB_PORT}`;
 const BIOMA_DB_NAMESPACE = process.env.BIOMA_DB_NAMESPACE;
@@ -30,9 +31,7 @@ type EmbeddingResult = {
 };
 
 async function createEmbeddings(
-  texts: string[],
-  tag: string,
-  model?: string
+  embeddings_req: GenerateEmbeddings
 ): Promise<EmbeddingResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
@@ -46,16 +45,11 @@ async function createEmbeddings(
       "bioma_llm::embeddings::Embeddings"
     );
 
-    const createEmbeddingsMessage = {
-      texts: texts,
-      tag: tag,
-    };
-
     const messageId = await bioma.sendMessage(
       vertexBotWspId,
       embeddingsId,
       "bioma_llm::embeddings::GenerateEmbeddings",
-      createEmbeddingsMessage
+      embeddings_req
     );
 
     const reply = await bioma.waitForReply(messageId, 10000);

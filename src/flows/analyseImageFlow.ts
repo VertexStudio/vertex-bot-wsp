@@ -21,8 +21,11 @@ import {
   IMAGE_ANALYSIS_TYPES,
   ImageAnalysisType,
 } from "~/services/promptBuilder";
-import sendChatMessage, { ChatMessage } from "~/services/actors/chat";
-import { Conversation } from "~/models/types";
+import sendChatMessage, {
+  ChatMessage,
+  ChatMessageRole,
+} from "~/services/actors/chat";
+import { GenerateEmbeddings } from "~/models/types";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -140,18 +143,25 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       results
     );
 
-    // Add all messages to the session at once
-    session.addMessages(
-      String(session.conversation.id.id),
-      {
-        role: "user",
-        msg: `${userName}: ${caption}`,
-      },
+    const new_messages: Array<{ role: ChatMessageRole; msg: string }> = [
+      { role: "user", msg: `${userName}: ${caption}` },
       { role: "tool", msg: `${results}` },
-      {
-        role: "assistant",
-        msg: humanReadableResponse,
-      }
+      { role: "assistant", msg: humanReadableResponse },
+    ];
+
+    const texts_to_embed = new_messages.map((msg) => msg.msg);
+
+    const embeddings_req: GenerateEmbeddings = {
+      source: "vertex::VertexBotWSP",
+      texts: texts_to_embed,
+      tag: "conversation",
+    };
+
+    // Add all messages to the session at once
+    await session.addMessages(
+      String(session.conversation.id.id),
+      embeddings_req,
+      ...new_messages
     );
 
     enqueueMessage(ctx.body, async (_) => {
