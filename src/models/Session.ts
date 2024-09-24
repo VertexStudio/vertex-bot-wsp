@@ -44,7 +44,7 @@ export class Session {
   private messageIdCounter: number;
 
   messages: Array<{ id: number; role: string; content: string }>;
-
+  conversation: any;
   participants: Array<{ id: string; name: string }>;
 
   quotesByUser = {};
@@ -59,12 +59,11 @@ export class Session {
     ];
     this.messageIdCounter = Session.ID_START_NUMBER;
     this.participants = [];
-    this.messageIdCounter = Session.ID_START_NUMBER;
-    this.participants = [];
+    this.conversation = null; // Initialize conversation
   }
 
   async addMessages(
-    conversation: string,
+    conversationId: string,
     ...messages: { role: string; content: string }[]
   ) {
     const db = getDb();
@@ -80,7 +79,7 @@ export class Session {
         LET $chat_message = CREATE chat_message SET msg = ${JSON.stringify(
           msg.content
         )}, created_at = time::now(), role = '${msg.role}';
-        RELATE conversation:${conversation}->conversation_chat_messages->$chat_message;
+        RELATE conversation:${conversationId}->conversation_chat_messages->$chat_message;
       `
         .replace(/\n/g, " ")
         .trim();
@@ -93,8 +92,9 @@ export class Session {
         ${createQueries.join(";\n")};
         COMMIT TRANSACTION;
       `;
-      const result = await db.query(transactionQuery);
+      await db.query(transactionQuery);
 
+      // Add messages to the session's message list
       messages.forEach((msg) => {
         this.messages.push({ id: ++this.messageIdCounter, ...msg });
       });
