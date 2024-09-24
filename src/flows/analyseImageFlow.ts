@@ -22,6 +22,7 @@ import {
   ImageAnalysisType,
 } from "~/services/promptBuilder";
 import sendChatMessage, { ChatMessage } from "~/services/actors/chat";
+import { Conversation } from "~/models/types";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -77,11 +78,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const userName = ctx.pushName || "System";
   const groupId = ctx.to.split("@")[0];
 
-  const result = await handleConversation(groupId);
-  const { latestMessages, conversation } = Array.isArray(result)
-    ? { latestMessages: [], conversation: null }
-    : result;
-
   try {
     await sendMessage(provider, number, getMessage("analyzing_image"), ctx);
 
@@ -101,11 +97,24 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       console.info("Received caption:", caption);
     }
 
-    // Get or create a session for this user
-    if (!sessions.has(number)) {
-      sessions.set(number, new Session(conversation.system_prompt));
+    // Fetch or create the session for the group
+    let session = sessions.get(groupId);
+    if (!session) {
+      const result = await handleConversation(groupId);
+      const { conversation: conversationResult, latestMessages } =
+        Array.isArray(result)
+          ? { conversation: null, latestMessages: [] }
+          : result;
+
+      if (!conversationResult) {
+        throw new Error("Unable to create or fetch conversation");
+      }
+
+      session = new Session(conversationResult.system_prompt);
+      session.conversation = conversationResult;
+      session.messages = latestMessages;
+      sessions.set(groupId, session);
     }
-    const session = sessions.get(number)!;
 
     const analysisType = await determineAnalysisType(caption);
     if (analysisType) {
@@ -133,10 +142,16 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
 
     // Add all messages to the session at once
     session.addMessages(
-      String(conversation.id.id),
-      { role: "user", content: `${userName}: ${caption}` },
-      { role: "tool", content: `${results}` },
-      { role: "assistant", content: humanReadableResponse }
+      String(session.conversation.id.id),
+      {
+        role: "user",
+        msg: `${userName}: ${caption}`,
+      },
+      { role: "tool", msg: `${results}` },
+      {
+        role: "assistant",
+        msg: humanReadableResponse,
+      }
     );
 
     enqueueMessage(ctx.body, async (_) => {

@@ -26,18 +26,19 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       await typing(ctx, provider);
 
       const groupId = ctx.to.split("@")[0];
-      const userId = ctx.key.remoteJid;
       const userName = ctx.pushName || "User";
       const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
-      const { latestMessages, conversation } = await handleConversation(
-        groupId
-      );
-
-      let session = sessions.get(userId);
+      // Fetch or create the session for the group
+      let session = sessions.get(groupId);
       if (!session) {
+        const { conversation, latestMessages } = await handleConversation(
+          groupId
+        );
         session = new Session(conversation.system_prompt);
-        sessions.set(userId, session);
+        session.conversation = conversation;
+        session.messages = latestMessages;
+        sessions.set(groupId, session);
       }
 
       session.addParticipant(userNumber, userName);
@@ -48,41 +49,39 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         const formattedMessages = await getRelevantMessages(
           body,
-          latestMessages
+          session.messages
         );
         const relevantFactsText = await getRelevantFacts(body);
 
         const promptMessages = buildPromptMessages(
-          conversation.system_prompt,
+          session.conversation.system_prompt,
           relevantFactsText,
           formattedMessages,
           userName,
           body
         );
 
+        console.log("Prompt messages: ", { ...promptMessages });
+
         const response = await sendChatMessage(promptMessages, true);
 
-        console.debug("Response: ", response);
-
-        const responseMessage = {
-          role: "assistant",
-          content: response.msg.message?.content || "",
-        };
-
         const messagesToSave = [
-          { role: "user", content: `${userName}: ${body}` },
-          responseMessage,
+          {
+            role: "user" as const,
+            msg: `${userName}: ${body}`,
+          },
+          {
+            role: "assistant" as const,
+            msg: response.msg.message?.content || "",
+          },
         ];
 
         await session.addMessages(
-          String(conversation.id.id),
+          String(session.conversation.id.id),
           ...messagesToSave
         );
 
-        console.debug("Messages: ", { ...promptMessages, responseMessage });
-        console.log("Session participants: ", session.participants);
-
-        await sendResponse(provider, ctx, responseMessage.content);
+        await sendResponse(provider, ctx, messagesToSave[1].msg);
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);

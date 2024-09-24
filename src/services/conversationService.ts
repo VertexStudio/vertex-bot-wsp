@@ -20,6 +20,7 @@ async function getOrCreateConversation(
   db: Surreal,
   groupId: string
 ): Promise<Conversation> {
+  console.info("Getting or creating conversation for group: ", groupId);
   const [result] = await db.query<Conversation[]>(`
     SELECT * FROM conversation WHERE whatsapp_id = '${groupId}'
   `);
