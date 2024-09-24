@@ -1,7 +1,7 @@
 import { getDb } from "~/database/surreal";
 import "dotenv/config";
 import { createEmbeddings } from "~/services/actors/embeddings";
-import { Conversation, Message } from "./types";
+import { Conversation, Message, GenerateEmbeddings } from "./types";
 import { ChatMessageRole } from "~/services/actors/chat";
 
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
@@ -67,15 +67,12 @@ export class Session {
 
   async addMessages(
     conversationId: string,
+    embeddings_req: GenerateEmbeddings,
     ...messages: Array<{ msg: string; role: ChatMessageRole }>
   ) {
     const db = getDb();
 
-    const messageContents = messages.map((msg) => msg.msg);
-    const embeddingResult = await createEmbeddings(
-      messageContents,
-      "conversation"
-    );
+    const embeddingResult = await createEmbeddings(embeddings_req);
 
     const createQueries = messages.map((msg, index) => {
       const query = `
