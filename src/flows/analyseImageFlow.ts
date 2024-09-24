@@ -78,8 +78,8 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const groupId = ctx.to.split("@")[0];
 
   const result = await handleConversation(groupId);
-  const { latestMessagesEmbeddings, conversation } = Array.isArray(result)
-    ? { latestMessagesEmbeddings: [], conversation: null }
+  const { latestMessages, conversation } = Array.isArray(result)
+    ? { latestMessages: [], conversation: null }
     : result;
 
   try {

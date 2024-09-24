@@ -30,8 +30,9 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       const userName = ctx.pushName || "User";
       const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
-      const { latestMessagesEmbeddings, conversation } =
-        await handleConversation(groupId);
+      const { latestMessages, conversation } = await handleConversation(
+        groupId
+      );
 
       let session = sessions.get(userId);
       if (!session) {
@@ -47,7 +48,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         const formattedMessages = await getRelevantMessages(
           body,
-          latestMessagesEmbeddings
+          latestMessages
         );
         const relevantFactsText = await getRelevantFacts(body);
 
