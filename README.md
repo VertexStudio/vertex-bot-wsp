@@ -63,15 +63,6 @@ It is advisable to check first the [veoveo](https://github.com/VertexStudio/veov
    cp .env.example .env
    ```
 
-   Then edit the `.env` file with your specific values:
-
-   - ASSISTANT_ID=
-   - OPENAI_API_KEY=
-   - MONGODB_URI=
-   - IMGUR_CLIENT_ID=
-   - MODEL= (Optional, default is "llama3.1")
-   - etc...
-
 7. Install dependencies and start the bot:
 
    ```bash
