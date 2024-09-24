@@ -1,7 +1,8 @@
 import { getDb } from "~/database/surreal";
 import "dotenv/config";
 import { createEmbeddings } from "~/services/actors/embeddings";
-import { Conversation, Message, GenerateEmbeddings } from "./types";
+import { Conversation, Message } from "./types";
+import { GenerateEmbeddings } from "~/services/actors/embeddings";
 import { ChatMessageRole } from "~/services/actors/chat";
 
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;

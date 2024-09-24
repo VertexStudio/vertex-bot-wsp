@@ -40,10 +40,3 @@ export interface AlertControl {
   feedback: boolean[];
   waiting: boolean;
 }
-
-export type GenerateEmbeddings = {
-  source: string;
-  texts: string[];
-  metadata?: Record<string, any>[];
-  tag: string;
-};

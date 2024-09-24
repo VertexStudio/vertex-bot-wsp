@@ -25,7 +25,7 @@ import sendChatMessage, {
   ChatMessage,
   ChatMessageRole,
 } from "~/services/actors/chat";
-import { GenerateEmbeddings } from "~/models/types";
+import { GenerateEmbeddings } from "~/services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -155,6 +155,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       source: "vertex::VertexBotWSP",
       texts: texts_to_embed,
       tag: "conversation",
+      metadata: new_messages.map((msg) => ({ role: msg.role })),
     };
 
     // Add all messages to the session at once
