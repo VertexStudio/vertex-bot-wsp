@@ -2,7 +2,6 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
