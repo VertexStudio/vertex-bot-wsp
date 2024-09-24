@@ -26,15 +26,18 @@ It is advisable to check first the [veoveo](https://github.com/VertexStudio/veov
 2. Start SurrealDB:
 
    ```bash
+   cargo run -p vv_db -- --user root --pass root --dummy
    surreal start --user root --pass root surrealkv:assets/vv_db
    ```
 
 3. Run the required services (each in a separate terminal):
 
    ```bash
-   docker compose up -d
+   docker compose up -d (for minio service)
    cargo run -p rerank
    cargo run -p embeddings
+   cargo run -p facts
+   cargo run -p chat
    cargo run -p vv_vision
    ./run.sh cargo run --release -p asset_pipeline -- --comfy
    ```
