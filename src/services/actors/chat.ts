@@ -29,9 +29,9 @@ export type ChatMessage = {
 type ChatResult = {
   model: string;
   created_at: string;
-  message: ChatMessage | null;
-  done: boolean;
-  final_data?: {};
+  msg: {
+    message: ChatMessage | null;
+  };
 };
 
 async function sendChatMessage(
@@ -42,7 +42,7 @@ async function sendChatMessage(
     const vertexChatId = bioma.createActorId("/vertex-chat", "chat::ChatActor");
     const vertexChat = await bioma.createActor(vertexChatId);
 
-    const chatId = bioma.createActorId("/chat", "chat::ChatService");
+    const chatId = bioma.createActorId("/llm", "bioma_llm::chat::Chat");
 
     const sendMessage = {
       messages,
@@ -52,7 +52,7 @@ async function sendChatMessage(
     const messageId = await bioma.sendMessage(
       vertexChatId,
       chatId,
-      "chat::chat::ProcessChat",
+      "bioma_llm::chat::ChatMessages",
       sendMessage
     );
 

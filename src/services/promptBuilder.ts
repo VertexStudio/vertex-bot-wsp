@@ -1,3 +1,5 @@
+import { ChatMessage } from "./actors/chat";
+
 // Type definitions
 export type ImageAnalysisType =
   | "more detailed caption"
@@ -34,7 +36,7 @@ export function buildPromptMessages(
   formattedMessages: { role: string; content: string }[],
   userName: string,
   body: string
-): { role: string; content: string }[] {
+): ChatMessage[] {
   const systemMessage = {
     role: "system",
     content: `${systemPrompt}\n\nRelevant facts (your RAG info):\n\n${relevantFactsText}`,
@@ -42,7 +44,7 @@ export function buildPromptMessages(
 
   const userMessage = { role: "user", content: `${userName}: ${body}` };
 
-  return [systemMessage, ...formattedMessages, userMessage];
+  return [systemMessage, ...formattedMessages, userMessage] as ChatMessage[];
 }
 
 // Prompt generation functions
