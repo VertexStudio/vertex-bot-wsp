@@ -110,7 +110,6 @@ sequenceDiagram
     participant VB as Vertex Bot
     participant DB as VV DB (SurrealDB)
     participant EA as Embeddings Actor
-    participant QEA as Query Embeddings Actor
     participant CA as Chat Actor
     participant RA as Rerank Actor
 
@@ -124,8 +123,8 @@ sequenceDiagram
         DB->>VB: Return new conversation
     end
 
-    VB->>QEA: Query Embeddings Actor to get top facts and top messages
-    QEA->>VB: Return top facts and top messages
+    VB->>EA: Query Embeddings Actor to get top facts and top messages
+    EA->>VB: Return top facts and top messages
 
     VB->>RA: Rerank facts and messages
     RA->>VB: Return reranked facts and messages
@@ -136,6 +135,6 @@ sequenceDiagram
     VB->>EA: Create embeddings for new messages
 
     VB->>DB: Save messages and relationships
-    VB->>W: Send response
+    VB->>W: Send assistant response
     W->>U: Deliver response
 ```
