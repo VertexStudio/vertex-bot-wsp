@@ -115,12 +115,7 @@ export function generateHumanReadablePrompt(
 9. Use all available information from the analysis results to answer the user's request accurately.
 10. Do not offer further help or guidance.`;
 
-  const prompt = `User's request about an image: "${caption}"
-
-Image analysis result:
-${JSON.stringify(results, null, 2)}
-
-Provide a direct answer to the user's request based on these results.`;
+  const prompt = `${caption}`;
 
   return { system, prompt };
 }

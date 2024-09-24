@@ -21,7 +21,7 @@ import {
   IMAGE_ANALYSIS_TYPES,
   ImageAnalysisType,
 } from "~/services/promptBuilder";
-import sendChatMessage from "~/services/actors/chat";
+import sendChatMessage, { ChatMessage } from "~/services/actors/chat";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -166,13 +166,11 @@ async function determineAnalysisType(
   caption: string
 ): Promise<ImageAnalysisType | null> {
   const { system, prompt } = generateImageAnalysisPrompt(caption);
-  const response = await sendChatMessage(
-    [
-      { role: "system", content: system },
-      { role: "user", content: prompt },
-    ],
-    true
-  );
+  const messages: ChatMessage[] = [
+    { role: "system", content: system },
+    { role: "user", content: prompt },
+  ];
+  const response = await sendChatMessage(messages, true);
   const analysisType = response.msg.message?.content || "";
   console.debug("Chat message response (analysis type):", analysisType);
 
@@ -186,13 +184,12 @@ async function generateHumanReadableResponse(
   results: unknown
 ): Promise<string> {
   const { system, prompt } = generateHumanReadablePrompt(caption, results);
-  const response = await sendChatMessage(
-    [
-      { role: "system", content: system },
-      { role: "user", content: prompt },
-    ],
-    true
-  );
+  const messages: ChatMessage[] = [
+    { role: "system", content: system },
+    { role: "user", content: prompt },
+    { role: "tool", content: JSON.stringify(results) },
+  ];
+  const response = await sendChatMessage(messages, true);
   const humanReadableResponse = response.msg.message?.content || "";
   console.info("Human-readable response:", humanReadableResponse);
 
