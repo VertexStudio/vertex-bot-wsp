@@ -18,9 +18,9 @@ await bioma.connect(
   BIOMA_DB_PASSWORD || "root"
 );
 
-type ChatMessageRole = "user" | "assistant" | "system" | "tool";
+export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
 
-type ChatMessage = {
+export type ChatMessage = {
   role: ChatMessageRole;
   content: string;
   images?: string[];
