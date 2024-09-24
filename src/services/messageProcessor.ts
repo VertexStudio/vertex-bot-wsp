@@ -69,7 +69,7 @@ export async function getRelevantMessages(
         );
         return matchingMessage
           ? {
-              role: String(matchingMessage.role?.id || matchingMessage.role),
+              role: String(matchingMessage.role),
               content: sim.text,
               similarity: sim.similarity,
             }
@@ -130,7 +130,7 @@ export async function getRelevantMessages(
       content,
     })),
     ...latestMessages.map((msg) => ({
-      role: String(msg.role?.id || msg.role),
+      role: String(msg.role),
       content: msg.msg,
     })),
   ];

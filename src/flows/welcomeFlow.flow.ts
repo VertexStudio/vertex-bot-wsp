@@ -37,12 +37,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         );
         session = new Session(conversation.system_prompt);
         session.conversation = conversation;
-        session.messages = latestMessages.map((message, index) => ({
-          id: index,
-          role: String(message.role),
-          content: String(message.msg),
-          created_at: Number(message.created_at),
-        }));
+        session.messages = latestMessages;
         sessions.set(groupId, session);
       }
 
@@ -66,18 +61,19 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           body
         );
 
+        console.log("Prompt messages: ", { ...promptMessages });
+
         const response = await sendChatMessage(promptMessages, true);
 
-        console.debug("Response: ", response);
-
-        const responseMessage = {
-          role: "assistant",
-          content: response.msg.message?.content || "",
-        };
-
         const messagesToSave = [
-          { role: "user", content: `${userName}: ${body}` },
-          responseMessage,
+          {
+            role: "user" as const,
+            msg: `${userName}: ${body}`,
+          },
+          {
+            role: "assistant" as const,
+            msg: response.msg.message?.content || "",
+          },
         ];
 
         await session.addMessages(
@@ -85,10 +81,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           ...messagesToSave
         );
 
-        console.debug("Messages: ", { ...promptMessages, responseMessage });
-        console.log("Session participants: ", session.participants);
-
-        await sendResponse(provider, ctx, responseMessage.content);
+        await sendResponse(provider, ctx, messagesToSave[1].msg);
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);
