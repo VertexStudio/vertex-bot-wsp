@@ -100,13 +100,7 @@ export class Session {
 
       for (let i = 0; i < result.length; i += 3) {
         const createdMessage: Message = result[i + 1];
-        if (createdMessage && createdMessage.created_at) {
-          const messageIndex = i / 3;
-          this.messages.push({
-            ...messages[messageIndex],
-            created_at: createdMessage.created_at,
-          });
-        }
+        this.messages.push(createdMessage);
       }
       this.trimMessages();
     } catch (error) {
