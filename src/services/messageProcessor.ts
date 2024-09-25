@@ -1,5 +1,5 @@
 import { Session } from "../models/Session";
-import { topSimilarity } from "../services/actors/embeddings";
+import { Similarity, topSimilarity } from "../services/actors/embeddings";
 import rerankTexts from "~/services/actors/rerank";
 import { Message } from "../models/types";
 
@@ -61,11 +61,18 @@ export async function getRelevantMessages(
   }> = [];
 
   if (similarityResult.msg && Array.isArray(similarityResult.msg)) {
-    topSimilarities = similarityResult.msg.map((sim) => ({
-      role: sim.metadata.role || "unknown",
-      content: sim.text,
-      similarity: sim.similarity,
-    }));
+    topSimilarities = similarityResult.msg
+      .filter(
+        (sim: Similarity) =>
+          !latestMessages.some(
+            (msg) => msg.msg === sim.text && msg.role === sim.metadata?.role
+          )
+      )
+      .map((sim: Similarity) => ({
+        role: String(sim.metadata?.role || "unknown"),
+        content: sim.text,
+        similarity: sim.similarity,
+      }));
   }
 
   if (topSimilarities.length > 0) {
@@ -90,14 +97,17 @@ export async function getRelevantMessages(
     if (rerankedMessagesResult && Array.isArray(rerankedMessagesResult.msg)) {
       rerankedOlderMessages = rerankedMessagesResult.msg
         .map((item) => {
-          const originalMessage = topSimilarities[item.index];
+          const message = messagesToRerank[item.index];
+          const originalMessage = topSimilarities.find(
+            (msg) => msg.content === message
+          );
           return {
-            role: originalMessage.role,
-            content: originalMessage.content,
+            role: originalMessage?.role || "unknown",
+            content: message,
             score: item.score,
           };
         })
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => a.score - b.score)
         .slice(0, 10);
     } else {
       console.warn(

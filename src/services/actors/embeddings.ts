@@ -67,7 +67,7 @@ async function createEmbeddings(
   }
 }
 
-type Similarity = {
+export type Similarity = {
   text: string;
   similarity: number;
   metadata?: Record<string, any>;
