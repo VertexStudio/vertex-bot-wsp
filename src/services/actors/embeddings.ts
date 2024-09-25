@@ -1,7 +1,6 @@
 import { BiomaInterface } from "external/bioma_js/bioma.js";
 import { RecordId } from "surrealdb.js";
 import "dotenv/config";
-import { GenerateEmbeddings } from "~/models/types";
 
 const BIOMA_DB_URL = `${process.env.BIOMA_DB_PROTOCOL}://${process.env.BIOMA_DB_HOST}:${process.env.BIOMA_DB_PORT}`;
 const BIOMA_DB_NAMESPACE = process.env.BIOMA_DB_NAMESPACE;
@@ -28,6 +27,13 @@ type EmbeddingResult = {
   name: string;
   rx: RecordId;
   tx: RecordId;
+};
+
+export type GenerateEmbeddings = {
+  source: string;
+  texts: string[];
+  metadata?: Record<string, any>[];
+  tag: string;
 };
 
 async function createEmbeddings(
@@ -61,13 +67,16 @@ async function createEmbeddings(
   }
 }
 
+export type Similarity = {
+  text: string;
+  similarity: number;
+  metadata?: Record<string, any>;
+};
+
 type SimilarityResult = {
   err: undefined | string;
   id: RecordId;
-  msg: Array<{
-    text: string;
-    similarity: number;
-  }>;
+  msg: Similarity[];
   name: string;
   rx: RecordId;
   tx: RecordId;

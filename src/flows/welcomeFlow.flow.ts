@@ -14,7 +14,7 @@ import {
 import { buildPromptMessages } from "../services/promptBuilder";
 import { sendResponse } from "../services/responseService";
 import sendChatMessage from "~/services/actors/chat";
-import { GenerateEmbeddings } from "~/models/types";
+import { GenerateEmbeddings } from "~/services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -45,7 +45,6 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       session.addParticipant(userNumber, userName);
 
       enqueueMessage(ctx.body, async (body) => {
-        console.debug("Context: ", ctx);
         body = processQuotedMessage(ctx, session, userNumber, userName, body);
 
         const formattedMessages = await getRelevantMessages(
@@ -77,15 +76,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           },
         ];
 
-        const embeddings_req: GenerateEmbeddings = {
-          source: "vertex::VertexBotWSP",
-          texts: messagesToSave.map((msg) => msg.msg),
-          tag: "conversation",
-        };
-
         await session.addMessages(
           String(session.conversation.id.id),
-          embeddings_req,
           ...messagesToSave
         );
 

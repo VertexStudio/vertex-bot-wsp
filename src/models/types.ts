@@ -7,6 +7,7 @@ export type Conversation = {
 };
 
 export type Message = {
+  id: RecordId;
   msg: string;
   created_at: string;
   role: "user" | "assistant" | "system" | "tool";
@@ -40,10 +41,3 @@ export interface AlertControl {
   feedback: boolean[];
   waiting: boolean;
 }
-
-export type GenerateEmbeddings = {
-  source: string;
-  texts: string[];
-  metadata?: Record<string, any>[];
-  tag: string;
-};
