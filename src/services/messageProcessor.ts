@@ -44,14 +44,14 @@ export async function getRelevantMessages(
   body: string,
   allMessages: Message[]
 ): Promise<{ role: string; content: string }[]> {
-  const messages = Array.isArray(allMessages) ? allMessages : [allMessages];
+  const latestMessages = Array.isArray(allMessages)
+    ? allMessages
+    : [allMessages];
 
-  messages.sort(
+  latestMessages.sort(
     (a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
-
-  const latestMessages = messages.slice(-10);
 
   const similarityResult = await topSimilarity(body, "conversation", 20, 0.5);
 

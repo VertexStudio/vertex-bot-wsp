@@ -42,7 +42,7 @@ export class Session {
   Remember, your role is to assist and interact as VeoVeo Bot and answer all queries.`;
 
   private static readonly MAX_CHAR_LIMIT = 512000;
-  private static readonly MAX_MESSAGES = 30;
+  private static readonly MAX_MESSAGES = 10;
   private static readonly ID_START_NUMBER = 1;
   private static readonly MAX_QUOTES = 10;
 
