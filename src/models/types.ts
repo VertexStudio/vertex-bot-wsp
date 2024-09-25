@@ -7,10 +7,10 @@ export type Conversation = {
 };
 
 export type Message = {
+  id: RecordId;
   msg: string;
   created_at: string;
-  id: RecordId;
-  role: RecordId;
+  role: "user" | "assistant" | "system" | "tool";
 };
 
 export interface ImageMessage {

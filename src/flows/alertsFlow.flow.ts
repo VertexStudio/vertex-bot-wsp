@@ -70,11 +70,12 @@ async function anomalyLiveQuery(): Promise<UUID> {
 
     if (currentCtx && provider) {
       const imageUrl = await getImageUrlFromMinio(snap.image_path);
+      const anomalyCaption = "🚨 Anomaly Detected 🚨\n\n" + analysis.results;
       const messageId = await sendImage(
         currentCtx,
         provider,
         imageUrl,
-        analysis.results
+        anomalyCaption
       );
       sentAlerts.set(messageId, {
         alertAnomaly: analysis.id,

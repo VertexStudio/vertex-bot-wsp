@@ -29,10 +29,15 @@ type EmbeddingResult = {
   tx: RecordId;
 };
 
+export type GenerateEmbeddings = {
+  source: string;
+  texts: string[];
+  metadata?: Record<string, any>[];
+  tag: string;
+};
+
 async function createEmbeddings(
-  texts: string[],
-  tag: string,
-  model?: string
+  embeddings_req: GenerateEmbeddings
 ): Promise<EmbeddingResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
@@ -46,16 +51,11 @@ async function createEmbeddings(
       "bioma_llm::embeddings::Embeddings"
     );
 
-    const createEmbeddingsMessage = {
-      texts: texts,
-      tag: tag,
-    };
-
     const messageId = await bioma.sendMessage(
       vertexBotWspId,
       embeddingsId,
       "bioma_llm::embeddings::GenerateEmbeddings",
-      createEmbeddingsMessage
+      embeddings_req
     );
 
     const reply = await bioma.waitForReply(messageId, 10000);
@@ -67,13 +67,16 @@ async function createEmbeddings(
   }
 }
 
+export type Similarity = {
+  text: string;
+  similarity: number;
+  metadata?: Record<string, any>;
+};
+
 type SimilarityResult = {
   err: undefined | string;
   id: RecordId;
-  msg: Array<{
-    text: string;
-    similarity: number;
-  }>;
+  msg: Similarity[];
   name: string;
   rx: RecordId;
   tx: RecordId;

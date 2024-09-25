@@ -2,7 +2,6 @@ import "dotenv/config";
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import { typing } from "../utils/presence";
 import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
-import { callOllamaAPIChat } from "../services/ollamaService";
 import { Session, sessions } from "../models/Session";
 import { sendMessage } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
@@ -14,6 +13,8 @@ import {
 } from "../services/messageProcessor";
 import { buildPromptMessages } from "../services/promptBuilder";
 import { sendResponse } from "../services/responseService";
+import sendChatMessage from "~/services/actors/chat";
+import { GenerateEmbeddings } from "~/services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -26,65 +27,61 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       await typing(ctx, provider);
 
       const groupId = ctx.to.split("@")[0];
-      const userId = ctx.key.remoteJid;
       const userName = ctx.pushName || "User";
       const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
-      const { latestMessagesEmbeddings, conversation } =
-        await handleConversation(groupId);
-
-      let session = sessions.get(userId);
+      // Fetch or create the session for the group
+      let session = sessions.get(groupId);
       if (!session) {
+        const { conversation, latestMessages } = await handleConversation(
+          groupId
+        );
         session = new Session(conversation.system_prompt);
-        sessions.set(userId, session);
+        session.conversation = conversation;
+        session.messages = latestMessages;
+        sessions.set(groupId, session);
       }
 
       session.addParticipant(userNumber, userName);
 
       enqueueMessage(ctx.body, async (body) => {
-        console.debug("Context: ", ctx);
         body = processQuotedMessage(ctx, session, userNumber, userName, body);
 
         const formattedMessages = await getRelevantMessages(
           body,
-          latestMessagesEmbeddings
+          session.messages
         );
         const relevantFactsText = await getRelevantFacts(body);
 
         const promptMessages = buildPromptMessages(
-          conversation.system_prompt,
+          session.conversation.system_prompt,
           relevantFactsText,
           formattedMessages,
           userName,
           body
         );
 
-        const response = await callOllamaAPIChat(promptMessages, {
-          temperature: 0.3,
-          top_k: 20,
-          top_p: 0.45,
-          num_ctx: 30720,
-        });
+        console.log("Prompt messages: ", { ...promptMessages });
 
-        const responseMessage = {
-          role: "assistant",
-          content: response.content,
-        };
+        const response = await sendChatMessage(promptMessages, true);
 
         const messagesToSave = [
-          { role: "user", content: `${userName}: ${body}` },
-          responseMessage,
+          {
+            role: "user" as const,
+            msg: `${userName}: ${body}`,
+          },
+          {
+            role: "assistant" as const,
+            msg: response.msg.message?.content || "",
+          },
         ];
 
         await session.addMessages(
-          String(conversation.id.id),
+          String(session.conversation.id.id),
           ...messagesToSave
         );
 
-        console.debug("Messages: ", { ...promptMessages, responseMessage });
-        console.log("Session participants: ", session.participants);
-
-        await sendResponse(provider, ctx, response.content);
+        await sendResponse(provider, ctx, messagesToSave[1].msg);
       });
     } catch (error) {
       console.error("Error in welcomeFlow:", error);

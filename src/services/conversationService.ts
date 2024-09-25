@@ -4,22 +4,23 @@ import { Conversation, Message } from "../models/types";
 import { Session } from "~/models/Session";
 
 export async function handleConversation(groupId: string): Promise<{
-  latestMessagesEmbeddings: Message[];
+  latestMessages: Message[];
   conversation: Conversation;
 }> {
   const db = getDb();
 
   const conversation = await getOrCreateConversation(db, groupId);
 
-  const latestMessagesEmbeddings = await getConversationMessages(db, groupId);
+  const latestMessages = await getConversationMessages(db, groupId);
 
-  return { latestMessagesEmbeddings, conversation };
+  return { latestMessages, conversation };
 }
 
 async function getOrCreateConversation(
   db: Surreal,
   groupId: string
 ): Promise<Conversation> {
+  console.info("Getting or creating conversation for group: ", groupId);
   const [result] = await db.query<Conversation[]>(`
     SELECT * FROM conversation WHERE whatsapp_id = '${groupId}'
   `);
@@ -57,7 +58,7 @@ async function getConversationMessages(
         WHERE whatsapp_id = '${groupId}'
     )[0].chat_message 
     ORDER BY created_at DESC
-    LIMIT 30;
+    LIMIT 10;
   `);
   return Array.isArray(result) ? result : [];
 }

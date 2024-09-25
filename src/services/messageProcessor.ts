@@ -1,7 +1,8 @@
 import { Session } from "../models/Session";
-import { topSimilarity } from "../services/actors/embeddings";
+import { Similarity, topSimilarity } from "../services/actors/embeddings";
 import rerankTexts from "~/services/actors/rerank";
 import { Message } from "../models/types";
+import { RecordId } from "surrealdb.js";
 
 export function processQuotedMessage(
   ctx: any,
@@ -43,15 +44,14 @@ export async function getRelevantMessages(
   body: string,
   allMessages: Message[]
 ): Promise<{ role: string; content: string }[]> {
-  const messages = Array.isArray(allMessages) ? allMessages : [allMessages];
+  const latestMessages = Array.isArray(allMessages)
+    ? allMessages
+    : [allMessages];
 
-  messages.sort(
+  latestMessages.sort(
     (a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
-
-  const latestMessages = messages.slice(-10);
-  const olderMessages = messages.slice(0, -10);
 
   const similarityResult = await topSimilarity(body, "conversation", 20, 0.5);
 
@@ -63,23 +63,23 @@ export async function getRelevantMessages(
 
   if (similarityResult.msg && Array.isArray(similarityResult.msg)) {
     topSimilarities = similarityResult.msg
-      .map((sim) => {
-        const matchingMessage = olderMessages.find(
-          (msg) => msg.msg === sim.text
-        );
-        return matchingMessage
-          ? {
-              role: String(matchingMessage.role?.id || matchingMessage.role),
-              content: sim.text,
-              similarity: sim.similarity,
-            }
-          : null;
-      })
-      .filter(Boolean) as Array<{
-      role: string;
-      content: string;
-      similarity: number;
-    }>;
+      .filter(
+        (sim: Similarity) =>
+          !latestMessages.some((msg) => {
+            const record: RecordId<string> = new RecordId(
+              sim.metadata.id.tb,
+              sim.metadata.id.id
+            );
+            return msg.id.toString() === record.toString();
+          })
+      )
+      .map((sim: Similarity) => {
+        return {
+          role: String((sim.metadata as any)?.role || "unknown"),
+          content: sim.text,
+          similarity: sim.similarity,
+        };
+      });
   }
 
   if (topSimilarities.length > 0) {
@@ -130,7 +130,7 @@ export async function getRelevantMessages(
       content,
     })),
     ...latestMessages.map((msg) => ({
-      role: String(msg.role?.id || msg.role),
+      role: String(msg.role),
       content: msg.msg,
     })),
   ];
