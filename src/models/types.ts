@@ -7,6 +7,7 @@ export type Conversation = {
 };
 
 export type Message = {
+  id: RecordId;
   msg: string;
   created_at: string;
   role: "user" | "assistant" | "system" | "tool";

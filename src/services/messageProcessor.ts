@@ -64,9 +64,7 @@ export async function getRelevantMessages(
     topSimilarities = similarityResult.msg
       .filter(
         (sim: Similarity) =>
-          !latestMessages.some(
-            (msg) => msg.msg === sim.text && msg.role === sim.metadata?.role
-          )
+          !latestMessages.some((msg) => msg.id === sim.metadata?.id)
       )
       .map((sim: Similarity) => ({
         role: String(sim.metadata?.role || "unknown"),

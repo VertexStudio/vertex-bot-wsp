@@ -76,16 +76,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           },
         ];
 
-        const embeddings_req: GenerateEmbeddings = {
-          source: "vertex::VertexBotWSP",
-          texts: messagesToSave.map((msg) => msg.msg),
-          tag: "conversation",
-          metadata: messagesToSave.map((msg) => ({ role: msg.role })),
-        };
-
         await session.addMessages(
           String(session.conversation.id.id),
-          embeddings_req,
           ...messagesToSave
         );
 

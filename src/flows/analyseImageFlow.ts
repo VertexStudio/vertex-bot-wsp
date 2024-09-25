@@ -149,19 +149,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       { role: "assistant", msg: humanReadableResponse },
     ];
 
-    const texts_to_embed = new_messages.map((msg) => msg.msg);
-
-    const embeddings_req: GenerateEmbeddings = {
-      source: "vertex::VertexBotWSP",
-      texts: texts_to_embed,
-      tag: "conversation",
-      metadata: new_messages.map((msg) => ({ role: msg.role })),
-    };
-
     // Add all messages to the session at once
     await session.addMessages(
       String(session.conversation.id.id),
-      embeddings_req,
       ...new_messages
     );
 
