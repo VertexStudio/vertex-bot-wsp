@@ -2,6 +2,7 @@ import { Session } from "../models/Session";
 import { Similarity, topSimilarity } from "../services/actors/embeddings";
 import rerankTexts from "~/services/actors/rerank";
 import { Message } from "../models/types";
+import { RecordId } from "surrealdb.js";
 
 export function processQuotedMessage(
   ctx: any,
@@ -64,13 +65,21 @@ export async function getRelevantMessages(
     topSimilarities = similarityResult.msg
       .filter(
         (sim: Similarity) =>
-          !latestMessages.some((msg) => msg.id === sim.metadata?.id)
+          !latestMessages.some((msg) => {
+            const record: RecordId<string> = new RecordId(
+              sim.metadata.id.tb,
+              sim.metadata.id.id
+            );
+            return msg.id.toString() === record.toString();
+          })
       )
-      .map((sim: Similarity) => ({
-        role: String(sim.metadata?.role || "unknown"),
-        content: sim.text,
-        similarity: sim.similarity,
-      }));
+      .map((sim: Similarity) => {
+        return {
+          role: String((sim.metadata as any)?.role || "unknown"),
+          content: sim.text,
+          similarity: sim.similarity,
+        };
+      });
   }
 
   if (topSimilarities.length > 0) {

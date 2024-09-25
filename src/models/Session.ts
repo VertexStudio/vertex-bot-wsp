@@ -106,7 +106,10 @@ export class Session {
         source: "vertex::VertexBotWSP",
         texts: createdMessages.map((msg) => msg.msg),
         tag: "conversation",
-        metadata: createdMessages.map((msg) => ({ id: msg.id })),
+        metadata: createdMessages.map((msg) => ({
+          id: msg.id,
+          role: msg.role,
+        })),
       };
 
       const embeddingResult = await createEmbeddings(embeddings_req);
