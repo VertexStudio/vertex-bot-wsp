@@ -78,8 +78,11 @@ It is advisable to check first the [veoveo](https://github.com/VertexStudio/veov
 
 ## Group Validations
 
-1. Copy the groupsValidationFeature/index.cjsnode_modules/@builderbot/provider-baileys/dist/index.cjs
+1. Copy the groupsValidationFeature/index.cjs into node_modules/@builderbot/provider-baileys/dist/index.cjs
 2. Paste and replace on
+   ```bash
+   cp groupsValidationFeature/index.cjs node_modules/@builderbot/provider-baileys/dist/index.cjs
+   ```
 
 ## Additional Requirements
 
