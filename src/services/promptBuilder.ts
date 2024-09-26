@@ -2,6 +2,7 @@ import { ChatMessage } from "./actors/chat";
 
 // Type definitions
 export type ImageAnalysisType =
+  | "caption"
   | "more detailed caption"
   // | "object detection"
   | "dense region caption"
@@ -16,6 +17,7 @@ export type ImageAnalysisType =
   | "OCR with region";
 
 export const IMAGE_ANALYSIS_TYPES: ImageAnalysisType[] = [
+  "caption",
   "more detailed caption",
   // "object detection",
   "dense region caption",

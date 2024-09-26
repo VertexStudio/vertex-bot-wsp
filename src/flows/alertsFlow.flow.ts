@@ -24,6 +24,8 @@ let currentCtx: any;
 const sentAlerts = new Map<string, AlertControl>();
 const FEEDBACK_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
+export let alertsActive = false;
+
 export const alertsFlow = addKeyword<Provider, Database>("alertas", {
   sensitive: false,
 }).addAction(async (ctx, { provider: _provider }) => {
@@ -43,6 +45,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
     await provider.sendText(ctx.key.remoteJid, getMessage("alerts_on"));
     provider.on("reaction", handleReaction);
     await anomalyLiveQuery();
+    alertsActive = true;
   } catch (error) {
     console.error(`[${processId}] Error while activating alerts.`, error);
     await provider.sendText(ctx.key.remoteJid, getMessage("alerts_error"));

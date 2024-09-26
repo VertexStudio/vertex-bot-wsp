@@ -26,6 +26,7 @@ import sendChatMessage, {
   ChatMessageRole,
 } from "~/services/actors/chat";
 import { GenerateEmbeddings } from "~/models/types";
+import { alertsActive } from "./alertsFlow.flow";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -196,7 +197,9 @@ async function determineAnalysisType(
     { role: "user", content: prompt },
   ];
   const response = await sendChatMessage(messages, true);
-  const analysisType = response.msg.message?.content || "";
+  const analysisType = alertsActive 
+  ? "caption" 
+  : (response.msg.message?.content || "");
   console.debug("Chat message response (analysis type):", analysisType);
 
   return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
