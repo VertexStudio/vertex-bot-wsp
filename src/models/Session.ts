@@ -1,8 +1,10 @@
 import { getDb } from "~/database/surreal";
 import "dotenv/config";
 import { createEmbeddings } from "~/services/actors/embeddings";
-import { Conversation, Message, GenerateEmbeddings } from "./types";
+import { Conversation, Message } from "./types";
+import { GenerateEmbeddings } from "~/services/actors/embeddings";
 import { ChatMessageRole } from "~/services/actors/chat";
+import { RecordId } from "surrealdb.js";
 
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
 
@@ -40,7 +42,7 @@ export class Session {
   Remember, your role is to assist and interact as VeoVeo Bot and answer all queries.`;
 
   private static readonly MAX_CHAR_LIMIT = 512000;
-  private static readonly MAX_MESSAGES = 30;
+  private static readonly MAX_MESSAGES = 10;
   private static readonly ID_START_NUMBER = 1;
   private static readonly MAX_QUOTES = 10;
 
@@ -55,6 +57,7 @@ export class Session {
   constructor(systemPrompt: string) {
     this.messages = [
       {
+        id: new RecordId("chat_message", "system_prompt"),
         msg: systemPrompt,
         created_at: new Date().toISOString(),
         role: "system",
@@ -62,17 +65,14 @@ export class Session {
     ];
     this.messageIdCounter = Session.ID_START_NUMBER;
     this.participants = [];
-    this.conversation = null; // Initialize conversation
+    this.conversation = null;
   }
 
   async addMessages(
     conversationId: string,
-    embeddings_req: GenerateEmbeddings,
     ...messages: Array<{ msg: string; role: ChatMessageRole }>
   ) {
     const db = getDb();
-
-    const embeddingResult = await createEmbeddings(embeddings_req);
 
     const createQueries = messages.map((msg, index) => {
       const query = `
@@ -95,10 +95,25 @@ export class Session {
       `;
       const result: any[] = await db.query(transactionQuery);
 
+      const createdMessages: Message[] = [];
       for (let i = 0; i < result.length; i += 3) {
         const createdMessage: Message = result[i + 1];
         this.messages.push(createdMessage);
+        createdMessages.push(createdMessage);
       }
+
+      const embeddings_req: GenerateEmbeddings = {
+        source: "vertex::VertexBotWSP",
+        texts: createdMessages.map((msg) => msg.msg),
+        tag: "conversation",
+        metadata: createdMessages.map((msg) => ({
+          id: msg.id,
+          role: msg.role,
+        })),
+      };
+
+      const embeddingResult = await createEmbeddings(embeddings_req);
+
       this.trimMessages();
     } catch (error) {
       console.error("Error executing database query:", error);

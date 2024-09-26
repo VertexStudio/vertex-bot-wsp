@@ -25,7 +25,7 @@ import sendChatMessage, {
   ChatMessage,
   ChatMessageRole,
 } from "~/services/actors/chat";
-import { GenerateEmbeddings } from "~/models/types";
+import { GenerateEmbeddings } from "~/services/actors/embeddings";
 import { alertsActive } from "./alertsFlow.flow";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
@@ -150,18 +150,9 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       { role: "assistant", msg: humanReadableResponse },
     ];
 
-    const texts_to_embed = new_messages.map((msg) => msg.msg);
-
-    const embeddings_req: GenerateEmbeddings = {
-      source: "vertex::VertexBotWSP",
-      texts: texts_to_embed,
-      tag: "conversation",
-    };
-
     // Add all messages to the session at once
     await session.addMessages(
       String(session.conversation.id.id),
-      embeddings_req,
       ...new_messages
     );
 
