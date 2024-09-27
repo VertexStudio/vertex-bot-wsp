@@ -67,6 +67,18 @@ async function createEmbeddings(
   }
 }
 
+export type Query = {
+  Embedding: number[];
+  Text: string;
+};
+
+type TopK = {
+  query: Query;
+  tag?: string;
+  k: number;
+  threshold: number;
+};
+
 export type Similarity = {
   text: string;
   similarity: number;
@@ -83,7 +95,7 @@ type SimilarityResult = {
 };
 
 async function topSimilarity(
-  query: string | number[],
+  query: Query,
   tag?: string,
   k: number = 5,
   threshold: number = 0.7
@@ -100,8 +112,8 @@ async function topSimilarity(
       "bioma_llm::embeddings::Embeddings"
     );
 
-    const topKMessage = {
-      query: typeof query === "string" ? { Text: query } : { Embedding: query },
+    const topKMessage: TopK = {
+      query: query,
       tag: tag,
       k: k,
       threshold: threshold,
