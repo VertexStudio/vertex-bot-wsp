@@ -43,7 +43,10 @@ async function rerankTexts(
     );
     const vertexBotWsp = await bioma.createActor(vertexBotWspId);
 
-    const rerankId = bioma.createActorId("/rerank", "rerank::rerank::Rerank");
+    const rerankId = bioma.createActorId(
+      "/rerank",
+      "bioma_llm::rerank::Rerank"
+    );
 
     const rankTextsMessage = {
       query: query,
@@ -54,7 +57,7 @@ async function rerankTexts(
     const messageId = await bioma.sendMessage(
       vertexBotWspId,
       rerankId,
-      "rerank::rerank::RankTexts",
+      "bioma_llm::rerank::RankTexts",
       rankTextsMessage
     );
 
