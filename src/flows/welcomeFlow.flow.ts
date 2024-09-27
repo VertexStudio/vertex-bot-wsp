@@ -47,10 +47,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       enqueueMessage(ctx.body, async (body) => {
         body = processQuotedMessage(ctx, session, userNumber, userName, body);
 
-        const query: Query = {
-          type: "Text",
-          value: body,
-        };
+        const query: Query = { Text: body };
 
         const formattedMessages = await getRelevantMessages(
           query,
