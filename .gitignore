@@ -11,9 +11,6 @@ tmp/*
 *.log
 *qr.png
 
-/assets/media/*
-!/assets/media/.gitkeep
-
 history.txt
 
 assets/vv_db
