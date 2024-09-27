@@ -104,7 +104,7 @@ export async function getRelevantMessages(
 
   if (messagesToRerank.length > 0) {
     const rerankedMessagesResult = await rerankTexts(
-      body.Text,
+      String(body.value),
       messagesToRerank
     );
 
@@ -171,7 +171,10 @@ export async function getRelevantFacts(body: Query): Promise<string> {
 
     const factsToRerank = topSimilarFacts.map(({ content }) => content);
 
-    const rerankedFactsResult = await rerankTexts(body.Text, factsToRerank);
+    const rerankedFactsResult = await rerankTexts(
+      String(body.value),
+      factsToRerank
+    );
 
     if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg)) {
       rerankedFacts = rerankedFactsResult.msg

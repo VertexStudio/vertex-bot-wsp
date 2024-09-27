@@ -48,8 +48,8 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
         body = processQuotedMessage(ctx, session, userNumber, userName, body);
 
         const query: Query = {
-          Text: body,
-          Embedding: [],
+          type: "Text",
+          value: body,
         };
 
         const formattedMessages = await getRelevantMessages(

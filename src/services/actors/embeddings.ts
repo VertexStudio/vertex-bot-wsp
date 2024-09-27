@@ -67,10 +67,9 @@ async function createEmbeddings(
   }
 }
 
-export type Query = {
-  Embedding: number[];
-  Text: string;
-};
+export type Query =
+  | { type: "Embedding"; value: number[] }
+  | { type: "Text"; value: string };
 
 type TopK = {
   query: Query;
