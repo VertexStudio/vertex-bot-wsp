@@ -12,6 +12,7 @@ tmp/*
 *qr.png
 
 /assets/media/*
+!/assets/media/.gitkeep
 
 history.txt
 

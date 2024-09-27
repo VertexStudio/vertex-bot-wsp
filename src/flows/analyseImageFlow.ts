@@ -126,7 +126,11 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       throw new Error("Unable to determine analysis type");
     }
 
-    const localPath = await provider.saveFile(ctx, { path: "./assets/media" });
+    // Create the directory if it doesn't exist
+    const mediaDir = "./assets/media";
+    await fs.mkdir(mediaDir, { recursive: true });
+
+    const localPath = await provider.saveFile(ctx, { path: mediaDir });
     console.info("File saved at:", localPath);
 
     const jpegBuffer = await processImage(localPath);
