@@ -29,7 +29,7 @@ type EmbeddingResult = {
   tx: RecordId;
 };
 
-export type GenerateEmbeddings = {
+export type GenerateTextEmbeddings = {
   source: string;
   texts: string[];
   metadata?: Record<string, any>[];
@@ -37,7 +37,7 @@ export type GenerateEmbeddings = {
 };
 
 async function createEmbeddings(
-  embeddings_req: GenerateEmbeddings
+  embeddings_req: GenerateTextEmbeddings
 ): Promise<EmbeddingResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
@@ -54,7 +54,7 @@ async function createEmbeddings(
     const messageId = await bioma.sendMessage(
       vertexBotWspId,
       embeddingsId,
-      "bioma_llm::embeddings::GenerateEmbeddings",
+      "bioma_llm::embeddings::GenerateTextEmbeddings",
       embeddings_req
     );
 
