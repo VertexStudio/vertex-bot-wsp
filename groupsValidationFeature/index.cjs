@@ -23,6 +23,8 @@ var require$$0$a = require('crypto');
 var require$$0$c = require('sharp');
 var require$$0$b = require('fluent-ffmpeg');
 var baileys = require('@whiskeysockets/baileys');
+var objectRepository = require('@whiskeysockets/baileys/lib/Store/object-repository');
+var LabelAssociation = require('@whiskeysockets/baileys/lib/Types/LabelAssociation');
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -3832,14 +3834,13 @@ const baileyGenerateImage = async (base64, name = 'qr.png') => {
     await bot.utils.cleanImage(PATH_QR);
 };
 /**
- * Validates if the given identifier is a valid WhatsApp number or a group ID.
- * @param rawNumber The identifier to validate.
- * @returns True if it's a valid number or group ID, false otherwise.
+ * Validates if the given number is a valid WhatsApp number and not a group ID.
+ * @param rawNumber The number to validate.
+ * @returns True if it's a valid number, false otherwise.
  */
 const baileyIsValidNumber = (rawNumber) => {
-    const regexUser = /\@s.whatsapp.net\b/gm;
     const regexGroup = /\@g.us\b/gm;
-    return regexUser.test(rawNumber) || regexGroup.test(rawNumber);
+    return rawNumber || regexGroup.test(rawNumber);
 };
 
 var mimeTypes = {};
@@ -22830,6 +22831,8 @@ function requireBrowser () {
 				return false;
 			}
 
+			let m;
+
 			// Is webkit? http://stackoverflow.com/a/16459606/376773
 			// document is undefined in react-native: https://github.com/facebook/react-native/pull/1632
 			return (typeof document !== 'undefined' && document.documentElement && document.documentElement.style && document.documentElement.style.WebkitAppearance) ||
@@ -22837,7 +22840,7 @@ function requireBrowser () {
 				(typeof window !== 'undefined' && window.console && (window.console.firebug || (window.console.exception && window.console.table))) ||
 				// Is firefox >= v31?
 				// https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
-				(typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31) ||
+				(typeof navigator !== 'undefined' && navigator.userAgent && (m = navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/)) && parseInt(m[1], 10) >= 31) ||
 				// Double check webkit in userAgent just in case we are in a worker
 				(typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.toLowerCase().match(/applewebkit\/(\d+)/));
 		}
@@ -23332,11 +23335,11 @@ function requireNode () {
 		}
 
 		/**
-		 * Invokes `util.format()` with the specified arguments and writes to stderr.
+		 * Invokes `util.formatWithOptions()` with the specified arguments and writes to stderr.
 		 */
 
 		function log(...args) {
-			return process.stderr.write(util.format(...args) + '\n');
+			return process.stderr.write(util.formatWithOptions(exports.inspectOpts, ...args) + '\n');
 		}
 
 		/**
@@ -30008,6 +30011,483 @@ var distExports = requireDist();
 
 const makeWASocketOther = require('@whiskeysockets/baileys').default;
 
+//eventos a evitar "READ"
+function makeOrderedDictionary(idGetter) {
+    const array = [];
+    const dict = {};
+    const get = (id) => dict[id];
+    const update = (item) => {
+        const id = idGetter(item);
+        const idx = array.findIndex((i) => idGetter(i) === id);
+        if (idx >= 0) {
+            array[idx] = item;
+            dict[id] = item;
+        }
+        return false;
+    };
+    const upsert = (item, mode) => {
+        const id = idGetter(item);
+        if (get(id)) {
+            update(item);
+        }
+        else {
+            if (mode === 'append') {
+                array.push(item);
+            }
+            else {
+                array.splice(0, 0, item);
+            }
+            dict[id] = item;
+        }
+    };
+    const remove = (item) => {
+        const id = idGetter(item);
+        const idx = array.findIndex((i) => idGetter(i) === id);
+        if (idx >= 0) {
+            array.splice(idx, 1);
+            delete dict[id];
+            return true;
+        }
+        return false;
+    };
+    return {
+        array,
+        get,
+        upsert,
+        update,
+        remove,
+        updateAssign: (id, update) => {
+            const item = get(id);
+            if (item) {
+                Object.assign(item, update);
+                delete dict[id];
+                dict[idGetter(item)] = item;
+                return true;
+            }
+            return false;
+        },
+        clear: () => {
+            array.splice(0, array.length);
+            Object.keys(dict).forEach((key) => {
+                delete dict[key];
+            });
+        },
+        filter: (contain) => {
+            let i = 0;
+            while (i < array.length) {
+                if (!contain(array[i])) {
+                    delete dict[idGetter(array[i])];
+                    array.splice(i, 1);
+                }
+                else {
+                    i += 1;
+                }
+            }
+        },
+        toJSON: () => array,
+        fromJSON: (newItems) => {
+            array.splice(0, array.length, ...newItems);
+        },
+    };
+}
+const waChatKey = (pin) => ({
+    key: (c) => ((c.pinned ? '1' : '0') ) +
+        (c.archived ? '0' : '1') +
+        (c.conversationTimestamp ? c.conversationTimestamp.toString(16).padStart(8, '0') : '') +
+        c.id,
+    compare: (k1, k2) => k2.localeCompare(k1),
+});
+const waMessageID = (m) => m.key.id || '';
+const waLabelAssociationKey = {
+    key: (la) => la.type === LabelAssociation.LabelAssociationType.Chat ? la.chatId + la.labelId : la.chatId + la.messageId + la.labelId,
+    compare: (k1, k2) => k2.localeCompare(k1),
+};
+const makeMessagesDictionary = () => makeOrderedDictionary(waMessageID);
+var bindStore = (config) => {
+    const chatKey = config.chatKey || waChatKey();
+    const labelAssociationKey = config.labelAssociationKey || waLabelAssociationKey;
+    const logger = config.logger || baileys.DEFAULT_CONNECTION_CONFIG.logger.child({ stream: 'in-mem-store' });
+    const KeyedDB = require('@adiwajshing/keyed-db').default;
+    const chats = new KeyedDB(chatKey, (c) => c.id);
+    const messages = {};
+    const contacts = {};
+    const groupMetadata = {};
+    const presences = {};
+    const state = { connection: 'close' };
+    const labels = new objectRepository.ObjectRepository();
+    const labelAssociations = new KeyedDB(labelAssociationKey, labelAssociationKey.key);
+    const assertMessageList = (jid) => {
+        if (!messages[jid]) {
+            messages[jid] = makeMessagesDictionary();
+        }
+        return messages[jid];
+    };
+    const contactsUpsert = (newContacts) => {
+        const oldContacts = new Set(Object.keys(contacts));
+        for (const contact of newContacts) {
+            oldContacts.delete(contact.id);
+            contacts[contact.id] = Object.assign(contacts[contact.id] || {}, contact);
+        }
+        return oldContacts;
+    };
+    const labelsUpsert = (newLabels) => {
+        for (const label of newLabels) {
+            labels.upsertById(label.id, label);
+        }
+    };
+    /**
+     * binds to a BaileysEventEmitter.
+     * It listens to all events and constructs a state that you can query accurate data from.
+     * Eg. can use the store to fetch chats, contacts, messages etc.
+     * @param ev typically the event emitter from the socket connection
+     */
+    const bind = (ev) => {
+        ev.on('connection.update', (update) => {
+            Object.assign(state, update);
+        });
+        ev.on('messaging-history.set', ({ chats: newChats, contacts: newContacts, messages: newMessages, isLatest }) => {
+            if (isLatest) {
+                chats.clear();
+                for (const id in messages) {
+                    delete messages[id];
+                }
+            }
+            const chatsAdded = chats.insertIfAbsent(...newChats).length;
+            logger.debug({ chatsAdded }, 'synced chats');
+            const oldContacts = contactsUpsert(newContacts);
+            if (isLatest) {
+                for (const jid of oldContacts) {
+                    delete contacts[jid];
+                }
+            }
+            logger.debug({ deletedContacts: isLatest ? oldContacts.size : 0, newContacts }, 'synced contacts');
+            for (const msg of newMessages) {
+                const jid = msg.key.remoteJid;
+                const list = assertMessageList(jid);
+                list.upsert(msg, 'prepend');
+            }
+            logger.debug({ messages: newMessages.length }, 'synced messages');
+        });
+        // ev.on('contacts.upsert', contacts => {
+        //     contactsUpsert(contacts)
+        // })
+        // ev.on('contacts.update', async updates => {
+        //     for (const update of updates) {
+        //         let contact: Contact
+        //         if (contacts[update.id!]) {
+        //             contact = contacts[update.id!]
+        //         } else {
+        //             const contactHashes = await Promise.all(Object.keys(contacts).map(async contactId => {
+        //                 const { user } = jidDecode(contactId)!
+        //                 return [contactId, (await md5(Buffer.from(user + 'WA_ADD_NOTIF', 'utf8'))).toString('base64').slice(0, 3)]
+        //             }))
+        //             contact = contacts[contactHashes.find(([, b]) => b === update.id)?.[0] || ''] // find contact by attrs.hash, when user is not saved as a contact
+        //         }
+        //         if (contact) {
+        //             if (update.imgUrl === 'changed') {
+        //                 contact.imgUrl = socket ? await socket?.profilePictureUrl(contact.id) : undefined
+        //             } else if (update.imgUrl === 'removed') {
+        //                 delete contact.imgUrl
+        //             }
+        //         } else {
+        //             return logger.debug({ update }, 'got update for non-existant contact')
+        //         }
+        //         Object.assign(contacts[contact.id], contact)
+        //     }
+        // })
+        ev.on('chats.upsert', (newChats) => {
+            chats.upsert(...newChats);
+        });
+        ev.on('chats.update', (updates) => {
+            for (let update of updates) {
+                const result = chats.update(update.id, (chat) => {
+                    if (update.unreadCount > 0) {
+                        update = { ...update };
+                        update.unreadCount = (chat.unreadCount || 0) + update.unreadCount;
+                    }
+                    Object.assign(chat, update);
+                });
+                if (!result) {
+                    logger.debug({ update }, 'got update for non-existant chat');
+                }
+            }
+        });
+        // ev.on('labels.edit', (label: Label) => {
+        //     if (label.deleted) {
+        //         return labels.deleteById(label.id)
+        //     }
+        //     // WhatsApp can store only up to 20 labels
+        //     if (labels.count() < 20) {
+        //         return labels.upsertById(label.id, label)
+        //     }
+        //     logger.error('Labels count exceed')
+        // })
+        // ev.on('labels.association', ({ type, association }) => {
+        //     switch (type) {
+        //         case 'add':
+        //             labelAssociations.upsert(association)
+        //             break
+        //         case 'remove':
+        //             labelAssociations.delete(association)
+        //             break
+        //         default:
+        //             console.error(`unknown operation type [${type}]`)
+        //     }
+        // })
+        ev.on('presence.update', ({ id, presences: update }) => {
+            presences[id] = presences[id] || {};
+            Object.assign(presences[id], update);
+        });
+        // ev.on('chats.delete', deletions => {
+        //     for (const item of deletions) {
+        //         if (chats.get(item)) {
+        //             chats.deleteById(item)
+        //         }
+        //     }
+        // })
+        ev.on('messages.upsert', ({ messages: newMessages, type }) => {
+            switch (type) {
+                case 'append':
+                case 'notify':
+                    for (const msg of newMessages) {
+                        const jid = baileys.jidNormalizedUser(msg.key.remoteJid);
+                        const list = assertMessageList(jid);
+                        list.upsert(msg, 'append');
+                        if (type === 'notify') {
+                            if (!chats.get(jid)) {
+                                ev.emit('chats.upsert', [
+                                    {
+                                        id: jid,
+                                        conversationTimestamp: baileys.toNumber(msg.messageTimestamp),
+                                        unreadCount: 1,
+                                    },
+                                ]);
+                            }
+                        }
+                    }
+                    break;
+            }
+        });
+        // ev.on('messages.update', updates => {
+        //     for (const { update, key } of updates) {
+        //         const list = assertMessageList(jidNormalizedUser(key.remoteJid!))
+        //         if (update?.status) {
+        //             const listStatus = list.get(key.id!)?.status
+        //             if (listStatus && update?.status <= listStatus) {
+        //                 logger.debug({ update, storedStatus: listStatus }, 'status stored newer then update')
+        //                 delete update.status
+        //                 logger.debug({ update }, 'new update object')
+        //             }
+        //         }
+        //         const result = list.updateAssign(key.id!, update)
+        //         if (!result) {
+        //             logger.debug({ update }, 'got update for non-existent message')
+        //         }
+        //     }
+        // })
+        // ev.on('messages.delete', item => {
+        //     if ('all' in item) {
+        //         const list = messages[item.jid]
+        //         list?.clear()
+        //     } else {
+        //         const jid = item.keys[0].remoteJid!
+        //         const list = messages[jid]
+        //         if (list) {
+        //             const idSet = new Set(item.keys.map(k => k.id))
+        //             list.filter(m => !idSet.has(m.key.id))
+        //         }
+        //     }
+        // })
+        // ev.on('groups.update', updates => {
+        //     for (const update of updates) {
+        //         const id = update.id!
+        //         if (groupMetadata[id]) {
+        //             Object.assign(groupMetadata[id], update)
+        //         } else {
+        //             logger.debug({ update }, 'got update for non-existant group metadata')
+        //         }
+        //     }
+        // })
+        // ev.on('group-participants.update', ({ id, participants, action }) => {
+        //     const metadata = groupMetadata[id]
+        //     if (metadata) {
+        //         switch (action) {
+        //             case 'add':
+        //                 metadata.participants.push(...participants.map(id => ({ id, isAdmin: false, isSuperAdmin: false })))
+        //                 break
+        //             case 'demote':
+        //             case 'promote':
+        //                 for (const participant of metadata.participants) {
+        //                     if (participants.includes(participant.id)) {
+        //                         participant.isAdmin = action === 'promote'
+        //                     }
+        //                 }
+        //                 break
+        //             case 'remove':
+        //                 metadata.participants = metadata.participants.filter(p => !participants.includes(p.id))
+        //                 break
+        //         }
+        //     }
+        // })
+        // ev.on('message-receipt.update', updates => {
+        //     for (const { key, receipt } of updates) {
+        //         const obj = messages[key.remoteJid!]
+        //         const msg = obj?.get(key.id!)
+        //         if (msg) {
+        //             updateMessageWithReceipt(msg, receipt)
+        //         }
+        //     }
+        // })
+        // ev.on('messages.reaction', (reactions) => {
+        //     for (const { key, reaction } of reactions) {
+        //         const obj = messages[key.remoteJid!]
+        //         const msg = obj?.get(key.id!)
+        //         if (msg) {
+        //             updateMessageWithReaction(msg, reaction)
+        //         }
+        //     }
+        // })
+    };
+    const toJSON = () => ({
+        chats,
+        contacts,
+        messages,
+        labels,
+        labelAssociations,
+    });
+    const fromJSON = (json) => {
+        chats.upsert(...json.chats);
+        labelAssociations.upsert(...(json.labelAssociations || []));
+        contactsUpsert(Object.values(json.contacts));
+        labelsUpsert(Object.values(json.labels || {}));
+        for (const jid in json.messages) {
+            const list = assertMessageList(jid);
+            for (const msg of json.messages[jid]) {
+                list.upsert(baileys.proto.WebMessageInfo.fromObject(msg), 'append');
+            }
+        }
+    };
+    return {
+        chats,
+        contacts,
+        messages,
+        groupMetadata,
+        state,
+        presences,
+        labels,
+        labelAssociations,
+        bind,
+        /** loads messages from the store, if not found -- uses the legacy connection */
+        loadMessages: async (jid, count, cursor) => {
+            const list = assertMessageList(jid);
+            const mode = !cursor || 'before' in cursor ? 'before' : 'after';
+            const cursorKey = cursor ? ('before' in cursor ? cursor.before : cursor.after) : undefined;
+            const cursorValue = cursorKey ? list.get(cursorKey.id) : undefined;
+            let messages;
+            if (list && mode === 'before' && (!cursorKey || cursorValue)) {
+                if (cursorValue) {
+                    const msgIdx = list.array.findIndex((m) => m.key.id === cursorKey?.id);
+                    messages = list.array.slice(0, msgIdx);
+                }
+                else {
+                    messages = list.array;
+                }
+                const diff = count - messages.length;
+                if (diff < 0) {
+                    messages = messages.slice(-count); // get the last X messages
+                }
+            }
+            else {
+                messages = [];
+            }
+            return messages;
+        },
+        /**
+         * Get all available labels for profile
+         *
+         * Keep in mind that the list is formed from predefined tags and tags
+         * that were "caught" during their editing.
+         */
+        getLabels: () => {
+            return labels;
+        },
+        /**
+         * Get labels for chat
+         *
+         * @returns Label IDs
+         **/
+        getChatLabels: (chatId) => {
+            return labelAssociations.filter((la) => la.chatId === chatId).all();
+        },
+        /**
+         * Get labels for message
+         *
+         * @returns Label IDs
+         **/
+        getMessageLabels: (messageId) => {
+            const associations = labelAssociations
+                .filter((la) => la.messageId === messageId)
+                .all();
+            return associations.map(({ labelId }) => labelId);
+        },
+        loadMessage: async (jid, id) => messages[jid]?.get(id),
+        mostRecentMessage: async (jid) => {
+            const message = messages[jid]?.array.slice(-1)[0];
+            return message;
+        },
+        fetchImageUrl: async (jid, sock) => {
+            const contact = contacts[jid];
+            if (!contact) {
+                return sock?.profilePictureUrl(jid);
+            }
+            if (typeof contact.imgUrl === 'undefined') {
+                contact.imgUrl = await sock?.profilePictureUrl(jid);
+            }
+            return contact.imgUrl;
+        },
+        fetchGroupMetadata: async (jid, sock) => {
+            if (!groupMetadata[jid]) {
+                const metadata = await sock?.groupMetadata(jid);
+                if (metadata) {
+                    groupMetadata[jid] = metadata;
+                }
+            }
+            return groupMetadata[jid];
+        },
+        // fetchBroadcastListInfo: async(jid: string, sock: WASocket | undefined) => {
+        // 	if(!groupMetadata[jid]) {
+        // 		const metadata = await sock?.getBroadcastListInfo(jid)
+        // 		if(metadata) {
+        // 			groupMetadata[jid] = metadata
+        // 		}
+        // 	}
+        // 	return groupMetadata[jid]
+        // },
+        fetchMessageReceipts: async ({ remoteJid, id }) => {
+            const list = messages[remoteJid];
+            const msg = list?.get(id);
+            return msg?.userReceipt;
+        },
+        toJSON,
+        fromJSON,
+        writeToFile: (path) => {
+            // require fs here so that in case "fs" is not available -- the app does not crash
+            const { writeFileSync } = require('fs');
+            writeFileSync(path, JSON.stringify(toJSON()));
+        },
+        readFromFile: (path) => {
+            // require fs here so that in case "fs" is not available -- the app does not crash
+            const { readFileSync, existsSync } = require('fs');
+            if (existsSync(path)) {
+                logger.debug({ path }, 'reading from file');
+                const jsonStr = readFileSync(path, { encoding: 'utf-8' });
+                const json = JSON.parse(jsonStr);
+                fromJSON(json);
+            }
+        },
+    };
+};
+
 const keepFiles = ['creds.json', 'baileys_store.json', 'app-state-sync', 'session'];
 /**
  * @alpha
@@ -30037,7 +30517,8 @@ const releaseTmp = async (sessionName, ms) => {
             }
         }
     };
-    setInterval(deleteFiles, ms);
+    const idTimer = setInterval(deleteFiles, ms);
+    return idTimer;
 };
 
 const logger = new console$1.Console({
@@ -30054,16 +30535,38 @@ class BaileysProvider extends bot.ProviderClass {
             phoneNumber: null,
             useBaileysStore: true,
             port: 3000,
-            timeRelease: 21600000,
+            timeRelease: 0, //21600000
             writeMyself: 'none',
+            groupsIgnore: false,
+            readStatus: false,
+            experimentalStore: false,
+            experimentalSyncMessage: undefined,
         };
         this.idsDuplicates = [];
+        this.mapSet = new Set();
         this.indexHome = (req, res) => {
-            const botName = req[this.idBotName];
-            const qrPath = require$$1$1.join(process.cwd(), `${botName}.qr.png`);
-            const fileStream = require$$0$5.createReadStream(qrPath);
-            res.writeHead(200, { 'Content-Type': 'image/png' });
-            fileStream.pipe(res);
+            try {
+                const botName = req[this.idBotName];
+                const qrPath = require$$1$1.join(process.cwd(), `${botName}.qr.png`);
+                const fileStream = require$$0$5.createReadStream(qrPath);
+                res.writeHead(200, { 'Content-Type': 'image/png' });
+                fileStream.pipe(res);
+            }
+            catch (e) {
+                res.writeHead(404, { 'Content-Type': 'text/html' });
+                res.end(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="refresh" content="5">
+                    <title>QR Not Ready</title>
+                </head>
+                <body>
+                    <p>QR code is not ready yet. The page will automatically refresh in 5 seconds.</p>
+                </body>
+                </html>
+            `);
+            }
         };
         this.getMessage = async (key) => {
             if (this.store) {
@@ -30084,7 +30587,9 @@ class BaileysProvider extends bot.ProviderClass {
             this.saveCredsGlobal = saveCreds;
             try {
                 if (this.globalVendorArgs.useBaileysStore) {
-                    this.store = baileys.makeInMemoryStore({ logger: loggerBaileys });
+                    this.store = !this.globalVendorArgs.experimentalStore
+                        ? baileys.makeInMemoryStore({ logger: loggerBaileys })
+                        : bindStore({ logger: loggerBaileys });
                     if (this.store?.readFromFile)
                         this.store?.readFromFile(`${NAME_DIR_SESSION}/baileys_store.json`);
                     setInterval(() => {
@@ -30093,7 +30598,9 @@ class BaileysProvider extends bot.ProviderClass {
                             this.store?.writeToFile(path);
                         }
                     }, 10_000);
-                    await releaseTmp(NAME_DIR_SESSION, this.globalVendorArgs.timeRelease);
+                    if (this.globalVendorArgs.timeRelease > 0) {
+                        await releaseTmp(NAME_DIR_SESSION, this.globalVendorArgs.timeRelease);
+                    }
                 }
             }
             catch (e) {
@@ -30112,15 +30619,39 @@ class BaileysProvider extends bot.ProviderClass {
                     syncFullHistory: false,
                     markOnlineOnConnect: false,
                     generateHighQualityLinkPreview: true,
-                    getMessage: this.getMessage,
+                    getMessage: async (key) => (await this.getMessage(key)),
+                    retryRequestDelayMs: 350,
+                    maxMsgRetryCount: 4,
+                    connectTimeoutMs: 20_000,
+                    keepAliveIntervalMs: 30_000,
+                    shouldIgnoreJid: (jid) => {
+                        const isGroupJid = this.globalVendorArgs.groupsIgnore && baileys.isJidGroup(jid);
+                        const isBroadcast = !this.globalVendorArgs.readStatus && baileys.isJidBroadcast(jid);
+                        return isGroupJid || isBroadcast;
+                    },
+                    patchMessageBeforeSending: (message) => {
+                        if (message.deviceSentMessage?.message?.listMessage?.listType ===
+                            baileys.proto.Message.ListMessage.ListType.PRODUCT_LIST) {
+                            message = JSON.parse(JSON.stringify(message));
+                            message.deviceSentMessage.message.listMessage.listType =
+                                baileys.proto.Message.ListMessage.ListType.SINGLE_SELECT;
+                        }
+                        if (message.listMessage?.listType == baileys.proto.Message.ListMessage.ListType.PRODUCT_LIST) {
+                            message = JSON.parse(JSON.stringify(message));
+                            message.listMessage.listType = baileys.proto.Message.ListMessage.ListType.SINGLE_SELECT;
+                        }
+                        return message;
+                    },
                     ...this.globalVendorArgs,
                 });
-                this.store?.bind(sock.ev);
+                if (this?.store)
+                    this.store.bind(sock.ev);
                 this.vendor = sock;
                 if (this.globalVendorArgs.usePairingCode && !sock.authState.creds.registered) {
                     if (this.globalVendorArgs.phoneNumber) {
                         await sock.waitForConnectionUpdate((update) => !!update.qr);
-                        const code = await sock.requestPairingCode(this.globalVendorArgs.phoneNumber);
+                        const phoneNumberClean = bot.utils.removePlus(this.globalVendorArgs.phoneNumber);
+                        const code = await sock.requestPairingCode(phoneNumberClean);
                         this.emit('require_action', {
                             title: '⚡⚡ ACTION REQUIRED ⚡⚡',
                             instructions: [
@@ -30128,6 +30659,7 @@ class BaileysProvider extends bot.ProviderClass {
                                 `The token for linking is: ${code}`,
                                 `Need help: https://link.codigoencasa.com/DISCORD`,
                             ],
+                            payload: { qr: null, code },
                         });
                     }
                     else {
@@ -30137,14 +30669,8 @@ class BaileysProvider extends bot.ProviderClass {
                             `You can also check a log that has been created baileys.log`,
                             `Need help: https://link.codigoencasa.com/DISCORD`,
                         ]);
-                    }									
+                    }
                 }
-				sock.ev.on('messages.reaction', async (reaction) => {
-					this.emit('reaction', reaction)
-				})
-				sock.ev.on('groups.upsert', async (upsert) => {
-					this.emit('groups.upsert', upsert);
-				});
                 sock.ev.on('connection.update', async (update) => {
                     const { connection, lastDisconnect, qr } = update;
                     const statusCode = lastDisconnect?.error?.output?.statusCode;
@@ -30178,10 +30704,17 @@ class BaileysProvider extends bot.ProviderClass {
                                 `Remember that the QR code updates every minute`,
                                 `Need help: https://link.codigoencasa.com/DISCORD`,
                             ],
+                            payload: { qr },
                         });
                         await baileyGenerateImage(qr, `${this.globalVendorArgs.name}.qr.png`);
                     }
                 });
+				sock.ev.on('messages.reaction', async (reaction) => {
+					this.emit('reaction', reaction);
+				});
+				sock.ev.on('groups.upsert', async (upsert) => {
+					this.emit('groups.upsert', upsert);
+				});
                 sock.ev.on('creds.update', async () => {
                     await saveCreds();
                 });
@@ -30202,113 +30735,177 @@ class BaileysProvider extends bot.ProviderClass {
          * to have a standard set of events
          * @returns
          */
-		this.busEvents = () => [
-			{
-				event: 'messages.upsert',
-				func: ({ messages, type }) => {
-					if (type !== 'notify' && !(messages.length > 0 && messages[0].key.participant?.indexOf('whatsapp') > 0)) {
-						return;
-					}
-					const [messageCtx] = messages;
-					let payload = {
-						...messageCtx,
-						body: messageCtx?.message?.extendedTextMessage?.text ?? messageCtx?.message?.conversation,
-						name: messageCtx?.pushName,
-						from: messageCtx?.key?.remoteJid,
-					};
-		
-					const isGroup = payload.from.includes('@g.us');
-		
-					if (!isGroup) { 
-						payload.to = messageCtx.key.remoteJid;
-					} else { 
-						payload.from = baileyCleanNumber(payload.from, true);
-					}
-		
-					// Early returns for specific message types we want to ignore
-					if (messageCtx?.messageStubParameters?.length && 
-						(messageCtx.messageStubParameters[0].includes('absent') ||
-						 messageCtx.messageStubParameters[0].includes('No session') ||
-						 messageCtx.messageStubParameters[0].includes('Bad MAC') ||
-						 messageCtx.messageStubParameters[0].includes('Invalid'))) {
-						return;
-					}
-					if (messageCtx?.message?.protocolMessage?.type === 'EPHEMERAL_SETTING') return;
-					if (payload.from === 'status@broadcast') return;
-		
-					// Handle different types of media messages
-					if (messageCtx.message?.locationMessage) {
-						const { degreesLatitude, degreesLongitude } = messageCtx.message.locationMessage;
-						if (typeof degreesLatitude === 'number' && typeof degreesLongitude === 'number') {
-							payload.body = bot.utils.generateRefProvider('_event_location_');
-						}
-					} else if (messageCtx.message?.videoMessage || 
-							   messageCtx.message?.imageMessage || 
-							   messageCtx.message?.stickerMessage) {
-						payload.body = bot.utils.generateRefProvider('_event_media_');
-					} else if (messageCtx.message?.documentMessage) {
-						payload.body = bot.utils.generateRefProvider('_event_document_');
-					} else if (messageCtx.message?.audioMessage) {
-						payload.body = bot.utils.generateRefProvider('_event_voice_note_');
-					}
-		
-					// Handle button and list responses
-					const btnCtx = payload?.message?.buttonsResponseMessage?.selectedDisplayText;
-					if (btnCtx) payload.body = btnCtx;
-		
-					const listRowId = payload?.message?.listResponseMessage?.title;
-					if (listRowId) payload.body = listRowId;
-		
-					// Check if we should process this message based on sender
-					if (this.globalVendorArgs.writeMyself === 'none' && payload?.key?.fromMe) return;
-					if (this.globalVendorArgs.host?.phone !== payload.from &&
-						payload?.key?.fromMe &&
-						!['both'].includes(this.globalVendorArgs.writeMyself)) return;
-					if (this.globalVendorArgs.host?.phone === payload.from &&
-						!['both', 'host'].includes(this.globalVendorArgs.writeMyself)) return;
-		
-					if (!baileyIsValidNumber(payload.from)) return;
-		
-					if (isGroup) {
-						payload.to = messageCtx.key.remoteJid;
-					}
-		
-					// Emit the message event only once, after all processing is done
-					this.emit('message', payload);
-				},
-			},			
-			{
-				event: 'messages.update',
-				func: async (message) => {
-					for (const { key, update } of message) {
-						if (update.pollUpdates) {
-							const pollCreation = await this.getMessage(key);
-							if (pollCreation) {
-								const pollMessage = baileys.getAggregateVotesInPollMessage({
-									message: pollCreation,
-									pollUpdates: update.pollUpdates,
-								});
-								const [messageCtx] = message;
-								const messageOriginalKey = messageCtx?.update?.pollUpdates[0]?.pollUpdateMessageKey;
-								const messageOriginal = await this.store?.loadMessage(messageOriginalKey.remoteJid, messageOriginalKey.id);
-								const payload = {
-									...messageCtx,
-									body: pollMessage.find((poll) => poll.voters.length > 0)?.name || '',
-									from: baileyCleanNumber(key.remoteJid, true),
-									pushName: messageOriginal?.pushName,
-									broadcast: messageOriginal?.broadcast,
-									messageTimestamp: messageOriginal?.messageTimestamp,
-									voters: pollCreation,
-									type: 'poll',
-								};
-								this.emit('message', payload);
-							}
-						}
-					}
-				},
-			},
-		];
-		
+        this.busEvents = () => [
+            {
+                event: 'messages.upsert',
+                func: async (argFromProvider) => {
+                    const { messages, type } = argFromProvider;
+                    if (type !== 'notify')
+                        return;
+                    const pingMessageSync = async (_messageCtx) => {
+                        if (!this.mapSet.has(_messageCtx?.key?.remoteJid)) {
+                            try {
+                                this.mapSet.add(_messageCtx?.key?.remoteJid);
+                                const jid = _messageCtx?.key?.remoteJid;
+                                await this.vendor.readMessages([_messageCtx?.key]);
+                                await this.vendor.sendMessage(jid, { text: this.globalVendorArgs.experimentalSyncMessage });
+                            }
+                            catch (e) {
+                                logger.log(e);
+                            }
+                        }
+                    };
+                    const [messageCtx] = messages;
+                    if (messageCtx?.messageStubParameters?.length && messageCtx.messageStubParameters[0].includes('absent'))
+                        return;
+                    if (messageCtx?.messageStubParameters?.length &&
+                        messageCtx.messageStubParameters[0].includes('No session'))
+                        return;
+                    if (messageCtx?.messageStubParameters?.length &&
+                        messageCtx.messageStubParameters[0].includes('Bad MAC'))
+                        return;
+                    if (messageCtx?.messageStubParameters?.length &&
+                        messageCtx.messageStubParameters[0].includes('Invalid')) {
+                        if (this.globalVendorArgs.experimentalSyncMessage &&
+                            this.globalVendorArgs.experimentalSyncMessage.length) {
+                            if (baileyIsValidNumber(messageCtx?.key?.remoteJid)) {
+                                await pingMessageSync(messageCtx);
+                            }
+                        }
+                        return;
+                    }
+                    // if (((messageCtx?.message?.protocolMessage?.type) as unknown as string) === 'EPHEMERAL_SETTING') return
+                    const textToBody = messageCtx?.message?.ephemeralMessage?.message?.extendedTextMessage?.text ??
+                        messageCtx?.message?.extendedTextMessage?.text ??
+                        messageCtx?.message?.conversation;
+                    // if (idWs) this.idsDuplicates.push(idWs)
+                    let payload = {
+                        ...messageCtx,
+                        body: textToBody,
+                        name: messageCtx?.pushName,
+                        from: messageCtx?.key?.remoteJid,
+                    };
+                    //Detectar location
+                    if (messageCtx.message?.locationMessage) {
+                        const { degreesLatitude, degreesLongitude } = messageCtx.message.locationMessage;
+                        if (typeof degreesLatitude === 'number' && typeof degreesLongitude === 'number') {
+                            payload = {
+                                ...payload,
+                                body: bot.utils.generateRefProvider('_event_location_'),
+                            };
+                        }
+                    }
+                    //Detectar video
+                    if (messageCtx.message?.videoMessage) {
+                        payload = { ...payload, body: bot.utils.generateRefProvider('_event_media_') };
+                    }
+                    //Detectar Sticker
+                    if (messageCtx.message?.stickerMessage) {
+                        payload = { ...payload, body: bot.utils.generateRefProvider('_event_media_') };
+                    }
+                    //Detectar media
+                    if (messageCtx.message?.imageMessage) {
+                        payload = { ...payload, body: bot.utils.generateRefProvider('_event_media_') };
+                    }
+                    //Detectar file
+                    if (messageCtx.message?.documentMessage || messageCtx.message?.documentWithCaptionMessage) {
+                        payload = { ...payload, body: bot.utils.generateRefProvider('_event_document_') };
+                    }
+                    //Detectar voice note
+                    if (messageCtx.message?.audioMessage) {
+                        payload = { ...payload, body: bot.utils.generateRefProvider('_event_voice_note_') };
+                    }
+                    //Detectar order message
+                    if (messageCtx.message?.orderMessage) {
+                        payload = { ...payload, body: bot.utils.generateRefProvider('_event_order_') };
+                    }
+                    if (payload.from === 'status@broadcast')
+                        return;
+                    payload.from = baileyCleanNumber(payload.from, true);
+                    if (this.globalVendorArgs.writeMyself === 'none' && payload?.key?.fromMe)
+                        return;
+                    if (this.globalVendorArgs.host?.phone !== payload.from &&
+                        payload?.key?.fromMe &&
+                        !['both'].includes(this.globalVendorArgs.writeMyself))
+                        return;
+                    if (this.globalVendorArgs.host?.phone === payload.from &&
+                        !['both', 'host'].includes(this.globalVendorArgs.writeMyself))
+                        return;
+                    if (!baileyIsValidNumber(payload.from)) {
+                        return;
+                    }
+                    const btnCtx = payload?.message?.buttonsResponseMessage?.selectedDisplayText;
+                    if (btnCtx)
+                        payload.body = btnCtx;
+                    const listRowId = payload?.message?.listResponseMessage?.title;
+                    if (listRowId)
+                        payload.body = listRowId;
+                    const processDuplicate = () => {
+                        if (messageCtx?.key?.id) {
+                            const idWs = `${messageCtx.key.id}__${payload.from}`;
+                            const isDuplicate = this.idsDuplicates.includes(idWs);
+                            if (isDuplicate) {
+                                this.idsDuplicates = [];
+                                return false;
+                            }
+                            if (this.idsDuplicates.length > 10) {
+                                this.idsDuplicates = [];
+                            }
+                            this.idsDuplicates.push(idWs);
+                        }
+                        return true;
+                    };
+                    if (processDuplicate()) {
+                        this.emit('message', payload);
+                    }
+                },
+            },
+            {
+                event: 'messages.update',
+                func: async (message) => {
+                    for (const { key, update } of message) {
+                        if (update.pollUpdates) {
+                            const pollCreation = await this.getMessage(key);
+                            if (pollCreation) {
+                                const pollMessage = baileys.getAggregateVotesInPollMessage({
+                                    message: pollCreation,
+                                    pollUpdates: update.pollUpdates,
+                                });
+                                const [messageCtx] = message;
+                                if (!messageCtx ||
+                                    !messageCtx.update ||
+                                    !messageCtx.update.pollUpdates ||
+                                    messageCtx.update.pollUpdates.length === 0) {
+                                    continue;
+                                }
+                                const messageOriginalKey = messageCtx?.update?.pollUpdates[0]?.pollUpdateMessageKey;
+                                const messageOriginal = await this.store?.loadMessage(messageOriginalKey.remoteJid, messageOriginalKey.id);
+                                const payload = {
+                                    ...messageCtx,
+                                    body: pollMessage.find((poll) => poll.voters.length > 0)?.name || '',
+                                    from: baileyCleanNumber(key.remoteJid, true),
+                                    pushName: messageOriginal?.pushName,
+                                    broadcast: messageOriginal?.broadcast,
+                                    messageTimestamp: messageOriginal?.messageTimestamp,
+                                    voters: pollCreation,
+                                    type: 'poll',
+                                };
+                                this.emit('message', payload);
+                            }
+                        }
+                    }
+                },
+            },
+        ];
+        /**
+         * @param {string} orderId
+         * @param {string} orderToken
+         * @example await getOrderDetails('order-id', 'order-token')
+         */
+        this.getOrderDetails = async (orderId, orderToken) => {
+            const orderDetails = await this.vendor.getOrderDetails(orderId, orderToken);
+            return orderDetails;
+        };
         /**
          * @param {string} number
          * @param {string} message
@@ -30325,7 +30922,7 @@ class BaileysProvider extends bot.ProviderClass {
                 const fileOpus = await bot.utils.convertAudio(fileDownloaded);
                 return this.sendAudio(number, fileOpus);
             }
-            return this.sendFile(number, fileDownloaded);
+            return this.sendFile(number, fileDownloaded, text);
         };
         /**
          * Enviar imagen
@@ -30387,13 +30984,14 @@ class BaileysProvider extends bot.ProviderClass {
          * @param {string} filePath
          * @example await sendMessage('+XXXXXXXXXXX', './document/file.pdf')
          */
-        this.sendFile = async (number, filePath) => {
+        this.sendFile = async (number, filePath, text) => {
             const mimeType = mime.lookup(filePath);
             const fileName = require$$1$1.basename(filePath);
             const payload = {
                 document: { url: filePath },
                 mimetype: `${mimeType}`,
                 fileName: fileName,
+                caption: text,
             };
             return this.vendor.sendMessage(number, payload);
         };
@@ -30450,17 +31048,21 @@ class BaileysProvider extends bot.ProviderClass {
             });
         };
         /**
-		 * Enviar un mensaje de texto a un número o grupo específico.
-		 * @param {string} to - El número o ID del grupo al que enviar el mensaje.
-		 * @param {string} message - El mensaje a enviar.
-		 */
-		this.sendMessage = async (to, message, options) => {
-			options = { ...options, ...options['options'] };
-			const payload = { text: message };
-			if (options.media)
-                return this.sendMedia(to, options.media, payload);
-			return this.vendor.sendMessage(to, payload);
-		};
+         * TODO: Necesita terminar de implementar el sendMedia y sendButton guiarse:
+         * https://github.com/leifermendez/bot-whatsapp/blob/4e0fcbd8347f8a430adb43351b5415098a5d10df/packages/provider/src/web-whatsapp/index.js#L165
+         * @param {string} number
+         * @param {string} message
+         * @example await sendMessage('+XXXXXXXXXXX', 'Hello World')
+         */
+        this.sendMessage = async (numberIn, message, options) => {
+            options = { ...options, ...options['options'] };
+            const number = baileyCleanNumber(`${numberIn}`);
+            if (options.buttons?.length)
+                return this.sendButtons(number, message, options.buttons);
+            if (options.media)
+                return this.sendMedia(number, options.media, message);
+            return this.sendText(number, message);
+        };
         /**
          * @param {string} remoteJid
          * @param {string} latitude
@@ -30530,8 +31132,12 @@ class BaileysProvider extends bot.ProviderClass {
             const { message } = ctx;
             if (!message)
                 return undefined;
-            const { imageMessage, videoMessage, documentMessage, audioMessage } = message;
-            return imageMessage?.mimetype ?? audioMessage?.mimetype ?? videoMessage?.mimetype ?? documentMessage?.mimetype;
+            const { imageMessage, videoMessage, documentMessage, audioMessage, documentWithCaptionMessage } = message;
+            return (imageMessage?.mimetype ??
+                audioMessage?.mimetype ??
+                videoMessage?.mimetype ??
+                documentMessage?.mimetype ??
+                documentWithCaptionMessage?.message?.documentMessage?.mimetype);
         };
         this.generateFileName = (extension) => `file-${Date.now()}.${extension}`;
         /**
@@ -30553,6 +31159,11 @@ class BaileysProvider extends bot.ProviderClass {
         };
         this.store = null;
         this.globalVendorArgs = { ...this.globalVendorArgs, ...args };
+    }
+    async releaseSessionFiles() {
+        const NAME_DIR_SESSION = `${this.globalVendorArgs.name}_sessions`;
+        const idTimer = await releaseTmp(NAME_DIR_SESSION, 0);
+        clearInterval(idTimer);
     }
     beforeHttpServerInit() {
         this.server = this.server

@@ -2,7 +2,6 @@ import "dotenv/config";
 import { createBot, createProvider } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { httpInject } from "@builderbot-plugins/openai-assistants";
 import { flow } from "./flows";
 import { initDb } from "./database/surreal";
 
@@ -40,7 +39,6 @@ const main = async () => {
     adapterProvider.vendor.readMessages([ctx.key]);
   });
 
-  httpInject(adapterProvider.server);
   httpServer(+VERTEX_BOT_PORT);
 
   adapterProvider.server.post(
