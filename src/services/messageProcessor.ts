@@ -108,8 +108,8 @@ export async function getRelevantMessages(
       messagesToRerank
     );
 
-    if (rerankedMessagesResult && Array.isArray(rerankedMessagesResult.msg)) {
-      rerankedOlderMessages = rerankedMessagesResult.msg
+    if (rerankedMessagesResult && Array.isArray(rerankedMessagesResult.msg.texts)) {
+      rerankedOlderMessages = rerankedMessagesResult.msg.texts
         .map((item) => {
           const message = messagesToRerank[item.index];
           const originalMessage = topSimilarities.find(
@@ -173,8 +173,8 @@ export async function getRelevantFacts(body: Query): Promise<string> {
 
     const rerankedFactsResult = await rerankTexts(String(body), factsToRerank);
 
-    if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg)) {
-      rerankedFacts = rerankedFactsResult.msg
+    if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg.texts)) {
+      rerankedFacts = rerankedFactsResult.msg.texts
         .sort((a, b) => b.score - a.score)
         .slice(0, 10)
         .map((item) => factsToRerank[item.index]);

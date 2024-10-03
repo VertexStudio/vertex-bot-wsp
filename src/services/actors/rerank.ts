@@ -23,7 +23,9 @@ type RankedTexts = {
 type RerankedResult = {
   err: undefined | string;
   id: RecordId;
-  msg: RankedTexts[];
+  msg: {
+    texts: RankedTexts[];
+  };
   name: string;
   rx: RecordId;
   tx: RecordId;

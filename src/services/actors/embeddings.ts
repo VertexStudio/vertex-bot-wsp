@@ -29,12 +29,57 @@ type EmbeddingResult = {
   tx: RecordId;
 };
 
+type StoredTextEmbeddingsResult = {
+  err: undefined | string;
+  id: RecordId;
+  msg: {
+    lengths:  number[];
+  };
+  name: string;
+  rx: RecordId;
+  tx: RecordId;
+}
+
 export type GenerateTextEmbeddings = {
+  texts: string[];
+};
+
+export type StoreTextEmbeddings = {
   source: string;
   texts: string[];
   metadata?: Record<string, any>[];
   tag: string;
-};
+}
+
+async function storeTextEmbeddings(
+  embeddings_req: StoreTextEmbeddings
+): Promise<StoredTextEmbeddingsResult> {
+  try {
+    const vertexBotWspId = bioma.createActorId(
+      "/vertex-bot-wsp-embeddings",
+      "vertex::VertexBotWSP"
+    );
+    const vertexBotWsp = await bioma.createActor(vertexBotWspId);
+
+    const embeddingsId = bioma.createActorId(
+      "/embeddings",
+      "bioma_llm::embeddings::Embeddings"
+    );
+
+    const messageId = await bioma.sendMessage(
+      vertexBotWspId,
+      embeddingsId,
+      "bioma_llm::embeddings::StoreTextEmbeddings",
+      embeddings_req
+    );
+
+    const reply = await bioma.waitForReply(messageId, 10000);
+    return reply as StoredTextEmbeddingsResult
+  } catch (error) {
+    console.error("Error in StoreTextEmbeddings:", error);
+    throw error;
+  }
+}
 
 async function createEmbeddings(
   embeddings_req: GenerateTextEmbeddings
@@ -132,4 +177,4 @@ async function topSimilarity(
   }
 }
 
-export { createEmbeddings, topSimilarity };
+export { createEmbeddings, topSimilarity, storeTextEmbeddings };

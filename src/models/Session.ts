@@ -1,8 +1,8 @@
 import { getDb } from "~/database/surreal";
 import "dotenv/config";
-import { createEmbeddings } from "~/services/actors/embeddings";
+import { createEmbeddings, storeTextEmbeddings } from "~/services/actors/embeddings";
 import { Conversation, Message } from "./types";
-import { GenerateEmbeddings } from "~/services/actors/embeddings";
+import { GenerateTextEmbeddings, StoreTextEmbeddings } from "~/services/actors/embeddings";
 import { ChatMessageRole } from "~/services/actors/chat";
 import { RecordId } from "surrealdb.js";
 
@@ -102,7 +102,7 @@ export class Session {
         createdMessages.push(createdMessage);
       }
 
-      const embeddings_req: GenerateEmbeddings = {
+      const embeddings_req: StoreTextEmbeddings = {
         source: "vertex::VertexBotWSP",
         texts: createdMessages.map((msg) => msg.msg),
         tag: "conversation",
@@ -112,7 +112,7 @@ export class Session {
         })),
       };
 
-      const embeddingResult = await createEmbeddings(embeddings_req);
+      const embeddingResult = await storeTextEmbeddings(embeddings_req);
 
       this.trimMessages();
     } catch (error) {
