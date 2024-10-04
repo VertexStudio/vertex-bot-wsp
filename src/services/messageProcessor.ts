@@ -1,5 +1,9 @@
 import { Session } from "../models/Session";
-import { Similarity, topSimilarity } from "../services/actors/embeddings";
+import {
+  Query,
+  Similarity,
+  topSimilarity,
+} from "../services/actors/embeddings";
 import rerankTexts from "~/services/actors/rerank";
 import { Message } from "../models/types";
 import { RecordId } from "surrealdb.js";
@@ -41,7 +45,7 @@ export function processQuotedMessage(
 }
 
 export async function getRelevantMessages(
-  body: string,
+  body: Query,
   allMessages: Message[]
 ): Promise<{ role: string; content: string }[]> {
   const latestMessages = Array.isArray(allMessages)
@@ -99,10 +103,13 @@ export async function getRelevantMessages(
   }> = [];
 
   if (messagesToRerank.length > 0) {
-    const rerankedMessagesResult = await rerankTexts(body, messagesToRerank);
+    const rerankedMessagesResult = await rerankTexts(
+      String(body),
+      messagesToRerank
+    );
 
-    if (rerankedMessagesResult && Array.isArray(rerankedMessagesResult.msg)) {
-      rerankedOlderMessages = rerankedMessagesResult.msg
+    if (rerankedMessagesResult && Array.isArray(rerankedMessagesResult.msg.texts)) {
+      rerankedOlderMessages = rerankedMessagesResult.msg.texts
         .map((item) => {
           const message = messagesToRerank[item.index];
           const originalMessage = topSimilarities.find(
@@ -138,7 +145,7 @@ export async function getRelevantMessages(
   return formattedMessages;
 }
 
-export async function getRelevantFacts(body: string): Promise<string> {
+export async function getRelevantFacts(body: Query): Promise<string> {
   let rerankedFacts: string[] = [];
 
   const factSimilarityResult = await topSimilarity(body, "facts", 20, 0.5);
@@ -164,10 +171,10 @@ export async function getRelevantFacts(body: string): Promise<string> {
 
     const factsToRerank = topSimilarFacts.map(({ content }) => content);
 
-    const rerankedFactsResult = await rerankTexts(body, factsToRerank);
+    const rerankedFactsResult = await rerankTexts(String(body), factsToRerank);
 
-    if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg)) {
-      rerankedFacts = rerankedFactsResult.msg
+    if (rerankedFactsResult && Array.isArray(rerankedFactsResult.msg.texts)) {
+      rerankedFacts = rerankedFactsResult.msg.texts
         .sort((a, b) => b.score - a.score)
         .slice(0, 10)
         .map((item) => factsToRerank[item.index]);

@@ -14,7 +14,7 @@ import {
 import { buildPromptMessages } from "../services/promptBuilder";
 import { sendResponse } from "../services/responseService";
 import sendChatMessage from "~/services/actors/chat";
-import { GenerateEmbeddings } from "~/services/actors/embeddings";
+import { Query } from "~/services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -47,11 +47,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       enqueueMessage(ctx.body, async (body) => {
         body = processQuotedMessage(ctx, session, userNumber, userName, body);
 
+        const query: Query = { Text: body };
+
         const formattedMessages = await getRelevantMessages(
-          body,
+          query,
           session.messages
         );
-        const relevantFactsText = await getRelevantFacts(body);
+        const relevantFactsText = await getRelevantFacts(query);
 
         const promptMessages = buildPromptMessages(
           session.conversation.system_prompt,

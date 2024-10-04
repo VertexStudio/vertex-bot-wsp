@@ -25,7 +25,6 @@ import sendChatMessage, {
   ChatMessage,
   ChatMessageRole,
 } from "~/services/actors/chat";
-import { GenerateEmbeddings } from "~/services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);

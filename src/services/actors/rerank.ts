@@ -10,7 +10,12 @@ const BIOMA_DB_PASSWORD = process.env.BIOMA_DB_PASSWORD;
 
 const bioma = new BiomaInterface();
 
-type RankedItem = {
+type RankTexts = {
+  query: string;
+  texts: string[];
+};
+
+type RankedTexts = {
   index: number;
   score: number;
 };
@@ -18,7 +23,9 @@ type RankedItem = {
 type RerankedResult = {
   err: undefined | string;
   id: RecordId;
-  msg: RankedItem[];
+  msg: {
+    texts: RankedTexts[];
+  };
   name: string;
   rx: RecordId;
   tx: RecordId;
@@ -43,18 +50,20 @@ async function rerankTexts(
     );
     const vertexBotWsp = await bioma.createActor(vertexBotWspId);
 
-    const rerankId = bioma.createActorId("/rerank", "rerank::rerank::Rerank");
+    const rerankId = bioma.createActorId(
+      "/rerank",
+      "bioma_llm::rerank::Rerank"
+    );
 
-    const rankTextsMessage = {
+    const rankTextsMessage: RankTexts = {
       query: query,
       texts: texts,
-      raw_scores: false,
     };
 
     const messageId = await bioma.sendMessage(
       vertexBotWspId,
       rerankId,
-      "rerank::rerank::RankTexts",
+      "bioma_llm::rerank::RankTexts",
       rankTextsMessage
     );
 
