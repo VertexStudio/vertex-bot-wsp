@@ -26,7 +26,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
     try {
       await typing(ctx, provider);
 
-      const groupId = ctx.to.split("@")[0];
+      const groupId = ctx.from.split("@")[0];
       const userName = ctx.pushName || "User";
       const userNumber = ctx.key.participant || ctx.key.remoteJid;
 
