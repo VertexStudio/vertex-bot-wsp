@@ -1,5 +1,7 @@
 import { Client as MinioClient } from "minio";
 
+require('dotenv').config();
+
 export const minioClient = new MinioClient({
   endPoint: process.env.MINIO_ENDPOINT,
   port: parseInt(process.env.MINIO_PORT),
