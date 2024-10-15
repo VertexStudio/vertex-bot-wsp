@@ -4,7 +4,7 @@ import {
   Similarity,
   topSimilarity,
 } from "../services/actors/embeddings";
-import rerankTexts from "~/services/actors/rerank";
+import rerankTexts from "../services/actors/rerank";
 import { Message } from "../models/types";
 import { RecordId } from "surrealdb.js";
 

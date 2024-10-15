@@ -1,9 +1,9 @@
-import { getDb } from "~/database/surreal";
+import { getDb } from "../database/surreal";
 import "dotenv/config";
-import { createEmbeddings, storeTextEmbeddings } from "~/services/actors/embeddings";
+import { createEmbeddings, storeTextEmbeddings } from "../services/actors/embeddings";
 import { Conversation, Message } from "./types";
-import { GenerateTextEmbeddings, StoreTextEmbeddings } from "~/services/actors/embeddings";
-import { ChatMessageRole } from "~/services/actors/chat";
+import { GenerateTextEmbeddings, StoreTextEmbeddings } from "../services/actors/embeddings";
+import { ChatMessageRole } from "../services/actors/chat";
 import { RecordId } from "surrealdb.js";
 
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
