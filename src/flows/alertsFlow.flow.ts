@@ -1,6 +1,6 @@
 import { addKeyword, MemoryDB as Database } from "@builderbot/bot";
 //import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { TelegramProvider as Provider } from '@builderbot-plugins/telegram'
+import { TelegramProvider } from '@builderbot-plugins/telegram'
 import { initDb } from "../database/surreal";
 import { getMessage } from "../services/translate";
 import { Uuid as UUID } from "surrealdb.js";
@@ -20,12 +20,12 @@ setupLogger();
 
 let isProcessing = false;
 let processId = 0;
-let provider: Provider;
+let provider: TelegramProvider;
 let currentCtx: any;
 const sentAlerts = new Map<string, AlertControl>();
 const FEEDBACK_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
-export const alertsFlow = addKeyword<Provider, Database>("alertas", {
+export const alertsFlow = addKeyword<TelegramProvider, Database>("alertas", {
   sensitive: false,
 }).addAction(async (ctx, { provider: _provider }) => {
   if (isProcessing) {
