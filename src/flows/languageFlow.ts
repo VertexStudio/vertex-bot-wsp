@@ -1,25 +1,35 @@
 import { addKeyword } from "@builderbot/bot";
 import { getMessage, setLanguage } from '../services/translate';
 
+const SUPPORTED_LANGUAGES = {
+  es: ['español', 'es', 'spanish'],
+  en: ['english', 'inglés', 'ingles', 'en'],
+};
+
 export const languageFlow = addKeyword(['language', 'lenguaje'])
   .addAction(async (ctx, { provider }) => {
     const userChoice = ctx.body.toLowerCase().trim();
     console.log(`Received user choice: "${userChoice}"`);
 
-    const number = ctx.key.remoteJid;
+    const number = ctx.from;
+
+    let languageCode: string | undefined = undefined;
+
+    for (const [lang, keywords] of Object.entries(SUPPORTED_LANGUAGES)) {
+      if (keywords.some(keyword => userChoice.includes(keyword))) {
+        languageCode = lang; 
+        break;
+      }
+    }
 
     let responseMessage: string;
 
-    if (userChoice.includes('español') || userChoice.includes('es') || userChoice.includes('spanish')) {
-      setLanguage('es');
+    if (languageCode) {
+      setLanguage(languageCode);
       responseMessage = getMessage('languageSetConfirmation');
-      console.log(`Language set to Spanish.`);
-    } else if (userChoice.includes('english') || userChoice.includes('inglés') || userChoice.includes('ingles') || userChoice.includes('en')) {
-      setLanguage('en');
-      responseMessage = getMessage('languageSetConfirmation');
-      console.log(`Language set to English.`);
+      console.log(`Language set to ${languageCode === 'es' ? 'Spanish' : 'English'}.`);
     } else {
-      responseMessage = getMessage('languageNotRecognized');
+      responseMessage = getMessage('languageNotRecognized') + ' ' + getMessage('availableLanguages');
       console.log(`Language not recognized.`);
     }
 

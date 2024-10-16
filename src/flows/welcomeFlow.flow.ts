@@ -28,7 +28,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
       const groupId = ctx.to.split("@")[0];
       const userName = ctx.pushName || "User";
-      const userNumber = ctx.key.participant || ctx.key.remoteJid;
+      const userNumber = ctx.from;
 
       // Fetch or create the session for the group
       let session = sessions.get(groupId);
@@ -87,7 +87,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       console.error("Error in welcomeFlow:", error);
       await sendMessage(
         provider,
-        ctx.key.remoteJid,
+        ctx.from,
         `errorWelcome ${error.message}`
       );
     }

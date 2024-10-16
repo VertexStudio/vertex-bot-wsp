@@ -1,5 +1,6 @@
 import { addKeyword, MemoryDB as Database } from "@builderbot/bot";
-import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+//import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+import { TelegramProvider as Provider } from '@builderbot-plugins/telegram'
 import { initDb } from "../database/surreal";
 import { getMessage } from "../services/translate";
 import { Uuid as UUID } from "surrealdb.js";
@@ -40,12 +41,11 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
     currentCtx = ctx;
     provider = _provider;
 
-    await provider.sendText(ctx.key.remoteJid, getMessage("alerts_on"));
-    provider.on("reaction", handleReaction);
+    await provider.sendMessage(ctx.from, getMessage("alerts_on"));
     await anomalyLiveQuery();
   } catch (error) {
     console.error(`[${processId}] Error while activating alerts.`, error);
-    await provider.sendText(ctx.key.remoteJid, getMessage("alerts_error"));
+    await provider.sendMessage(ctx.from, getMessage("alerts_error"));
   }
 });
 
@@ -77,6 +77,18 @@ async function anomalyLiveQuery(): Promise<UUID> {
         imageUrl,
         anomalyCaption
       );
+
+      const buttons = [
+        { text: "✅", callback_data: `correct_${messageId}` },
+        { text: "❌", callback_data: `incorrect_${messageId}` },
+      ];
+
+      await provider.vendor.telegram.sendMessage(currentCtx.from, "¿Es correcta esta alerta?", {
+        reply_markup: {
+          inline_keyboard: [buttons],
+        },
+      });
+
       sentAlerts.set(messageId, {
         alertAnomaly: analysis.id,
         feedback: [],
@@ -88,33 +100,20 @@ async function anomalyLiveQuery(): Promise<UUID> {
   return liveQuery;
 }
 
-async function handleReaction(reactions: any[]) {
-  if (reactions.length === 0) return;
+provider.on("callback_query", async (action) => {
+  const callbackData = action.update.callback_query?.data;
+  const chatId = action.update.callback_query.message.chat.id;
 
-  const reaction = reactions[0];
-  const { key: reactionKey, text: emoji } = reaction.reaction || {};
+  const messageId = callbackData.split("_")[1];
+  const alertControl = sentAlerts.get(messageId);
 
-  if (!reactionKey || !emoji) {
-    console.info(`Invalid reaction format`);
-    return;
-  }
-
-  const reactionId = reaction.key;
-  const alertId = Array.from(sentAlerts.keys()).find(
-    (alertId) => alertId == reactionId.id
-  );
-
-  if (!alertId) {
-    console.info(
-      `No matching alerts found for reaction. Reaction ID: ${reactionId.id}`
-    );
+  if (!alertControl) {
+    console.info(`No matching alert found for message ID: ${messageId}`);
     return;
   }
 
   try {
     const db = await initDb();
-    const alertControl = sentAlerts.get(alertId);
-
     const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
       `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomaly.tb}:${alertControl.alertAnomaly.id})[0];`
     );
@@ -127,36 +126,32 @@ async function handleReaction(reactions: any[]) {
 
     if (!anomalyRecord) throw new Error("Anomaly record not found");
 
-    const correctEmojiList = ["✅", "👍"];
-    const incorrectEmojiList = ["❌", "👎"];
-
-    if (correctEmojiList.includes(emoji)) {
+    if (callbackData.startsWith("correct")) {
       alertControl.feedback.push(true);
-    } else if (incorrectEmojiList.includes(emoji)) {
+    } else if (callbackData.startsWith("incorrect")) {
       alertControl.feedback.push(false);
     } else {
-      await provider.sendText(
-        reactionKey.remoteJid,
-        getMessage("invalid_reaction")
-      );
+      await provider.vendor.telegram.sendMessage(chatId, "Respuesta inválida");
       return;
     }
 
     if (!alertControl.waiting) {
       alertControl.waiting = true;
       setTimeout(
-        () => processFeedback(db, alertControl, anomalyRecord, alertId),
+        () => processFeedback(db, alertControl, anomalyRecord, messageId),
         FEEDBACK_TIMEOUT
       );
     }
+
+    await provider.vendor.telegram.answerCbQuery(action.update.callback_query.id);
   } catch (error) {
-    console.error(`[${processId}] Could not receive feedback`, error);
-    await provider.sendText(
-      reactionKey.remoteJid,
-      "Sorry, an error occurred while processing your feedback."
+    console.error(`[${processId}] Error handling callback query`, error);
+    await provider.vendor.telegram.sendMessage(
+      chatId,
+      "Ocurrió un error al procesar tu respuesta."
     );
   }
-}
+});
 
 async function processFeedback(
   db: any,

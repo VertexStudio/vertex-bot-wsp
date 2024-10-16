@@ -2,7 +2,8 @@ import "dotenv/config";
 import Surreal, { RecordId } from "surrealdb.js";
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
-import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+//import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+import { TelegramProvider as Provider } from '@builderbot-plugins/telegram'
 import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
@@ -77,7 +78,7 @@ async function updateDatabaseWithModelTask(
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const db = getDb();
-  const number = ctx.key.remoteJid;
+  const number = ctx.from;
   const userName = ctx.pushName || "System";
   const groupId = ctx.to.split("@")[0];
 

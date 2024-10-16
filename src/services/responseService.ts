@@ -9,5 +9,5 @@ export async function sendResponse(provider: any, ctx: any, content: string) {
     mentions = [ctx.key.participant];
   }
 
-  await sendMessage(provider, ctx.key.remoteJid, messageText, mentions, ctx);
+  await sendMessage(provider, ctx.from, messageText, mentions, ctx);
 }

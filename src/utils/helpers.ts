@@ -61,7 +61,7 @@ export async function sendImage(
   caption?: string
 ): Promise<string> {
   console.info(`Sending image: ${imageUrl}`);
-  const number = ctx.key.remoteJid;
+  const number = ctx.from;
   const enhancedCaption = caption || "Image";
 
   const sentMessage = await provider.vendor.sendMessage(number, {

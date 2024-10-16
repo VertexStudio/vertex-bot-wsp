@@ -13,6 +13,7 @@
   },
   "keywords": [],
   "dependencies": {
+    "@builderbot-plugins/telegram": "^2.0.0",
     "@builderbot/bot": "1.2.3-alpha.1",
     "@builderbot/provider-baileys": "1.2.3-alpha.1",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
