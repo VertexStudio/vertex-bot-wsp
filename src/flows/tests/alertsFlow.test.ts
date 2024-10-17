@@ -9,11 +9,12 @@ jest.mock('../../database/surreal', () => ({
   }));
 
 // Mock the entire module, but keep alertsFlow real
+const mockAnomalyLiveQuery = jest.fn();
 jest.mock('../alertsFlow.flow', () => {
     const actualModule = jest.requireActual('../alertsFlow.flow');
     return {
       ...actualModule,
-      anomalyLiveQuery: jest.fn(),
+      anomalyLiveQuery: mockAnomalyLiveQuery,
       handleReaction: jest.fn().mockResolvedValue(undefined),
       processFeedback: jest.fn,
     };
@@ -48,7 +49,7 @@ describe('alertsFlow', () => {
       });
   
       it('should send an alert activation message', async () => {        
-        const result = await action(mockCtx, { provider: mockProvider });
+        await action(mockCtx, { provider: mockProvider });
       
         expect(typing).toHaveBeenCalled();
         expect(mockProvider.sendText).toHaveBeenCalledWith('120363323762193994@g.us', 'Mocked alerts_on message');
@@ -57,9 +58,9 @@ describe('alertsFlow', () => {
 
       it('should send an alert error message', async () => {
         const mockError = new Error('Test error');
-        require('../alertsFlow.flow').anomalyLiveQuery.mockRejectedValue(mockError);
+        mockAnomalyLiveQuery.mockRejectedValue(mockError);
         
-        const result = await action(mockCtx, { provider: mockProvider });
+        await action(mockCtx, { provider: mockProvider });
       
         expect(typing).toHaveBeenCalled();
         expect(mockProvider.sendText).toHaveBeenCalledWith('120363323762193994@g.us', 'Mocked alerts_error message');

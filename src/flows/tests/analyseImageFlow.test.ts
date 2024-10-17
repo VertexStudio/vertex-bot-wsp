@@ -32,7 +32,7 @@ jest.mock("../../services/promptBuilder", () => {
 jest.mock("../../database/surreal");
 
 describe("analyseImageFlow (handleMedia)", () => {
-  let mockProvider = {
+  const mockProvider = {
     saveFile: jest.fn().mockResolvedValue("./assets/media/test.jpg"),
   } as any;
 

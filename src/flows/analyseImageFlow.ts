@@ -79,7 +79,6 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
   const groupId = ctx.from.split("@")[0];
-;
   try {
     await sendMessage(provider, number, getMessage("analyzing_image"), ctx);
 
