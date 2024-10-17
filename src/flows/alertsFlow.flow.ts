@@ -13,7 +13,7 @@ import { getImageUrlFromMinio } from "../utils/helpers";
 import { sendImage } from "../utils/helpers";
 import { typing } from "../utils/presence";
 import { setupLogger } from "../utils/logger";
-import { sendResponse } from "~/services/responseService";
+import { sendResponse } from "../services/responseService";
 
 setupLogger();
 
@@ -46,6 +46,7 @@ export const alertsFlow = addKeyword<Provider, Database>("alertas", {
   } catch (error) {
     console.error(`[${processId}] Error while activating alerts.`, error);
     await provider.sendText(ctx.key.remoteJid, getMessage("alerts_error"));
+    isProcessing = false;
   }
 });
 

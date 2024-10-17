@@ -13,7 +13,7 @@ import {
 } from "../services/messageProcessor";
 import { buildPromptMessages } from "../services/promptBuilder";
 import { sendResponse } from "../services/responseService";
-import sendChatMessage from "~/services/actors/chat";
+import sendChatMessage from "../services/actors/chat";
 import { Query } from "~/services/actors/embeddings";
 
 const queueConfig: QueueConfig = { gapSeconds: 3000 };

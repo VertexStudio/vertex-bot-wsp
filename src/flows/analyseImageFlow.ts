@@ -10,21 +10,21 @@ import { createMessageQueue, QueueConfig } from "../utils/fast-entires";
 import { Session, sessions } from "../models/Session";
 import { sendMessage as sendMessageService } from "../services/messageService";
 import { setupLogger } from "../utils/logger";
-import { getDb } from "~/database/surreal";
+import { getDb } from "../database/surreal";
 import { handleConversation } from "../services/conversationService";
 import { getMessage } from "../services/translate";
-import processSnap from "~/services/actors/snap";
-import { alignResponse, uploadImageToMinio } from "~/utils/helpers";
+import processSnap from "../services/actors/snap";
+import { alignResponse, uploadImageToMinio } from "../utils/helpers";
 import {
   generateHumanReadablePrompt,
   generateImageAnalysisPrompt,
   IMAGE_ANALYSIS_TYPES,
   ImageAnalysisType,
-} from "~/services/promptBuilder";
+} from "../services/promptBuilder";
 import sendChatMessage, {
   ChatMessage,
   ChatMessageRole,
-} from "~/services/actors/chat";
+} from "../services/actors/chat";
 
 const queueConfig: QueueConfig = { gapSeconds: 0 };
 const enqueueMessage = createMessageQueue(queueConfig);
@@ -78,8 +78,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const db = getDb();
   const number = ctx.key.remoteJid;
   const userName = ctx.pushName || "System";
-  const groupId = ctx.to.split("@")[0];
-
+  const groupId = ctx.from.split("@")[0];
   try {
     await sendMessage(provider, number, getMessage("analyzing_image"), ctx);
 
@@ -192,7 +191,7 @@ async function determineAnalysisType(
   const response = await sendChatMessage(messages, true);
   const analysisType = response.msg.message?.content || "";
   console.debug("Chat message response (analysis type):", analysisType);
-
+  
   return IMAGE_ANALYSIS_TYPES.includes(analysisType as ImageAnalysisType)
     ? (analysisType as ImageAnalysisType)
     : null;
