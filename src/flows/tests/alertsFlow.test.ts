@@ -1,16 +1,16 @@
-import { getMessage } from "../services/translate";
-import { typing } from "../utils/presence";
+import { getMessage } from "../../services/translate";
+import { typing } from "../../utils/presence";
 
 // Mock dependencies
-jest.mock("../services/translate");
-jest.mock("../utils/presence");
-jest.mock('../database/surreal', () => ({
+jest.mock("../../services/translate");
+jest.mock("../../utils/presence");
+jest.mock('../../database/surreal', () => ({
     initDb: jest.fn().mockResolvedValue(undefined),
   }));
 
 // Mock the entire module, but keep alertsFlow real
-jest.mock('../flows/alertsFlow.flow', () => {
-    const actualModule = jest.requireActual('../flows/alertsFlow.flow');
+jest.mock('../alertsFlow.flow', () => {
+    const actualModule = jest.requireActual('../alertsFlow.flow');
     return {
       ...actualModule,
       anomalyLiveQuery: jest.fn(),
@@ -19,7 +19,7 @@ jest.mock('../flows/alertsFlow.flow', () => {
     };
   });
   
-const alertsFlowModule = jest.requireActual('../flows/alertsFlow.flow');
+const alertsFlowModule = jest.requireActual('../alertsFlow.flow');
 
 describe('alertsFlow', () => {
     let mockProvider: any;
@@ -55,9 +55,9 @@ describe('alertsFlow', () => {
         expect(mockProvider.on).toHaveBeenCalledWith('reaction', expect.any(Function));
       });
 
-      it('should send an alert activation message', async () => {
+      it('should send an alert error message', async () => {
         const mockError = new Error('Test error');
-        require('../flows/alertsFlow.flow').anomalyLiveQuery.mockRejectedValue(mockError);
+        require('../alertsFlow.flow').anomalyLiveQuery.mockRejectedValue(mockError);
         
         const result = await action(mockCtx, { provider: mockProvider });
       

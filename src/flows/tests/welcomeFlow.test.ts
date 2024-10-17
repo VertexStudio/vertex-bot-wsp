@@ -1,30 +1,30 @@
-import { welcomeFlow } from '../flows/welcomeFlow.flow';
-import { Session, sessions } from "../models/Session";
-import * as conversationService from "../services/conversationService";
-import { getRelevantMessages, getRelevantFacts, processQuotedMessage } from "../services/messageProcessor";
-import { buildPromptMessages } from "../services/promptBuilder";
-import { sendResponse } from "../services/responseService";
-import { sendMessage } from "../services/messageService";
-import { Conversation, Message } from "../models/types";
-import sendChatMessage from '../services/actors/chat';
-import { RecordId } from "surrealdb.js";
-import { ChatMessageRole, ChatResult } from "../services/actors/chat";
+import { welcomeFlow } from '../welcomeFlow.flow';
+import { Session, sessions } from "../../models/Session";
+import * as conversationService from "../../services/conversationService";
+import { getRelevantMessages, getRelevantFacts, processQuotedMessage } from "../../services/messageProcessor";
+import { buildPromptMessages } from "../../services/promptBuilder";
+import { sendResponse } from "../../services/responseService";
+import { sendMessage } from "../../services/messageService";
+import { Conversation, Message } from "../../models/types";
+import sendChatMessage from '../../services/actors/chat';
+import { ChatMessageRole, ChatResult } from "../../services/actors/chat";
+import { createMockSession } from "./utils/session"
 
 // Mocks
-jest.mock("../services/messageService", () => ({ sendMessage: jest.fn() }));
-jest.mock("../services/actors/embeddings", () => ({
+jest.mock("../../services/messageService", () => ({ sendMessage: jest.fn() }));
+jest.mock("../../services/actors/embeddings", () => ({
   __esModule: true,
   storeTextEmbeddings: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock("../services/actors/rerank", () => ({
+jest.mock("../../services/actors/rerank", () => ({
   __esModule: true,
   default: jest.fn(),
 }));
-jest.mock("../services/actors/chat", () => ({
+jest.mock("../../services/actors/chat", () => ({
   __esModule: true,
   default: jest.fn(),
 }));
-jest.mock("../utils/fast-entires", () => ({
+jest.mock("../../utils/fast-entires", () => ({
   createMessageQueue: jest.fn().mockImplementation(() => {
     return (message, callback) => {
       // Execute the callback after a short delay
@@ -32,14 +32,14 @@ jest.mock("../utils/fast-entires", () => ({
     };
   }),
 }));
-jest.mock("../services/messageProcessor", () => ({
+jest.mock("../../services/messageProcessor", () => ({
   getRelevantMessages: jest.fn(),
   getRelevantFacts: jest.fn(),
   processQuotedMessage: jest.fn(),
 }));
-jest.mock("../services/promptBuilder", () => ({ buildPromptMessages: jest.fn() }));
-jest.mock("../services/responseService", () => ({ sendResponse: jest.fn() }));
-jest.mock("../database/surreal", () => ({
+jest.mock("../../services/promptBuilder", () => ({ buildPromptMessages: jest.fn() }));
+jest.mock("../../services/responseService", () => ({ sendResponse: jest.fn() }));
+jest.mock("../../database/surreal", () => ({
   getDb: jest.fn().mockReturnValue({
     query: jest.fn().mockResolvedValue([]),
   }),
@@ -62,23 +62,6 @@ describe('welcomeFlow', () => {
         throw new Error('Could not find action function in alertsFlow');
     }
   });
-
-  const createMockSession = () => {
-    const mockSession = new Session(Session.DEFAULT_SYSTEM_MESSAGE);
-    mockSession.conversation = {
-      id: new RecordId("conversations", "conv1"),
-      whatsapp_id: '123456789@g.us',
-      system_prompt: 'Existing prompt'
-    };
-    mockSession.messages = [{
-      id: new RecordId("chat_message", "msg1"),
-      msg: 'Previous message',
-      created_at: "2024-10-14T15:32:35.261Z",
-      role: 'user' as ChatMessageRole
-    }];
-    mockSession.addParticipant('123456789@g.us', 'Test User');
-    return mockSession;
-  };
 
   it('should create a new session if it does not exist', async () => {
     const mockConversation: Conversation = {
