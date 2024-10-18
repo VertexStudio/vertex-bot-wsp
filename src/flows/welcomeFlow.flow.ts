@@ -67,7 +67,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         console.log("Prompt messages: ", { ...promptMessages });
 
-        const response = await sendChatMessage(promptMessages, true);
+        await sendChatMessage(promptMessages, true);
 
         const messagesToSave = [
           {
@@ -76,7 +76,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           },
           {
             role: "assistant" as const,
-            msg: response.msg.message?.content || "",
+            msg: ctx.messageCtx.update.message.text || "",
           },
         ];
 
