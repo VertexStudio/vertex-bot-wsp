@@ -23,6 +23,9 @@ importers:
       axios:
         specifier: ^1.7.4
         version: 1.7.7
+      bioma_js:
+        specifier: link:/home/vertex/Documents/Repositorios/vertex-bot-wsp/external/bioma_js
+        version: link:../../../vertex/Documents/Repositorios/vertex-bot-wsp/external/bioma_js
       chokidar:
         specifier: ^3.6.0
         version: 3.6.0
