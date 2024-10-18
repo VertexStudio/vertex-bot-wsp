@@ -41,6 +41,8 @@ export const alertsFlow = addKeyword<TelegramProvider, Database>("alertas", {
     currentCtx = ctx;
     provider = _provider;
 
+    await add_actions(provider);
+
     await provider.sendMessage(ctx.from, getMessage("alerts_on"));
     await anomalyLiveQuery();
   } catch (error) {
@@ -48,6 +50,61 @@ export const alertsFlow = addKeyword<TelegramProvider, Database>("alertas", {
     await provider.sendMessage(ctx.from, getMessage("alerts_error"));
   }
 });
+
+async function add_actions(provider: TelegramProvider) {
+  provider.on("callback_query", async (action) => {
+    const callbackData = action.update.callback_query?.data;
+    const chatId = action.update.callback_query.message.chat.id;
+
+    const messageId = callbackData.split("_")[1];
+    const alertControl = sentAlerts.get(messageId);
+
+    if (!alertControl) {
+      console.info(`No matching alert found for message ID: ${messageId}`);
+      return;
+    }
+
+    try {
+      const db = await initDb();
+      const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
+        `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomaly.tb}:${alertControl.alertAnomaly.id})[0];`
+      );
+
+      if (!analysisRecord) throw new Error("Analysis record not found");
+
+      const [anomalyRecord] = await db.query<Anomaly[]>(
+        `(SELECT * FROM anomaly WHERE id = ${analysisRecord.out})[0];`
+      );
+
+      if (!anomalyRecord) throw new Error("Anomaly record not found");
+
+      if (callbackData.startsWith("correct")) {
+        alertControl.feedback.push(true);
+      } else if (callbackData.startsWith("incorrect")) {
+        alertControl.feedback.push(false);
+      } else {
+        await provider.vendor.telegram.sendMessage(chatId, "Respuesta inválida");
+        return;
+      }
+
+      if (!alertControl.waiting) {
+        alertControl.waiting = true;
+        setTimeout(
+          () => processFeedback(db, alertControl, anomalyRecord, messageId),
+          FEEDBACK_TIMEOUT
+        );
+      }
+
+      await provider.vendor.telegram.answerCbQuery(action.update.callback_query.id);
+    } catch (error) {
+      console.error(`[${processId}] Error handling callback query`, error);
+      await provider.vendor.telegram.sendMessage(
+        chatId,
+        "Ocurrió un error al procesar tu respuesta."
+      );
+    }
+  });
+}
 
 async function anomalyLiveQuery(): Promise<UUID> {
   const anomalyLiveQuery = `LIVE SELECT (<-analysis[*])[0] AS analysis FROM analysis_anomalies;`;
@@ -100,58 +157,7 @@ async function anomalyLiveQuery(): Promise<UUID> {
   return liveQuery;
 }
 
-provider.on("callback_query", async (action) => {
-  const callbackData = action.update.callback_query?.data;
-  const chatId = action.update.callback_query.message.chat.id;
 
-  const messageId = callbackData.split("_")[1];
-  const alertControl = sentAlerts.get(messageId);
-
-  if (!alertControl) {
-    console.info(`No matching alert found for message ID: ${messageId}`);
-    return;
-  }
-
-  try {
-    const db = await initDb();
-    const [analysisRecord] = await db.query<AnalysisAnomalies[]>(
-      `(SELECT * FROM analysis_anomalies WHERE in = ${alertControl.alertAnomaly.tb}:${alertControl.alertAnomaly.id})[0];`
-    );
-
-    if (!analysisRecord) throw new Error("Analysis record not found");
-
-    const [anomalyRecord] = await db.query<Anomaly[]>(
-      `(SELECT * FROM anomaly WHERE id = ${analysisRecord.out})[0];`
-    );
-
-    if (!anomalyRecord) throw new Error("Anomaly record not found");
-
-    if (callbackData.startsWith("correct")) {
-      alertControl.feedback.push(true);
-    } else if (callbackData.startsWith("incorrect")) {
-      alertControl.feedback.push(false);
-    } else {
-      await provider.vendor.telegram.sendMessage(chatId, "Respuesta inválida");
-      return;
-    }
-
-    if (!alertControl.waiting) {
-      alertControl.waiting = true;
-      setTimeout(
-        () => processFeedback(db, alertControl, anomalyRecord, messageId),
-        FEEDBACK_TIMEOUT
-      );
-    }
-
-    await provider.vendor.telegram.answerCbQuery(action.update.callback_query.id);
-  } catch (error) {
-    console.error(`[${processId}] Error handling callback query`, error);
-    await provider.vendor.telegram.sendMessage(
-      chatId,
-      "Ocurrió un error al procesar tu respuesta."
-    );
-  }
-});
 
 async function processFeedback(
   db: any,
@@ -172,8 +178,7 @@ async function processFeedback(
   else if (correct < incorrect) status = false;
 
   await db.query(
-    `UPDATE $anomaly SET status = ${
-      status != null ? status : "None"
+    `UPDATE $anomaly SET status = ${status != null ? status : "None"
     }, timestamp = $timestamp;`,
     {
       anomaly: anomalyRecord.id,
