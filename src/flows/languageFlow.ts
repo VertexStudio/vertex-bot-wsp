@@ -8,7 +8,7 @@ const SUPPORTED_LANGUAGES = {
 
 export const languageFlow = addKeyword(['language', 'lenguaje'])
   .addAction(async (ctx, { provider }) => {
-    const userChoice = ctx.body.toLowerCase().trim();
+    const userChoice = ctx.messageCtx.update.message.text.toLowerCase().trim();
     console.log(`Received user choice: "${userChoice}"`);
 
     const number = ctx.from;

@@ -26,9 +26,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
     try {
       await typing(ctx, provider);
 
-      const groupId = ctx.to.split("@")[0];
+      /*const groupId = ctx.to.split("@")[0];
       const userName = ctx.pushName || "User";
-      const userNumber = ctx.from;
+      const userNumber = ctx.from;*/ // Whatsapp
+
+      const groupId = ctx.messageCtx.update.message.chat.id; // Telegram
+      const userName = ctx.messageCtx.update.message.from.username || "User";
+      const userNumber = ctx.messageCtx.update.message.from.id;
 
       // Fetch or create the session for the group
       let session = sessions.get(groupId);

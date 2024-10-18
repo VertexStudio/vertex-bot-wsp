@@ -7,13 +7,14 @@ import { initDb } from "./database/surreal";
 import { TelegramProvider } from '@builderbot-plugins/telegram'
 
 const VERTEX_BOT_PORT = process.env?.VERTEX_BOT_PORT ?? 3008;
+const TELEGRAM_TOKEN = process.env?.TELEGRAM_TOKEN;
 
 //let contacts = {};
 
 const main = async () => {
   //const adapterProvider = createProvider(Provider, { writeMyself: "both" });
   const adapterProvider = createProvider(TelegramProvider, {
-    token: '7837560014:AAEL67IQhxo6ppHmLtkhb39dhoygacNN8wE'
+    token: TELEGRAM_TOKEN
   })
 
   const adapterDB = new Database();
