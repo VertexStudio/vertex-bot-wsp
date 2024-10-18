@@ -18,7 +18,7 @@
     "@builderbot/provider-baileys": "1.2.3-alpha.1",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "axios": "^1.7.4",
-    "bioma_js": "link:/home/vertex/Documents/Repositorios/vertex-bot-wsp/external/bioma_js",
+    "bioma_js": "link:../vertex-bot-wsp/external/bioma_js",
     "chokidar": "^3.6.0",
     "dotenv": "^16.4.5",
     "fluent-ffmpeg": "^2.1.3",
