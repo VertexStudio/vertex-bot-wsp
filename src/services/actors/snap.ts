@@ -21,6 +21,7 @@ await bioma.connect(
 type SnapMessage = {
   image_path: string;
   caption?: string;
+  yolo_caption: boolean;
 };
 
 type SnapResult = {
@@ -44,7 +45,8 @@ type SnapResult = {
 
 async function processSnap(
   image_path: string,
-  caption?: string
+  caption?: string,
+  yolo_caption: boolean = false
 ): Promise<SnapResult> {
   try {
     const vertexBotWspId = bioma.createActorId(
@@ -61,6 +63,7 @@ async function processSnap(
     const snapMessage: SnapMessage = {
       image_path,
       caption,
+      yolo_caption
     };
 
     const messageId = await bioma.sendMessage(
