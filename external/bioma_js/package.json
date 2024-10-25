@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "dependencies": {
     "surrealdb": "^1.0.0-beta.18",
     "ulid": "^2.3.0"

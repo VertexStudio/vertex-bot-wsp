@@ -26,9 +26,13 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
     try {
       await typing(ctx, provider);
 
-      const groupId = ctx.from.split("@")[0];
+      /*const groupId = ctx.to.split("@")[0];
       const userName = ctx.pushName || "User";
-      const userNumber = ctx.key.participant || ctx.key.remoteJid;
+      const userNumber = ctx.from;*/ // Whatsapp
+
+      const groupId = ctx.messageCtx.update.message.chat.id; // Telegram
+      const userName = ctx.messageCtx.update.message.from.username || "User";
+      const userNumber = ctx.messageCtx.update.message.from.id;
 
       // Fetch or create the session for the group
       let session = sessions.get(groupId);
@@ -65,7 +69,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
 
         console.log("Prompt messages: ", { ...promptMessages });
 
-        const response = await sendChatMessage(promptMessages, true);
+        await sendChatMessage(promptMessages, true);
 
         const messagesToSave = [
           {
@@ -74,7 +78,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
           },
           {
             role: "assistant" as const,
-            msg: response.msg.message?.content || "",
+            msg: ctx.messageCtx.update.message.text || "",
           },
         ];
 
@@ -89,7 +93,7 @@ export const welcomeFlow = addKeyword(EVENTS.WELCOME).addAction(
       console.error("Error in welcomeFlow:", error);
       await sendMessage(
         provider,
-        ctx.key.remoteJid,
+        ctx.from,
         `errorWelcome ${error.message}`
       );
     }

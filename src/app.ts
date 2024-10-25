@@ -1,16 +1,22 @@
 import "dotenv/config";
 import { createBot, createProvider } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
-import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+//import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import { flow } from "./flows";
 import { initDb } from "./database/surreal";
+import { TelegramProvider } from '@builderbot-plugins/telegram'
 
 const VERTEX_BOT_PORT = process.env?.VERTEX_BOT_PORT ?? 3008;
+const TELEGRAM_TOKEN = process.env?.TELEGRAM_TOKEN;
 
-let contacts = {};
+//let contacts = {};
 
 const main = async () => {
-  const adapterProvider = createProvider(Provider, { writeMyself: "both" });
+  //const adapterProvider = createProvider(Provider, { writeMyself: "both" });
+  const adapterProvider = createProvider(TelegramProvider, {
+    token: TELEGRAM_TOKEN
+  })
+
   const adapterDB = new Database();
 
   await initDb();
@@ -21,7 +27,7 @@ const main = async () => {
     database: adapterDB,
   });
 
-  try {
+  /*try {
     adapterProvider.on("ready", () => {
       if (adapterProvider.store && adapterProvider.store.contacts) {
         contacts = adapterProvider.store.contacts;
@@ -37,6 +43,31 @@ const main = async () => {
 
   adapterProvider.on("message", async (ctx) => {
     adapterProvider.vendor.readMessages([ctx.key]);
+  });*/
+
+  adapterProvider.on("callback_query", async (action) => {
+    console.log("Action on app.ts:", action);
+
+    const callbackData = action.update.callback_query?.data;
+    const chatId = action.update.callback_query.message.chat.id;
+
+    try {
+      if (callbackData === '👍') {
+        await adapterProvider.vendor.telegram.sendMessage(chatId, '👍 Received!');
+      } else if (callbackData === '👎') {
+        await adapterProvider.vendor.telegram.sendMessage(chatId, '👎 Received!');
+      } else {
+        await adapterProvider.vendor.telegram.sendMessage(chatId, `Received: ${callbackData}`);
+      }
+
+      await adapterProvider.vendor.telegram.answerCbQuery(action.update.callback_query.id);
+    } catch (error) {
+      console.error(`[ERROR]: Error handling callback_query: ${error.message}`);
+    }
+  });
+
+  adapterProvider.on("message", async (ctx) => {
+    console.log("Message:", ctx);
   });
 
   httpServer(+VERTEX_BOT_PORT);

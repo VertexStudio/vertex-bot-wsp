@@ -2,7 +2,8 @@ import "dotenv/config";
 import Surreal, { RecordId } from "surrealdb.js";
 import { EVENTS, addKeyword } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
-import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+//import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+import { TelegramProvider as Provider } from '@builderbot-plugins/telegram'
 import fs from "fs/promises";
 import { typing } from "../utils/presence";
 import sharp from "sharp";
@@ -49,8 +50,8 @@ async function sendMessage(
   let messageText = text;
   let mentions = [];
 
-  if (ctx.key.participant) {
-    messageText = "@" + ctx.key.participant.split("@")[0] + " " + text;
+  if (ctx.messageCtx.update.message.from.username) {
+    messageText = "@" + ctx.messageCtx.update.message.from.username + " " + text;
     mentions = [ctx.key.participant];
   }
 
@@ -76,9 +77,10 @@ async function updateDatabaseWithModelTask(
 
 async function handleMedia(ctx: any, provider: Provider): Promise<void> {
   const db = getDb();
-  const number = ctx.key.remoteJid;
-  const userName = ctx.pushName || "System";
-  const groupId = ctx.from.split("@")[0];
+  const number = ctx.from;
+  const userName = ctx.messageCtx.update.message.from.username || "System";
+  const groupId = ctx.messageCtx.update.message.chat.id;
+
   try {
     await sendMessage(provider, number, getMessage("analyzing_image"), ctx);
 
@@ -90,7 +92,7 @@ async function handleMedia(ctx: any, provider: Provider): Promise<void> {
       };
     }
 
-    const caption: string = ctx.message.imageMessage?.caption || "";
+    const caption: string = ctx.messageCtx.update.message.text || "";
 
     if (!caption) {
       console.info("No caption received");

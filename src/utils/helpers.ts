@@ -1,5 +1,6 @@
 import { minioClient } from "../services/minioClient";
-import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+//import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+import { TelegramProvider as Provider } from '@builderbot-plugins/telegram'
 import { setupLogger } from "./logger";
 import { v4 as uuidv4 } from "uuid";
 
@@ -61,16 +62,13 @@ export async function sendImage(
   caption?: string
 ): Promise<string> {
   console.info(`Sending image: ${imageUrl}`);
-  const number = ctx.key.remoteJid;
+  const number = ctx.from;
   const enhancedCaption = caption || "Image";
+ 
+  await provider.sendMedia(number, imageUrl, enhancedCaption);
 
-  const sentMessage = await provider.vendor.sendMessage(number, {
-    image: { url: imageUrl },
-    caption: enhancedCaption,
-  });
-
-  if (sentMessage?.key?.id) {
-    const messageId = sentMessage.key.id;
+  if (ctx.messageCtx.update.message.chat.id) {
+    const messageId = ctx.messageCtx.update.message.chat.id;
     console.info(`Image sent with ID: ${messageId}`);
     return messageId;
   } else {
