@@ -1,5 +1,5 @@
 //import { BaileysProvider } from "@builderbot/provider-baileys";
-import { TelegramProvider } from '@builderbot-plugins/telegram'
+import { TelegramProvider } from "@builderbot-plugins/telegram";
 
 export async function sendMessage(
   provider: TelegramProvider,
@@ -10,11 +10,8 @@ export async function sendMessage(
   retryCount: number = 0
 ) {
   try {
-    await provider.vendor.telegram.sendMessage(
-      remoteJid,
-      { text: messageText, mentions } as any,
-      quotedMessage ? { quoted: quotedMessage } as any : undefined
-    );
+    // Simplify the message object structure
+    await provider.vendor.telegram.sendMessage(remoteJid, messageText);
   } catch (error) {
     if (error.message === "rate-overlimit" && retryCount < 3) {
       console.debug(
