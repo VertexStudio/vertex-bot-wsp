@@ -26,7 +26,7 @@ export type ChatMessage = {
   images?: string[];
 };
 
-type ChatResult = {
+export type ChatResult = {
   model: string;
   created_at: string;
   msg: {

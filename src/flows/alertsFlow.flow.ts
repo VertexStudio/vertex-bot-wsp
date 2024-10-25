@@ -14,7 +14,7 @@ import { getImageUrlFromMinio } from "../utils/helpers";
 import { sendImage } from "../utils/helpers";
 import { typing } from "../utils/presence";
 import { setupLogger } from "../utils/logger";
-import { sendResponse } from "~/services/responseService";
+import { sendResponse } from "../services/responseService";
 
 setupLogger();
 

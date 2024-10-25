@@ -1,7 +1,7 @@
-import { getDb } from "~/database/surreal";
+import { getDb } from "../database/surreal";
 import Surreal from "surrealdb.js";
 import { Conversation, Message } from "../models/types";
-import { Session } from "~/models/Session";
+import { Session } from "../models/Session";
 
 export async function handleConversation(groupId: string): Promise<{
   latestMessages: Message[];
